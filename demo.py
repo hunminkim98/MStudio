@@ -16,6 +16,72 @@ plt.ion()  # Interactive mode on
 
 matplotlib.use('TkAgg')
 
+# C3D 파일 읽기 함수
+def read_data_from_c3d(c3d_file_path):
+    try:
+        import c3d
+        # C3D 파일을 바이너리 모드로 열기
+        with open(c3d_file_path, 'rb') as f:
+            reader = c3d.Reader(f)
+            
+            # 기본 정보 추출
+            point_labels = reader.point_labels
+            frame_rate = reader.header.frame_rate
+            first_frame = reader.header.first_frame
+            last_frame = reader.header.last_frame
+            
+            # 마커 이름에서 공백 제거 및 정리
+            point_labels = [label.strip() for label in point_labels if label.strip()]
+            # 중복 제거
+            point_labels = list(dict.fromkeys(point_labels))
+            
+            # 데이터 프레임을 위한 빈 리스트 생성
+            frames = []
+            times = []
+            marker_data = {label: {'X': [], 'Y': [], 'Z': []} for label in point_labels}
+            
+            # 프레임별 데이터 읽기
+            for i, points, analog in reader.read_frames():
+                frames.append(i)
+                times.append(i / frame_rate)
+                
+                # points 데이터는 mm 단위로 저장되어 있으므로 m 단위로 변환 (1000으로 나누기)
+                points_meters = points[:, :3] / 1000.0
+                
+                # 각 마커의 위치 데이터 저장
+                for j, label in enumerate(point_labels):
+                    if j < len(points_meters):  # 인덱스 범위 체크
+                        marker_data[label]['X'].append(points_meters[j, 0])
+                        marker_data[label]['Y'].append(points_meters[j, 1])
+                        marker_data[label]['Z'].append(points_meters[j, 2])
+            
+            # DataFrame 생성을 위한 데이터 딕셔너리
+            data_dict = {'Frame#': frames, 'Time': times}
+            
+            # 마커 데이터 추가
+            for label in point_labels:
+                if label in marker_data:  # 키 존재 여부 확인
+                    data_dict[f'{label}_X'] = marker_data[label]['X']
+                    data_dict[f'{label}_Y'] = marker_data[label]['Y']
+                    data_dict[f'{label}_Z'] = marker_data[label]['Z']
+            
+            # DataFrame 생성
+            data = pd.DataFrame(data_dict)
+            
+            # 헤더 라인 생성 (TRC 형식과 유사하게)
+            header_lines = [
+                f"PathFileType\t4\t(X/Y/Z)\t{c3d_file_path}\n",
+                f"DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
+                f"{frame_rate}\t{frame_rate}\t{len(frames)}\t{len(point_labels)}\tm\t{frame_rate}\t{first_frame}\t{last_frame}\n",
+                "\t".join(['Frame#', 'Time'] + point_labels) + "\n",
+                "\t".join(['', ''] + ['X\tY\tZ' for _ in point_labels]) + "\n"
+            ]
+            
+            return header_lines, data, point_labels
+            
+    except Exception as e:
+        raise Exception(f"C3D 파일 읽기 오류: {str(e)}")
+
 # TRC 파일 읽기 함수
 def read_data_from_trc(trc_file_path):
     with open(trc_file_path, 'r') as f:
@@ -292,9 +358,9 @@ class TRCViewer(ctk.CTk):
                 self.skeleton_pairs.append((node.parent.name, node.name))
 
     def open_file(self):
-        """TRC 파일 열기"""
+        """TRC/C3D 파일 열기"""
         file_path = filedialog.askopenfilename(
-            filetypes=[("TRC files", "*.trc"), ("All files", "*.*")]
+            filetypes=[("Motion files", "*.trc;*.c3d"), ("TRC files", "*.trc"), ("C3D files", "*.c3d"), ("All files", "*.*")]
         )
         
         if file_path:
@@ -307,8 +373,15 @@ class TRCViewer(ctk.CTk):
                 file_name = os.path.basename(file_path)
                 self.title_label.configure(text=file_name)
                 
-                # 데이터 로드
-                header_lines, self.data, self.marker_names = read_data_from_trc(file_path)
+                # 파일 확장자에 따라 적절한 로더 사용
+                file_ext = os.path.splitext(file_path)[1].lower()
+                if file_ext == '.trc':
+                    header_lines, self.data, self.marker_names = read_data_from_trc(file_path)
+                elif file_ext == '.c3d':
+                    header_lines, self.data, self.marker_names = read_data_from_c3d(file_path)
+                else:
+                    raise Exception("Unsupported file format")
+                
                 self.num_frames = self.data.shape[0]
                 
                 # 원본 데이터 저장
@@ -523,7 +596,7 @@ class TRCViewer(ctk.CTk):
         self.frame_idx = int(float(value))
         self.update_plot()
         
-        # 마커 그래프가 표시되어 있다면 수직선 업데이트
+        # 마커 그래프가 표시되어 있다면 수직선 업데이
         if hasattr(self, 'marker_lines') and self.marker_lines:
             for line in self.marker_lines:
                 line.set_xdata([self.frame_idx, self.frame_idx])
