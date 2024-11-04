@@ -637,10 +637,6 @@ class TRCViewer(ctk.CTk):
             file_name = os.path.basename(self.current_file)
             # self.ax.set_title(file_name, color='white', pad=10)
         
-        # 기존의 보조 축 제거
-        for ax in self.fig.axes[1:]:  # 첫 번째 축(메인 축)을 제외한 모든 축 제거
-            self.fig.delaxes(ax)
-        
         # 축과 경 스타일 설정
         self.ax.set_facecolor('black')
         self.ax.xaxis.set_pane_color((0, 0, 0, 1))
@@ -666,14 +662,10 @@ class TRCViewer(ctk.CTk):
         Z = np.zeros_like(X)  # 바닥면은 z=0에 위치
 
         # 그리드 라인 그리기
-        if self.is_z_up:
-            for i in range(grid_divisions):
-                self.ax.plot(x, [y[i]]*grid_divisions, [0]*grid_divisions, 'gray', alpha=0.2)
-                self.ax.plot([x[i]]*grid_divisions, y, [0]*grid_divisions, 'gray', alpha=0.2)
-        else:
-            for i in range(grid_divisions):
-                self.ax.plot(x, [0]*grid_divisions, [y[i]]*grid_divisions, 'gray', alpha=0.2)
-                self.ax.plot([x[i]]*grid_divisions, [0]*grid_divisions, y, 'gray', alpha=0.2)
+        for i in range(grid_divisions):
+            self.ax.plot(x, [y[i]] * grid_divisions, [0] * grid_divisions, 'gray', alpha=0.2)
+            self.ax.plot([x[i]] * grid_divisions, y, [0] * grid_divisions, 'gray', alpha=0.2)
+
         
         # 메인 XYZ 축 선 추가
         origin = np.zeros(3)
