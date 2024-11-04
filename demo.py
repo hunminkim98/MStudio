@@ -163,6 +163,10 @@ class TRCViewer(ctk.CTk):
 
         self.create_widgets()
 
+        # 초기화 시 3D 플롯 생성
+        self.create_plot()
+        self.update_plot()  # 빈 플롯을 업데이트
+
     def create_widgets(self):
         button_frame = ctk.CTkFrame(self)
         button_frame.pack(pady=10, padx=10, fill='x')
@@ -691,9 +695,7 @@ class TRCViewer(ctk.CTk):
         self.ax = self.fig.add_subplot(111, projection='3d')
 
         self._setup_plot_style()
-
         self._draw_static_elements()
-
         self._initialize_dynamic_elements()
 
         if hasattr(self, 'canvas') and self.canvas:
@@ -709,6 +711,13 @@ class TRCViewer(ctk.CTk):
         self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+
+        if self.data is None:
+            # 축 범위를 -1에서 1로 설정
+            self.ax.set_xlim([-1, 1])
+            self.ax.set_ylim([-1, 1])
+            self.ax.set_zlim([-1, 1])
+
 
     def _setup_plot_style(self):
         self.ax.set_facecolor('black')
@@ -855,6 +864,27 @@ class TRCViewer(ctk.CTk):
     def update_plot(self):
         if self.canvas is None:
             return
+        
+        # 데이터가 없는 경우에도 빈 3D 공간을 표시하도록 처리
+        if self.data is None:
+            # 기존 마커 및 스켈레톤 초기화
+            if hasattr(self, 'markers_scatter'):
+                self.markers_scatter._offsets3d = ([], [], [])
+            if hasattr(self, 'selected_marker_scatter'):
+                self.selected_marker_scatter._offsets3d = ([], [], [])
+                self.selected_marker_scatter.set_visible(False)
+            if hasattr(self, 'skeleton_lines'):
+                for line in self.skeleton_lines:
+                    line.set_data_3d([], [], [])
+
+            # 축 범위를 설정
+            self.ax.set_xlim([-1, 1])
+            self.ax.set_ylim([-1, 1])
+            self.ax.set_zlim([-1, 1])
+
+            self.canvas.draw()
+            return
+        
         # 기존 궤적 라인 제거
         if hasattr(self, 'trajectory_line') and self.trajectory_line is not None:
             self.trajectory_line.remove()
