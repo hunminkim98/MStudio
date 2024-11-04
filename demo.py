@@ -3,6 +3,7 @@ import numpy as np
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Line3D  # 수정된 부분
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
@@ -359,7 +360,7 @@ class TRCViewer(ctk.CTk):
             speed_frame,
             from_=0.1,
             to=3.0,
-            number_of_steps=29,
+            number_of_steps=99,
             variable=self.speed_var,
             command=self.update_playback_speed
         )
@@ -380,10 +381,6 @@ class TRCViewer(ctk.CTk):
             text="Frame: 0/0"
         )
         self.frame_counter.pack(side='right', padx=5)
-
-        # 프레임 번호 표시 레이블 (슬라이더 바로 위)
-        self.frame_label = ctk.CTkLabel(self.control_frame, text="Frame 0", font=("Arial", 12))
-        self.frame_label.pack(pady=(0, 5))
 
         # 하단 컨트롤 프레임 (슬라이더와 버튼)
         self.bottom_frame = ctk.CTkFrame(self.control_frame)
@@ -635,34 +632,24 @@ class TRCViewer(ctk.CTk):
     def create_plot(self):
         """새로운 Figure와 Canvas를 생성하여 플롯을 초기화"""
         # 새로운 matplotlib Figure 생성
-        self.fig = plt.Figure(facecolor='black')  # 검은색 배경
+        self.fig = plt.Figure(facecolor='black')
         self.ax = self.fig.add_subplot(111, projection='3d')
         
-        # 축과 배경 스타일 설정
-        self.ax.set_facecolor('black')  # 플롯 배경색
-        self.fig.patch.set_facecolor('black')  # Figure 배경색
-
-        # 축 색상 설정
-        self.ax.xaxis.set_pane_color((0, 0, 0, 1))  # 축 평면 색상
-        self.ax.yaxis.set_pane_color((0, 0, 0, 1))
-        self.ax.zaxis.set_pane_color((0, 0, 0, 1))
-
-        # 축 라벨 색상 설정
-        self.ax.xaxis.label.set_color('white')
-        self.ax.yaxis.label.set_color('white')
-        self.ax.zaxis.label.set_color('white')
-
-        # 축 눈금 색상 설정
-        self.ax.tick_params(axis='x', colors='white')
-        self.ax.tick_params(axis='y', colors='white')
-        self.ax.tick_params(axis='z', colors='white')
-
-        # 기존 캔버스 제거 후 새로운 캔버스를 생성하여 추가
+        # 기본 스타일 설정
+        self._setup_plot_style()
+        
+        # 정적 요소 그리기
+        self._draw_static_elements()
+        
+        # 동적 요소 초기화
+        self._initialize_dynamic_elements()
+        
+        # 기존 캔버스 제거 후 새로운 캔버스 생성
         if hasattr(self, 'canvas') and self.canvas:
             self.canvas.get_tk_widget().destroy()
             self.canvas = None
 
-        # 새로운 캔버스를 생성하고 설정
+        # 새로운 캔버스 생성 및 설정
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
@@ -674,10 +661,189 @@ class TRCViewer(ctk.CTk):
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
 
-        # 초기 데이터 플롯
-        self.update_plot()
+    def _setup_plot_style(self):
+        """플롯 스타일 설정"""
+        self.ax.set_facecolor('black')
+        self.fig.patch.set_facecolor('black')
 
+        # 축 색상 설정
+        for pane in [self.ax.xaxis.set_pane_color, 
+                     self.ax.yaxis.set_pane_color, 
+                     self.ax.zaxis.set_pane_color]:
+            pane((0, 0, 0, 1))
 
+        # 축 라벨과 눈금 색상 설정
+        for axis in [self.ax.xaxis, self.ax.yaxis, self.ax.zaxis]:
+            axis.label.set_color('white')
+            axis.set_tick_params(colors='white')
+
+        # 눈금과 레이블 제거
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        self.ax.set_zticks([])
+        self.ax.set_xlabel('')
+        self.ax.set_ylabel('')
+        self.ax.set_zlabel('')
+
+    def _draw_static_elements(self):
+        """정적 요소 그리기"""
+        # 그리드 그리기
+        grid_size = 2
+        grid_divisions = 20
+        x = np.linspace(-grid_size, grid_size, grid_divisions)
+        y = np.linspace(-grid_size, grid_size, grid_divisions)
+        
+        # 그리드 라인을 한번에 그리기
+        for i in range(grid_divisions):
+            self.ax.plot(x, [y[i]] * grid_divisions, [0] * grid_divisions, 'gray', alpha=0.2)
+            self.ax.plot([x[i]] * grid_divisions, y, [0] * grid_divisions, 'gray', alpha=0.2)
+
+        # 메인 좌표축 그리기
+        origin = np.zeros(3)
+        axis_length = 0.5
+        colors = {'x': 'red', 'y': 'yellow', 'z': 'blue'}
+        
+        if self.is_z_up:
+            axes = [
+                ([origin[0], origin[0] + axis_length], [origin[1], origin[1]], [origin[2], origin[2]], 'x'),
+                ([origin[0], origin[0]], [origin[1], origin[1] + axis_length], [origin[2], origin[2]], 'y'),
+                ([origin[0], origin[0]], [origin[1], origin[1]], [origin[2], origin[2] + axis_length], 'z')
+            ]
+        else:
+            axes = [
+                ([origin[0], origin[0] + axis_length], [origin[2], origin[2]], [origin[1], origin[1]], 'x'),
+                ([origin[0], origin[0]], [origin[2], origin[2]], [origin[1], origin[1] + axis_length], 'y'),
+                ([origin[0], origin[0]], [origin[2], origin[2] + axis_length], [origin[1], origin[1]], 'z')
+            ]
+        
+        for x, y, z, axis in axes:
+            self.ax.plot(x, y, z, color=colors[axis], alpha=0.8, linewidth=2)
+
+    def _initialize_dynamic_elements(self):
+        """동적 요소 초기화"""
+        # 마커를 위한 scatter 객체들 생성 (일반 마커와 선택된 마커 구분)
+        self.markers_scatter = self.ax.scatter([], [], [], c='white', s=50, picker=5)
+        self.selected_marker_scatter = self.ax.scatter([], [], [], c='yellow', s=70)  # 선택된 마커용
+        
+        # 스켈레톤 라인을 위한 Line3D 객체들 생성
+        self.skeleton_lines = []
+        if hasattr(self, 'skeleton_pairs') and self.skeleton_pairs:
+            for _ in self.skeleton_pairs:
+                line = Line3D([], [], [], color='gray', alpha=0.5)
+                self.ax.add_line(line)
+                self.skeleton_lines.append(line)
+        
+        # 마커 레이블 초기화
+        self.marker_labels = []
+
+    def update_plot(self):
+        """프레임별 업데이트"""
+        if self.canvas is None:
+            return
+
+        # 현재 뷰 상태 저장
+        prev_elev = self.ax.elev
+        prev_azim = self.ax.azim
+        prev_xlim = self.ax.get_xlim()
+        prev_ylim = self.ax.get_ylim()
+        prev_zlim = self.ax.get_zlim()
+
+        # 마커 위치 수집
+        positions = []
+        selected_position = []
+        marker_positions = {}
+        valid_markers = []
+
+        for marker in self.marker_names:
+            try:
+                x = self.data.loc[self.frame_idx, f'{marker}_X']
+                y = self.data.loc[self.frame_idx, f'{marker}_Y']
+                z = self.data.loc[self.frame_idx, f'{marker}_Z']
+
+                if np.isnan(x) or np.isnan(y) or np.isnan(z):
+                    continue
+
+                if self.is_z_up:
+                    pos = [x, y, z]
+                else:
+                    pos = [x, z, y]
+
+                marker_positions[marker] = np.array(pos)
+                
+                # 선택된 마커와 일반 마커 구분
+                if hasattr(self, 'current_marker') and marker == self.current_marker:
+                    selected_position.append(pos)
+                else:
+                    positions.append(pos)
+                
+                valid_markers.append(marker)
+            except KeyError:
+                continue
+
+        self.valid_markers = valid_markers
+        positions = np.array(positions) if positions else np.empty((0, 3))
+        selected_position = np.array(selected_position) if selected_position else np.empty((0, 3))
+
+        # 일반 마커 업데이트
+        if len(positions) > 0:
+            self.markers_scatter._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
+        else:
+            self.markers_scatter._offsets3d = ([], [], [])
+
+        # 선택된 마커 업데이트
+        if len(selected_position) > 0:
+            self.selected_marker_scatter._offsets3d = (
+                selected_position[:, 0],
+                selected_position[:, 1],
+                selected_position[:, 2]
+            )
+        else:
+            self.selected_marker_scatter._offsets3d = ([], [], [])
+
+        # 스켈레톤 라인 업데이트
+        if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_lines'):
+            for line, pair in zip(self.skeleton_lines, self.skeleton_pairs):
+                if pair[0] in marker_positions and pair[1] in marker_positions:
+                    p1 = marker_positions[pair[0]]
+                    p2 = marker_positions[pair[1]]
+                    
+                    # outlier 여부만 확인
+                    is_outlier = (self.outliers[pair[0]][self.frame_idx] or 
+                                 self.outliers[pair[1]][self.frame_idx])
+                    
+                    line.set_data_3d(
+                        [p1[0], p2[0]],
+                        [p1[1], p2[1]],
+                        [p1[2], p2[2]]
+                    )
+
+                    line.set_color('red' if is_outlier else 'gray')
+                    line.set_alpha(0.8 if is_outlier else 0.5)
+                    line.set_linewidth(3 if is_outlier else 2)
+
+        # 마커 이름 업데이트
+        if self.show_names:
+            # 기존 레이블 제거
+            for label in self.marker_labels:
+                label.remove()
+            self.marker_labels.clear()
+            
+            # 새 레이블 생성
+            for marker in valid_markers:
+                pos = marker_positions[marker]
+                # 선택된 마커의 레이블은 노란색으로 강조
+                color = 'yellow' if (hasattr(self, 'current_marker') and marker == self.current_marker) else 'white'
+                label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, fontsize=8)
+                self.marker_labels.append(label)
+
+        # 뷰 상태 복원
+        self.ax.view_init(elev=prev_elev, azim=prev_azim)
+        self.ax.set_xlim(prev_xlim)
+        self.ax.set_ylim(prev_ylim)
+        self.ax.set_zlim(prev_zlim)
+
+        # 캔버스 업데이트
+        self.canvas.draw()
 
     def connect_mouse_events(self):
         """마우스 이벤트 연결을 위한 새로운 메서드"""
@@ -707,283 +873,6 @@ class TRCViewer(ctk.CTk):
                     line.set_xdata([self.frame_idx, self.frame_idx])
                 if hasattr(self, 'marker_canvas'):
                     self.marker_canvas.draw()
-
-    def update_plot(self):
-        if self.canvas is None:
-            return
-
-        # 프레임 레이블 업데이트
-        self.frame_label.configure(text=f"Frame {self.frame_idx}")
-
-        # 현재 뷰 상태 저장
-        try:
-            prev_elev = self.ax.elev
-            prev_azim = self.ax.azim
-            prev_xlim = self.ax.get_xlim()
-            prev_ylim = self.ax.get_ylim()
-            prev_zlim = self.ax.get_zlim()
-        except AttributeError:
-            # 초기 상태에서는 기본값 사용
-            prev_elev, prev_azim = 20, -60  # 원하는 초기 각도
-            prev_xlim, prev_ylim, prev_zlim = None, None, None
-
-        self.ax.clear()
-        
-        # 파일 이름 표시 (3D 뷰어 상단)
-        if hasattr(self, 'current_file'):
-            file_name = os.path.basename(self.current_file)
-            # self.ax.set_title(file_name, color='white', pad=10)
-        
-        # 축과 경 스타일 설정
-        self.ax.set_facecolor('black')
-        self.ax.xaxis.set_pane_color((0, 0, 0, 1))
-        self.ax.yaxis.set_pane_color((0, 0, 0, 1))
-        self.ax.zaxis.set_pane_color((0, 0, 0, 1))
-        
-        # 눈금과 눈금 레이블 제거
-        self.ax.set_xticks([])
-        self.ax.set_yticks([])
-        self.ax.set_zticks([])
-        
-        # 축 레이블 제거 (XYZ 텍스트 제거)
-        self.ax.set_xlabel('')
-        self.ax.set_ylabel('')
-        self.ax.set_zlabel('')
-
-        # 바닥 그리드 추가
-        grid_size = 2  # 그리드 크기
-        grid_divisions = 20  # 그리드 분할 수
-        x = np.linspace(-grid_size, grid_size, grid_divisions)
-        y = np.linspace(-grid_size, grid_size, grid_divisions)
-        X, Y = np.meshgrid(x, y)
-        Z = np.zeros_like(X)  # 바닥면은 z=0에 위치
-
-        # 그리드 라인 그리기
-        for i in range(grid_divisions):
-            self.ax.plot(x, [y[i]] * grid_divisions, [0] * grid_divisions, 'gray', alpha=0.2)
-            self.ax.plot([x[i]] * grid_divisions, y, [0] * grid_divisions, 'gray', alpha=0.2)
-
-        
-        # 메인 XYZ 축 선 추가
-        origin = np.zeros(3)
-        axis_length = 0.5
-        
-        # 축 색상 정의
-        x_color = 'red'
-        y_color = 'yellow'
-        z_color = 'blue'
-        
-        if self.is_z_up:
-            # Z-up 좌표계 메인 축 그리기
-            # X축 (빨간색)
-            self.ax.plot([origin[0], origin[0] + axis_length], 
-                        [origin[1], origin[1]], 
-                        [origin[2], origin[2]], 
-                        color=x_color, alpha=0.8, linewidth=2)
-            
-            # Y축 (노란색)
-            self.ax.plot([origin[0], origin[0]], 
-                        [origin[1], origin[1] + axis_length], 
-                        [origin[2], origin[2]], 
-                        color=y_color, alpha=0.8, linewidth=2)
-            
-            # Z축 (파란색)
-            self.ax.plot([origin[0], origin[0]], 
-                        [origin[1], origin[1]], 
-                        [origin[2], origin[2] + axis_length], 
-                        color=z_color, alpha=0.8, linewidth=2)
-        else:
-            # Y-up 좌표계 메인 축 그리기
-            # X축 (빨간색)
-            self.ax.plot([origin[0], origin[0] + axis_length], 
-                        [origin[2], origin[2]], 
-                        [origin[1], origin[1]], 
-                        color=x_color, alpha=0.8, linewidth=2)
-            
-            # Z축 (파란색)
-            self.ax.plot([origin[0], origin[0]], 
-                        [origin[2], origin[2] + axis_length], 
-                        [origin[1], origin[1]], 
-                        color=z_color, alpha=0.8, linewidth=2)
-            
-            # Y축 (노란색)
-            self.ax.plot([origin[0], origin[0]], 
-                        [origin[2], origin[2]], 
-                        [origin[1], origin[1] + axis_length], 
-                        color=y_color, alpha=0.8, linewidth=2)
-        
-        # 오른쪽 하단에 새로운 좌표축 추가
-        ax2 = self.fig.add_axes([0.85, 0.1, 0.14, 0.14], projection='3d')
-        ax2.set_facecolor('none')
-        ax2.set_navigate(False)  # ax2가 마우스 이벤트를 받지 않도록 설정
-        self.ax2 = ax2  # 필요하다면 ax2를 인스턴스 변수로 저장
-            
-        # 작은 좌표축의 스타일 설정
-        ax2.set_xticks([])
-        ax2.set_yticks([])
-        ax2.set_zticks([])
-        ax2.grid(False)
-        ax2.axis('off')
-        
-        # 작은 좌표축에 XYZ 축 그리기
-        small_length = 0.7
-        
-        if self.is_z_up:
-            # Z-up 좌표계 보조 축 그리기
-            ax2.plot([0, small_length], [0, 0], [0, 0], color='red', linewidth=1.5)
-            ax2.text(small_length * 1.2, 0, 0, 'X', color='red', fontsize=6)
-            
-            ax2.plot([0, 0], [0, small_length], [0, 0], color='yellow', linewidth=1.5)
-            ax2.text(0, small_length * 1.2, 0, 'Y', color='yellow', fontsize=6)
-            
-            ax2.plot([0, 0], [0, 0], [0, small_length], color='blue', linewidth=1.5)
-            ax2.text(0, 0, small_length * 1.2, 'Z', color='blue', fontsize=6)
-        else:
-            # Y-up 좌표계 보조 축 그리기
-            ax2.plot([0, small_length], [0, 0], [0, 0], color='red', linewidth=1.5)
-            ax2.text(small_length * 1.2, 0, 0, 'X', color='red', fontsize=6)
-            
-            ax2.plot([0, 0], [0, small_length], [0, 0], color='blue', linewidth=1.5)
-            ax2.text(0, small_length * 1.2, 0, 'Z', color='blue', fontsize=6)
-            
-            ax2.plot([0, 0], [0, 0], [0, small_length], color='yellow', linewidth=1.5)
-            ax2.text(0, 0, small_length * 1.2, 'Y', color='yellow', fontsize=6)
-        
-        # 작은 좌표축의 시점 설정
-        ax2.view_init(elev=20, azim=45)
-        ax2.set_box_aspect([1, 1, 1])
-        
-        positions = []
-        valid_markers = []
-        marker_positions = {}
-        
-        # 마커 위치 데이터 수집 - 좌표계 처리 수정
-        for marker in self.marker_names:
-            try:
-                x = self.data.loc[self.frame_idx, f'{marker}_X']
-                y = self.data.loc[self.frame_idx, f'{marker}_Y']
-                z = self.data.loc[self.frame_idx, f'{marker}_Z']
-                
-                if np.isnan(x) or np.isnan(y) or np.isnan(z):
-                    continue
-                    
-                # Z-up 좌표계와 Y-up 좌표계 전환 수정
-                if self.is_z_up:
-                    marker_positions[marker] = np.array([x, y, z])
-                    positions.append([x, y, z])
-                else:
-                    # Y-up 좌표계로 변환 (X, Z, Y 순서로 변경)
-                    marker_positions[marker] = np.array([x, z, y])
-                    positions.append([x, z, y])
-                valid_markers.append(marker)
-            except KeyError:
-                continue
-        
-        positions = np.array(positions)
-        
-        # 데이터의 전체 범위 계산 (처음 로드할 때 한 번만)
-        if not hasattr(self, 'data_limits'):
-            x_data = self.data[[f'{marker}_X' for marker in self.marker_names]].values
-            y_data = self.data[[f'{marker}_Y' for marker in self.marker_names]].values
-            z_data = self.data[[f'{marker}_Z' for marker in self.marker_names]].values
-            
-            x_min, x_max = np.nanmin(x_data), np.nanmax(x_data)
-            y_min, y_max = np.nanmin(y_data), np.nanmax(y_data)
-            z_min, z_max = np.nanmin(z_data), np.nanmax(z_data)
-            
-            margin = 0.2
-            x_range = x_max - x_min
-            y_range = y_max - y_min
-            z_range = z_max - z_min
-            
-            self.data_limits = {
-                'x': (x_min - x_range * margin, x_max + x_range * margin),
-                'y': (y_min - y_range * margin, y_max + y_range * margin),
-                'z': (z_min - z_range * margin, z_max + z_range * margin)
-            }
-            
-            # 초기 뷰포트 설정 (처음 한 번만)
-            if self.is_z_up:
-                self.ax.set_xlim(self.data_limits['x'])
-                self.ax.set_ylim(self.data_limits['y'])
-                self.ax.set_zlim(self.data_limits['z'])
-            else:
-                self.ax.set_xlim(self.data_limits['x'])
-                self.ax.set_ylim(self.data_limits['z'])  # Y-up에서는 Z와 Y를 교체
-                self.ax.set_zlim(self.data_limits['y'])
-        
-        # 뷰 상태 복원
-        if prev_xlim and prev_ylim and prev_zlim:
-            self.ax.view_init(elev=prev_elev, azim=prev_azim)
-            self.ax.set_xlim(prev_xlim)
-            self.ax.set_ylim(prev_ylim)
-            self.ax.set_zlim(prev_zlim)
-        else:
-            # 데이터 범위로 축 설정
-            if self.is_z_up:
-                self.ax.set_xlim(self.data_limits['x'])
-                self.ax.set_ylim(self.data_limits['y'])
-                self.ax.set_zlim(self.data_limits['z'])
-            else:
-                self.ax.set_xlim(self.data_limits['x'])
-                self.ax.set_ylim(self.data_limits['z'])  # Y-up에서는 Z와 Y를 교체
-                self.ax.set_zlim(self.data_limits['y'])
-        
-        # 마커 점 그리기
-        if hasattr(self, 'current_marker'):
-            # 선택된 마커와 나머지 마커 분리
-            selected_indices = [i for i, marker in enumerate(valid_markers) if marker == self.current_marker]
-            other_indices = [i for i, marker in enumerate(valid_markers) if marker != self.current_marker]
-            
-            # 선택되지 않은 마커 그리기 (흰색, 기본 크기)
-            if other_indices:
-                other_positions = positions[other_indices]
-                self.ax.scatter(other_positions[:, 0], other_positions[:, 1], other_positions[:, 2], 
-                            picker=5, color='white', s=30)
-            
-            # 선택된 마커 그리기 (연한 노란색, 중간 크기)
-            if selected_indices:
-                selected_positions = positions[selected_indices]
-                self.ax.scatter(selected_positions[:, 0], selected_positions[:, 1], selected_positions[:, 2], 
-                            picker=5, color='#FFFF99', s=50)  # 연한 노란색으로 변경, 크기 50으로 조정
-        else:
-            # 모든 마커를 흰색으로 그리기 (기본 상태)
-            self.sc = self.ax.scatter(positions[:, 0], positions[:, 1], positions[:, 2], 
-                                    picker=5, color='white', s=30)
-        self.valid_markers = valid_markers
-        
-        # 마커 이름 표시 (토글 상태 따라)
-        if self.show_names:
-            for i, marker in enumerate(valid_markers):
-                pos = positions[i]
-                self.ax.text(pos[0], pos[1], pos[2], marker, 
-                            color='white', fontsize=8)
-        
-        # 스켈레톤 라인 그리기 부분 수정
-        if self.show_skeleton:
-            for pair in self.skeleton_pairs:
-                if pair[0] in marker_positions and pair[1] in marker_positions:
-                    p1 = marker_positions[pair[0]]
-                    p2 = marker_positions[pair[1]]
-                    
-                    # outlier 여부에 따라 색상과 두께 결정
-                    is_outlier = (self.outliers[pair[0]][self.frame_idx] or 
-                                self.outliers[pair[1]][self.frame_idx])
-                    
-                    line_color = 'red' if is_outlier else 'gray'
-                    line_width = 2 if is_outlier else 1
-                    line_alpha = 0.8 if is_outlier else 0.5
-                    
-                    # 좌표계에 따른 라인 그리기
-                    self.ax.plot([p1[0], p2[0]], 
-                            [p1[1], p2[1]], 
-                            [p1[2], p2[2]], 
-                            color=line_color, 
-                            alpha=line_alpha, 
-                            linewidth=line_width)
-
-        self.canvas.draw()
-        plt.pause(0.01)  # 즉시 반영하도록 대기 시간을 짧게 설정
 
     def on_pick(self, event):
         """마커 선택 시 이벤트 핸들러"""
@@ -1812,7 +1701,10 @@ class TRCViewer(ctk.CTk):
             self.update_frame_counter()
 
             # Calculate delay based on playback speed
-            delay = int(1000 / (self.playback_speed * 30))  # 30 fps base rate
+            base_fps = float(self.fps_var.get())
+            delay = int(1000 / (self.playback_speed * base_fps))
+            delay = max(1, delay)  # 최소 1ms 이상
+
             self.animation_job = self.after(delay, self.animate)
 
     def update_playback_speed(self, value):
