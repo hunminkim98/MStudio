@@ -26,7 +26,7 @@ def read_data_from_c3d(c3d_file_path):
             
             # 기본 정보 추출
             point_labels = reader.point_labels
-            frame_rate = reader.header.frame_rate
+            frame_rate = reader.header.frame_rate  # C3D의 frame rate 추출
             first_frame = reader.header.first_frame
             last_frame = reader.header.last_frame
             
@@ -77,7 +77,7 @@ def read_data_from_c3d(c3d_file_path):
                 "\t".join(['', ''] + ['X\tY\tZ' for _ in point_labels]) + "\n"
             ]
             
-            return header_lines, data, point_labels
+            return header_lines, data, point_labels, frame_rate  # frame_rate 추가
             
     except Exception as e:
         raise Exception(f"C3D 파일 읽기 오류: {str(e)}")
@@ -90,10 +90,16 @@ def read_data_from_trc(trc_file_path):
     # 헤더 라인 추출
     header_lines = lines[:5]
     
+    # TRC 파일에서 frame rate 추출 (DataRate)
+    try:
+        frame_rate = float(header_lines[2].split('\t')[0])
+    except (IndexError, ValueError):
+        frame_rate = 30.0  # 기본값
+    
     # 마커 이름 추출 (3번째 행)
     marker_names_line = lines[3].strip().split('\t')[2:]  # 'Frame#', 'Time' 제외
     
-    # 고유한 마커 이름만 추출 (빈 문자열 제외)
+    # 고유한 마커 이름만 추 (빈 문자열 제외)
     marker_names = []
     for name in marker_names_line:
         if name.strip() and name not in marker_names:  # 빈 문자열이 아니고 중복되지 않은 경우
@@ -107,7 +113,7 @@ def read_data_from_trc(trc_file_path):
     # 데이터 읽기
     data = pd.read_csv(trc_file_path, sep='\t', skiprows=6, names=column_names)
     
-    return header_lines, data, marker_names
+    return header_lines, data, marker_names, frame_rate
     
 # 메인 애플리케이션 클래스
 class TRCViewer(ctk.CTk):
@@ -159,6 +165,19 @@ class TRCViewer(ctk.CTk):
         # 3D 뷰어의 이동 제한을 위한 변수
         self.pan_enabled = False
         self.last_mouse_pos = None
+
+        # Animation state variables
+        self.is_playing = False
+        self.playback_speed = 1.0
+        self.animation_job = None
+        self.fps_var = ctk.StringVar(value="30")
+
+        # Bind keyboard shortcuts
+        self.bind('<space>', lambda e: self.toggle_animation())
+        self.bind('<Return>', lambda e: self.toggle_animation())
+        self.bind('<Escape>', lambda e: self.stop_animation())
+        self.bind('<Left>', lambda e: self.prev_frame())
+        self.bind('<Right>', lambda e: self.next_frame())
 
         # UI 구성
         self.create_widgets()
@@ -250,14 +269,6 @@ class TRCViewer(ctk.CTk):
                                         **button_style)
         self.names_button.pack(side='left', padx=5)
 
-        # # 스켈레톤 라인 표시/숨김 버튼
-        # self.show_skeleton = True
-        # self.skeleton_button = ctk.CTkButton(button_frame, 
-        #                                    text="Hide Skeleton", 
-        #                                    command=self.toggle_skeleton,
-        #                                    **button_style)
-        # self.skeleton_button.pack(side='left', padx=5)
-
         # 모델 선택 콤보박스
         self.model_var = ctk.StringVar(value='No skeleton')
         self.model_combo = ctk.CTkComboBox(button_frame, 
@@ -303,6 +314,72 @@ class TRCViewer(ctk.CTk):
         # 하단 컨트롤 영역
         self.control_frame = ctk.CTkFrame(self)
         self.control_frame.pack(fill='x', padx=10, pady=(0, 10))
+
+        # Animation Control Frame
+        self.animation_frame = ctk.CTkFrame(self.control_frame)
+        self.animation_frame.pack(fill='x', padx=5, pady=(5, 0))
+
+        # Animation Controls
+        control_style = {
+            "width": 30,
+            "fg_color": "#333333",
+            "hover_color": "#444444"
+        }
+
+        # Play/Pause Button (combined)
+        self.play_pause_button = ctk.CTkButton(
+            self.animation_frame,
+            text="▶",
+            command=self.toggle_animation,
+            **control_style
+        )
+        self.play_pause_button.pack(side='left', padx=5)
+
+        # Stop Button
+        self.stop_button = ctk.CTkButton(
+            self.animation_frame,
+            text="■",
+            command=self.stop_animation,
+            state='disabled',
+            **control_style
+        )
+        self.stop_button.pack(side='left', padx=5)
+
+        # Speed Control Frame
+        speed_frame = ctk.CTkFrame(self.animation_frame, fg_color="transparent")
+        speed_frame.pack(side='left', fill='x', expand=True, padx=10)
+
+        # Speed Label
+        self.speed_label = ctk.CTkLabel(speed_frame, text="Speed: 1.0x")
+        self.speed_label.pack(side='left', padx=5)
+
+        # Speed Slider
+        self.speed_var = ctk.DoubleVar(value=1.0)
+        self.speed_slider = ctk.CTkSlider(
+            speed_frame,
+            from_=0.1,
+            to=3.0,
+            number_of_steps=29,
+            variable=self.speed_var,
+            command=self.update_playback_speed
+        )
+        self.speed_slider.pack(side='left', fill='x', expand=True, padx=5)
+
+        # Loop Checkbox
+        self.loop_var = ctk.BooleanVar(value=False)
+        self.loop_checkbox = ctk.CTkCheckBox(
+            self.animation_frame,
+            text="Loop",
+            variable=self.loop_var
+        )
+        self.loop_checkbox.pack(side='left', padx=5)
+
+        # Frame Counter Label
+        self.frame_counter = ctk.CTkLabel(
+            self.animation_frame,
+            text="Frame: 0/0"
+        )
+        self.frame_counter.pack(side='right', padx=5)
 
         # 프레임 번호 표시 레이블 (슬라이더 바로 위)
         self.frame_label = ctk.CTkLabel(self.control_frame, text="Frame 0", font=("Arial", 12))
@@ -379,14 +456,14 @@ class TRCViewer(ctk.CTk):
                 # 새 파일 로드
                 self.current_file = file_path
                 file_name = os.path.basename(file_path)
+                file_extension = os.path.splitext(file_path)[1].lower()
                 self.title_label.configure(text=file_name)
                 
                 # 파일 확장자에 따라 적절한 로더 사용
-                file_ext = os.path.splitext(file_path)[1].lower()
-                if file_ext == '.trc':
-                    header_lines, self.data, self.marker_names = read_data_from_trc(file_path)
-                elif file_ext == '.c3d':
-                    header_lines, self.data, self.marker_names = read_data_from_c3d(file_path)
+                if file_extension == '.trc':
+                    header_lines, self.data, self.marker_names, frame_rate = read_data_from_trc(file_path)
+                elif file_extension == '.c3d':
+                    header_lines, self.data, self.marker_names, frame_rate = read_data_from_c3d(file_path)
                 else:
                     raise Exception("Unsupported file format")
                 
@@ -397,6 +474,11 @@ class TRCViewer(ctk.CTk):
                 
                 # 데이터 범위 계산
                 self.calculate_data_limits()
+                
+                # FPS 설정
+                self.fps_var.set(str(int(frame_rate)))
+                print(f"Loaded file with frame rate: {frame_rate} FPS")
+                self.update_fps_label()
                 
                 # 프레임 슬라이더 초기화
                 self.frame_slider.configure(to=self.num_frames - 1)
@@ -413,6 +495,19 @@ class TRCViewer(ctk.CTk):
                 
                 # 초기 뷰 설정
                 self.reset_main_view()
+
+                # Update frame counter
+                self.update_frame_counter()
+                
+                # Enable animation controls
+                self.play_pause_button.configure(state='normal')
+                self.speed_slider.configure(state='normal')
+                self.loop_checkbox.configure(state='normal')
+                
+                # Reset animation state
+                self.is_playing = False
+                self.play_pause_button.configure(text="▶")
+                self.stop_button.configure(state='disabled')
                 
                 print(f"Successfully loaded: {file_name}")
                 
@@ -600,16 +695,18 @@ class TRCViewer(ctk.CTk):
             self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
 
     def update_frame(self, value):
-        """슬라이더 값이 변경될 때 호출"""
-        self.frame_idx = int(float(value))
-        self.update_plot()
-        
-        # 마커 그래프가 표시되어 있다면 수직선 업데이
-        if hasattr(self, 'marker_lines') and self.marker_lines:
-            for line in self.marker_lines:
-                line.set_xdata([self.frame_idx, self.frame_idx])
-            if hasattr(self, 'marker_canvas'):
-                self.marker_canvas.draw()
+        """Update frame based on slider value"""
+        if self.data is not None:
+            self.frame_idx = int(float(value))
+            self.update_plot()
+            self.update_frame_counter()
+            
+            # Update marker lines if they exist
+            if hasattr(self, 'marker_lines') and self.marker_lines:
+                for line in self.marker_lines:
+                    line.set_xdata([self.frame_idx, self.frame_idx])
+                if hasattr(self, 'marker_canvas'):
+                    self.marker_canvas.draw()
 
     def update_plot(self):
         if self.canvas is None:
@@ -1483,32 +1580,20 @@ class TRCViewer(ctk.CTk):
                     continue
 
     def prev_frame(self):
-        """이전 프레임으로 이동"""
-        if self.frame_idx > 0:
+        """Move to previous frame"""
+        if self.data is not None and self.frame_idx > 0:
             self.frame_idx -= 1
             self.frame_slider.set(self.frame_idx)
             self.update_plot()
-            
-            # 마커 그래프가 표시되어 있다면 수직선 업데이트
-            if hasattr(self, 'marker_lines') and self.marker_lines:
-                for line in self.marker_lines:
-                    line.set_xdata(self.frame_idx)
-                if hasattr(self, 'marker_canvas'):
-                    self.marker_canvas.draw()
+            self.update_frame_counter()
 
     def next_frame(self):
-        """음 프레임으로 이동"""
-        if self.frame_idx < self.num_frames - 1:
+        """Move to next frame"""
+        if self.data is not None and self.frame_idx < self.num_frames - 1:
             self.frame_idx += 1
             self.frame_slider.set(self.frame_idx)
             self.update_plot()
-            
-            # 마커 그래프가 표시되어 있다면 수직선 업데이트
-            if hasattr(self, 'marker_lines') and self.marker_lines:
-                for line in self.marker_lines:
-                    line.set_xdata(self.frame_idx)
-                if hasattr(self, 'marker_canvas'):
-                    self.marker_canvas.draw()
+            self.update_frame_counter()
 
     def toggle_marker_names(self):
         """마커 이름 표시/숨김 토글"""
@@ -1671,6 +1756,82 @@ class TRCViewer(ctk.CTk):
                                 alpha=0.2)
             self.selection_data['rects'].append(ax.add_patch(rect))
         self.marker_canvas.draw_idle()
+
+    def toggle_animation(self):
+        """Toggle between play and pause states"""
+        if not self.data is None:
+            if self.is_playing:
+                self.pause_animation()
+            else:
+                self.play_animation()
+
+    def play_animation(self):
+        """Start the animation"""
+        self.is_playing = True
+        self.play_pause_button.configure(text="⏸")
+        self.stop_button.configure(state='normal')
+        self.animate()
+
+    def pause_animation(self):
+        """Pause the animation"""
+        self.is_playing = False
+        self.play_pause_button.configure(text="▶")
+        if self.animation_job:
+            self.after_cancel(self.animation_job)
+            self.animation_job = None
+
+    def stop_animation(self):
+        """Stop the animation and reset to first frame"""
+        self.is_playing = False
+        self.play_pause_button.configure(text="▶")
+        self.stop_button.configure(state='disabled')
+        
+        if self.animation_job:
+            self.after_cancel(self.animation_job)
+            self.animation_job = None
+        
+        self.frame_idx = 0
+        self.frame_slider.set(0)
+        self.update_plot()
+        self.update_frame_counter()
+
+    def animate(self):
+        """Handle animation frame updates"""
+        if self.is_playing:
+            if self.frame_idx < self.num_frames - 1:
+                self.frame_idx += 1
+            else:
+                if self.loop_var.get():
+                    self.frame_idx = 0
+                else:
+                    self.stop_animation()
+                    return
+
+            self.frame_slider.set(self.frame_idx)
+            self.update_plot()
+            self.update_frame_counter()
+
+            # Calculate delay based on playback speed
+            delay = int(1000 / (self.playback_speed * 30))  # 30 fps base rate
+            self.animation_job = self.after(delay, self.animate)
+
+    def update_playback_speed(self, value):
+        """Update animation playback speed"""
+        self.playback_speed = float(value)
+        self.speed_label.configure(text=f"Speed: {self.playback_speed:.1f}x")
+
+    def update_frame_counter(self):
+        """Update the frame counter display"""
+        if self.data is not None:
+            self.frame_counter.configure(
+                text=f"Frame: {self.frame_idx}/{self.num_frames-1}"
+            )
+
+    def update_fps_label(self):
+        """Update FPS label with current value"""
+        fps = self.fps_var.get()
+        if hasattr(self, 'fps_label'):
+            self.fps_label.configure(text=f"FPS: {fps}")
 
 # 애플리케이션 실행
 if __name__ == "__main__":
