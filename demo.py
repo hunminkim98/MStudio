@@ -656,6 +656,24 @@ class TRCViewer(ctk.CTk):
         self.ax.set_xlabel('')
         self.ax.set_ylabel('')
         self.ax.set_zlabel('')
+
+        # 바닥 그리드 추가
+        grid_size = 2  # 그리드 크기
+        grid_divisions = 20  # 그리드 분할 수
+        x = np.linspace(-grid_size, grid_size, grid_divisions)
+        y = np.linspace(-grid_size, grid_size, grid_divisions)
+        X, Y = np.meshgrid(x, y)
+        Z = np.zeros_like(X)  # 바닥면은 z=0에 위치
+
+        # 그리드 라인 그리기
+        if self.is_z_up:
+            for i in range(grid_divisions):
+                self.ax.plot(x, [y[i]]*grid_divisions, [0]*grid_divisions, 'gray', alpha=0.2)
+                self.ax.plot([x[i]]*grid_divisions, y, [0]*grid_divisions, 'gray', alpha=0.2)
+        else:
+            for i in range(grid_divisions):
+                self.ax.plot(x, [0]*grid_divisions, [y[i]]*grid_divisions, 'gray', alpha=0.2)
+                self.ax.plot([x[i]]*grid_divisions, [0]*grid_divisions, y, 'gray', alpha=0.2)
         
         # 메인 XYZ 축 선 추가
         origin = np.zeros(3)
