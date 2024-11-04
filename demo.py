@@ -898,27 +898,41 @@ class TRCViewer(ctk.CTk):
 
     def on_pick(self, event):
         """마커 선택 시 이벤트 핸들러"""
-        # 왼쪽 또는 오른쪽 클릭만 처리
-        if event.mouseevent.button != 3:  # 3: 오른쪽
-            return
-
-        # 현재 뷰 상태 저장
-        current_view = {
-            'elev': self.ax.elev,
-            'azim': self.ax.azim,
-            'xlim': self.ax.get_xlim(),
-            'ylim': self.ax.get_ylim(),
-            'zlim': self.ax.get_zlim()
-        }
-
         try:
+            # 왼쪽 또는 오른쪽 클릭만 처리
+            if event.mouseevent.button != 3:  # 3: 오른쪽
+                return
+
+            # 현재 뷰 상태 저장
+            current_view = {
+                'elev': self.ax.elev,
+                'azim': self.ax.azim,
+                'xlim': self.ax.get_xlim(),
+                'ylim': self.ax.get_ylim(),
+                'zlim': self.ax.get_zlim()
+            }
+
+            # 선택된 마커의 인덱스 확인
+            if not hasattr(self, 'valid_markers') or not self.valid_markers:
+                print("No valid markers available")
+                return
+
             ind = event.ind[0]
-            self.current_marker = self.valid_markers[ind]  # 선택된 마커 저장
+            if ind >= len(self.valid_markers):
+                print(f"Invalid marker index: {ind}")
+                return
+
+            # 선택된 마커 저장
+            self.current_marker = self.valid_markers[ind]
             print(f"Selected Marker: {self.current_marker}")
 
             # 오른쪽 클릭일 때만 그래프 표시
             if event.mouseevent.button == 3:
-                self.show_marker_plot(self.current_marker)
+                if self.current_marker in self.marker_names:  # 마커가 유효한지 확인
+                    self.show_marker_plot(self.current_marker)
+                else:
+                    print(f"Invalid marker name: {self.current_marker}")
+                    return
 
             # 뷰 상태를 복원하고 업데이트
             self.update_plot()
@@ -931,8 +945,9 @@ class TRCViewer(ctk.CTk):
             self.canvas.draw()
 
         except Exception as e:
-            print(f"Error in on_pick: {e}")
-            messagebox.showerror("Selection Error", f"An error occurred while selecting the marker: {e}")
+            print(f"Error in on_pick: {str(e)}")
+            import traceback
+            traceback.print_exc()  # 상세한 에러 정보 출력
 
         finally:
             # 확대/축소 이벤트가 계속 작동하도록 이벤트 재연결
@@ -970,6 +985,10 @@ class TRCViewer(ctk.CTk):
         self.marker_axes = []
         self.marker_lines = []  # 수직선 리스트 초기화
         coords = ['X', 'Y', 'Z']
+
+        # outlier 데이터 확인 (No skeleton일 때 오류 발생)
+        if not hasattr(self, 'outliers') or marker_name not in self.outliers:
+            self.outliers = {marker_name: np.zeros(len(self.data), dtype=bool)}  # set to False
         
         # outlier 프레임 인덱스 가져오기
         outlier_frames = np.where(self.outliers[marker_name])[0]
