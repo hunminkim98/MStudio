@@ -104,13 +104,15 @@ class TRCViewer(ctk.CTk):
         self.title("TRC Viewer")
         self.geometry("1200x1000")
 
+        # 기본 변수 초기화
+        self.marker_names = []  # 빈 리스트로 초기화
         self.data = None
         self.original_data = None
-        self.marker_names = None
         self.num_frames = 0
         self.frame_idx = 0
         self.canvas = None
         self.selection_in_progress = False
+        self.outliers = {}  # 빈 딕셔너리로 초기화
 
         self.marker_last_pos = None
         self.marker_pan_enabled = False
@@ -120,7 +122,6 @@ class TRCViewer(ctk.CTk):
 
         self.view_limits = None
         self.is_z_up = True
-        self.outliers = {}
 
         self.available_models = {
             'No skeleton': None,
@@ -335,15 +336,14 @@ class TRCViewer(ctk.CTk):
             self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
 
     def on_model_change(self, choice):
-        """모델 선택이 변경될 때 호출되는 메소드"""
         try:
-            # 현재 프레임 저장
+            # Save the current frame
             current_frame = self.frame_idx
-            
-            # 모델 업데이트
+
+            # Update the model
             self.current_model = self.available_models[choice]
-            
-            # 스켈레톤 설정 업데이트
+
+            # Update skeleton settings
             if self.current_model is None:
                 self.skeleton_pairs = []
                 self.show_skeleton = False
@@ -351,25 +351,24 @@ class TRCViewer(ctk.CTk):
                 self.show_skeleton = True
                 self.update_skeleton_pairs()
 
-            # 기존 스켈레톤 라인 제거
+            # Remove existing skeleton lines
             if hasattr(self, 'skeleton_lines'):
                 for line in self.skeleton_lines:
-                    if line in self.ax.lines:
-                        self.ax.lines.remove(line)
+                    line.remove()
                 self.skeleton_lines = []
 
-            # 새로운 스켈레톤 라인 초기화
+            # Initialize new skeleton lines
             if self.show_skeleton:
                 for _ in self.skeleton_pairs:
                     line = Line3D([], [], [], color='gray', alpha=0.5)
                     self.ax.add_line(line)
                     self.skeleton_lines.append(line)
 
-            # 현재 프레임 데이터로 플롯 업데이트
+            # Update the plot with the current frame data
             self.update_plot()
             self.update_frame(current_frame)
 
-            # 캔버스 새로고침
+            # Refresh the canvas
             if hasattr(self, 'canvas'):
                 self.canvas.draw()
                 self.canvas.flush_events()
@@ -378,6 +377,7 @@ class TRCViewer(ctk.CTk):
             print(f"Error in on_model_change: {e}")
             import traceback
             traceback.print_exc()
+
 
     def update_skeleton_pairs(self):
         """스켈레톤 페어 업데이트"""
@@ -761,10 +761,9 @@ class TRCViewer(ctk.CTk):
                     p1 = marker_positions[pair[0]]
                     p2 = marker_positions[pair[1]]
 
-                    is_outlier = (
-                        self.outliers[pair[0]][self.frame_idx] or
-                        self.outliers[pair[1]][self.frame_idx]
-                    )
+                    outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+                    outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+                    is_outlier = outlier_status1 or outlier_status2
 
                     line.set_data_3d(
                         [p1[0], p2[0]],
@@ -1567,6 +1566,7 @@ class TRCViewer(ctk.CTk):
             messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
 
     def save_to_trc(self, file_path):
+        # 기존 헤더 라인들은 유지
         header_lines = [
             "PathFileType\t4\t(X/Y/Z)\t{}\n".format(os.path.basename(file_path)),
             "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
@@ -1579,13 +1579,15 @@ class TRCViewer(ctk.CTk):
                 1,
                 self.num_frames
             ),
-            "\t".join(['Frame#', 'Time'] + self.marker_names) + "\n",
+            # 마커 이름 행을 수정: 각 마커 뒤에 빈 탭 2개 추가
+            "\t".join(['Frame#', 'Time'] + [name + '\t\t' for name in self.marker_names]) + "\n",
+            # X,Y,Z 행은 그대로 유지
             "\t".join(['', ''] + ['X\tY\tZ' for _ in self.marker_names]) + "\n"
         ]
 
         with open(file_path, 'w') as f:
             f.writelines(header_lines)
-            self.data.to_csv(f, sep='\t', index=False, header=False)
+            self.data.to_csv(f, sep='\t', index=False, header=False, lineterminator='\n')
 
         messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
 
@@ -1627,7 +1629,9 @@ class TRCViewer(ctk.CTk):
                             points[i, 4] = 0    # Camera_Mask
                         else:
                             points[i, :3] = [x, y, z]
-                            points[i, 3] = 0.0   # Residual
+                            points[i, 3] = 0.0   # ResidualChatGPT o1-preview
+                            
+                            
                             points[i, 4] = 0     # Camera_Mask (필요에 따라 변경 가능)
                     except Exception as e:
                         print(f"Error processing marker {marker} at frame {frame_idx}: {e}")
@@ -1655,7 +1659,6 @@ class TRCViewer(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Save Error", f"An error occurred while saving: {str(e)}\n\nPlease check the console for more details.")
             print(f"Detailed error: {e}")
-
 
 
 if __name__ == "__main__":
