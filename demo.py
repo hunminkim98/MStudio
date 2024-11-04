@@ -3,6 +3,8 @@ import numpy as np
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import matplotlib.pyplot as plt
+from scipy.signal import butter, filtfilt
+from tkinter import simpledialog
 from mpl_toolkits.mplot3d.art3d import Line3D
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Pose2Sim.skeletons import *
@@ -104,7 +106,7 @@ class TRCViewer(ctk.CTk):
         self.title("TRC Viewer")
         self.geometry("1200x1000")
 
-        # 기본 변수 초기화
+        # 기 변수 초기화
         self.marker_names = []  # 빈 리스트로 초기화
         self.data = None
         self.original_data = None
@@ -602,20 +604,12 @@ class TRCViewer(ctk.CTk):
                 line.remove()
         self.grid_lines = []
 
-        # Define grid based on the coordinate system
-        if self.is_z_up:
-            # Grid on the X-Y plane at Z=0
-            for i in range(grid_divisions):
-                line1, = self.ax.plot(x, [y[i]] * grid_divisions, [0] * grid_divisions, 'gray', alpha=0.2)
-                line2, = self.ax.plot([x[i]] * grid_divisions, y, [0] * grid_divisions, 'gray', alpha=0.2)
-                self.grid_lines.extend([line1, line2])
-        else:
-            # Grid on the X-Z plane at Y=0
-            for i in range(grid_divisions):
-                line1, = self.ax.plot(x, [0] * grid_divisions, [y[i]] * grid_divisions, 'gray', alpha=0.2)
-                line2, = self.ax.plot([x[i]] * grid_divisions, [0] * grid_divisions, y, 'gray', alpha=0.2)
-                self.grid_lines.extend([line1, line2])
-
+        # Draw grid based on coordinate system
+        # Z-up: Grid on X-Y plane at Z=0
+        for i in range(grid_divisions):
+            line1, = self.ax.plot(x, [y[i]] * grid_divisions, [0] * grid_divisions, 'gray', alpha=0.2)
+            line2, = self.ax.plot([x[i]] * grid_divisions, y, [0] * grid_divisions, 'gray', alpha=0.2)
+            self.grid_lines.extend([line1, line2])
 
     def _initialize_dynamic_elements(self):
         self._update_coordinate_axes()
@@ -646,10 +640,7 @@ class TRCViewer(ctk.CTk):
 
     def _update_coordinate_axes(self):
         """Update coordinate axes and labels based on the coordinate system."""
-        axis_length = 0.5
-        colors = {'x': 'red', 'y': 'yellow', 'z': 'blue'}
-
-        # Clear existing axes and labels (if any)
+        # 축과 레이블 초기화
         if hasattr(self, 'coordinate_axes'):
             for line in self.coordinate_axes:
                 line.remove()
@@ -660,42 +651,67 @@ class TRCViewer(ctk.CTk):
                 label.remove()
         self.axis_labels = []
 
-        # Define axes and label positions based on the coordinate system
+        # 축 설정
+        origin = np.zeros(3)
+        axis_length = 0.5
+        
+        # 축 색상 정의
+        x_color = 'red'
+        y_color = 'yellow'
+        z_color = 'blue'
+        
         if self.is_z_up:
-            # Z-up coordinate system
-            axes = [
-                ([0, axis_length], [0, 0], [0, 0], 'x'),  # X-axis
-                ([0, 0], [0, axis_length], [0, 0], 'y'),  # Y-axis
-                ([0, 0], [0, 0], [0, axis_length], 'z')   # Z-axis
-            ]
-            label_positions = {
-                'x': (axis_length + 0.1, 0, 0),
-                'y': (0, axis_length + 0.1, 0),
-                'z': (0, 0, axis_length + 0.1)
-            }
+            # Z-up 좌표계 메인 축 그리기
+            # X축 (빨간색)
+            line_x = self.ax.plot([origin[0], origin[0] + axis_length], 
+                        [origin[1], origin[1]], 
+                        [origin[2], origin[2]], 
+                        color=x_color, alpha=0.8, linewidth=2)[0]
+            
+            # Y축 (노란색)
+            line_y = self.ax.plot([origin[0], origin[0]], 
+                        [origin[1], origin[1] + axis_length], 
+                        [origin[2], origin[2]], 
+                        color=y_color, alpha=0.8, linewidth=2)[0]
+            
+            # Z축 (파란색)
+            line_z = self.ax.plot([origin[0], origin[0]], 
+                        [origin[1], origin[1]], 
+                        [origin[2], origin[2] + axis_length], 
+                        color=z_color, alpha=0.8, linewidth=2)[0]
+
+            # 레이블 위치 설정
+            label_x = self.ax.text(axis_length + 0.1, 0, 0, 'X', color=x_color, fontsize=12)
+            label_y = self.ax.text(0, axis_length + 0.1, 0, 'Y', color=y_color, fontsize=12)
+            label_z = self.ax.text(0, 0, axis_length + 0.1, 'Z', color=z_color, fontsize=12)
         else:
-            # Y-up coordinate system
-            axes = [
-                ([0, axis_length], [0, 0], [0, 0], 'x'),  # X-axis
-                ([0, 0], [0, 0], [0, axis_length], 'y'),  # Y-axis
-                ([0, 0], [axis_length, 0], [0, 0], 'z')   # Z-axis
-            ]
-            label_positions = {
-                'x': (axis_length + 0.1, 0, 0),
-                'y': (0, 0, axis_length + 0.1),
-                'z': (0, axis_length + 0.1, 0)
-            }
+            # Y-up 좌표계 메인 축 그리기 (오른손 법칙 준수)
+            # X축 (빨간색)
+            line_x = self.ax.plot([origin[0], origin[0] + axis_length], 
+                        [origin[2], origin[2]], 
+                        [origin[1], origin[1]], 
+                        color=x_color, alpha=0.8, linewidth=2)[0]
+            
+            # Z축 (파란색) - 반대 방향으로 변경
+            line_z = self.ax.plot([origin[0], origin[0]], 
+                        [origin[2], origin[2] - axis_length], 
+                        [origin[1], origin[1]], 
+                        color=z_color, alpha=0.8, linewidth=2)[0]
+            
+            # Y축 (노란색)
+            line_y = self.ax.plot([origin[0], origin[0]], 
+                        [origin[2], origin[2]], 
+                        [origin[1], origin[1] + axis_length], 
+                        color=y_color, alpha=0.8, linewidth=2)[0]
 
-        # Plot axes and add labels at the specified positions
-        for x, y, z, axis in axes:
-            line, = self.ax.plot(x, y, z, color=colors[axis], alpha=0.8, linewidth=2)
-            self.coordinate_axes.append(line)
+            # 레이블 위치 설정
+            label_x = self.ax.text(axis_length + 0.1, 0, 0, 'X', color=x_color, fontsize=12)
+            label_z = self.ax.text(0, -axis_length - 0.1, 0, 'Z', color=z_color, fontsize=12)
+            label_y = self.ax.text(0, 0, axis_length + 0.1, 'Y', color=y_color, fontsize=12)
 
-            label_x, label_y, label_z = label_positions[axis]
-            label = self.ax.text(label_x, label_y, label_z, axis.upper(), color=colors[axis], fontsize=12)
-            self.axis_labels.append(label)
-
-
+        # 축과 레이블 저장
+        self.coordinate_axes = [line_x, line_y, line_z]
+        self.axis_labels = [label_x, label_y, label_z]
 
     def update_plot(self):
         if self.canvas is None:
@@ -712,48 +728,52 @@ class TRCViewer(ctk.CTk):
         marker_positions = {}
         valid_markers = []
 
+        # 마커 위치 데이터 수집
         for marker in self.marker_names:
             try:
                 x = self.data.loc[self.frame_idx, f'{marker}_X']
                 y = self.data.loc[self.frame_idx, f'{marker}_Y']
                 z = self.data.loc[self.frame_idx, f'{marker}_Z']
-
+                
                 if np.isnan(x) or np.isnan(y) or np.isnan(z):
                     continue
-
+                    
                 if self.is_z_up:
-                    pos = [x, y, z]
+                    # Z-up 시각화
+                    marker_positions[marker] = np.array([x, y, z])
+                    positions.append([x, y, z])
+                    if hasattr(self, 'current_marker') and marker == self.current_marker:
+                        selected_position.append([x, y, z])
                 else:
-                    pos = [x, z, y]
-
-                marker_positions[marker] = np.array(pos)
-
-                if hasattr(self, 'current_marker') and marker == self.current_marker:
-                    selected_position.append(pos)
-                else:
-                    positions.append(pos)
-
+                    # Y-up 시각화
+                    marker_positions[marker] = np.array([x, -z, y])
+                    positions.append([x, -z, y])
+                    if hasattr(self, 'current_marker') and marker == self.current_marker:
+                        selected_position.append([x, -z, y])
                 valid_markers.append(marker)
             except KeyError:
                 continue
+        
+        positions = np.array(positions)
+        selected_position = np.array(selected_position)
 
-        self.valid_markers = valid_markers
-        positions = np.array(positions) if positions else np.empty((0, 3))
-        selected_position = np.array(selected_position) if selected_position else np.empty((0, 3))
-
+        # 일반 마커 업데이트
         if len(positions) > 0:
             self.markers_scatter._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
         else:
             self.markers_scatter._offsets3d = ([], [], [])
 
+        # 선택된 마커 업데이트
         if len(selected_position) > 0:
             self.selected_marker_scatter._offsets3d = (
                 selected_position[:, 0],
                 selected_position[:, 1],
                 selected_position[:, 2]
             )
+            self.selected_marker_scatter.set_visible(True)
         else:
             self.selected_marker_scatter._offsets3d = ([], [], [])
+            self.selected_marker_scatter.set_visible(False)
 
         if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_lines'):
             for line, pair in zip(self.skeleton_lines, self.skeleton_pairs):
@@ -821,9 +841,10 @@ class TRCViewer(ctk.CTk):
 
     def on_pick(self, event):
         try:
-            if event.mouseevent.button != 3:
+            if event.mouseevent.button != 3:  # Only handle right clicks
                 return
 
+            # Save current view state
             current_view = {
                 'elev': self.ax.elev,
                 'azim': self.ax.azim,
@@ -832,23 +853,39 @@ class TRCViewer(ctk.CTk):
                 'zlim': self.ax.get_zlim()
             }
 
-            if not hasattr(self, 'valid_markers') or not self.valid_markers:
+            # Get valid markers from the current frame
+            valid_markers = []
+            for marker in self.marker_names:
+                try:
+                    x = self.data.loc[self.frame_idx, f'{marker}_X']
+                    y = self.data.loc[self.frame_idx, f'{marker}_Y']
+                    z = self.data.loc[self.frame_idx, f'{marker}_Z']
+                    if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
+                        valid_markers.append(marker)
+                except KeyError:
+                    continue
+
+            if not valid_markers:
+                print("No valid markers in current frame")
                 return
 
+            # Get selected marker index
             ind = event.ind[0]
-            if ind >= len(self.valid_markers):
+            if ind >= len(valid_markers):
                 return
 
-            self.current_marker = self.valid_markers[ind]
+            # Store valid markers and selected marker
+            self.valid_markers = valid_markers
+            self.current_marker = valid_markers[ind]
 
-            if event.mouseevent.button == 3:
-                if self.current_marker in self.marker_names:
-                    self.show_marker_plot(self.current_marker)
-                else:
-                    return
+            # Show marker plot if valid marker selected
+            if self.current_marker in self.marker_names:
+                self.show_marker_plot(self.current_marker)
 
+            # Update main plot
             self.update_plot()
 
+            # Restore view state
             self.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
             self.ax.set_xlim(current_view['xlim'])
             self.ax.set_ylim(current_view['ylim'])
@@ -857,6 +894,8 @@ class TRCViewer(ctk.CTk):
 
         except Exception as e:
             print(f"Error in on_pick: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
         finally:
             self.connect_mouse_events()
@@ -864,10 +903,18 @@ class TRCViewer(ctk.CTk):
     def show_marker_plot(self, marker_name):
         prev_interp_method = None
         prev_order = None
+        prev_hz = None
+        prev_filter_order = None
+        
+        # Store previous values if they exist
         if hasattr(self, 'interp_method_var'):
             prev_interp_method = self.interp_method_var.get()
         if hasattr(self, 'order_var'):
             prev_order = self.order_var.get()
+        if hasattr(self, 'hz_var'):
+            prev_hz = self.hz_var.get()
+        if hasattr(self, 'filter_order_var'):
+            prev_filter_order = self.filter_order_var.get()
 
         if not self.graph_frame.winfo_ismapped():
             self.graph_frame.pack(side='right', fill='both', expand=True)
@@ -963,7 +1010,30 @@ class TRCViewer(ctk.CTk):
 
         self.edit_menu = ctk.CTkFrame(self.graph_frame)
 
+        # Add filter parameters frame
+        filter_params_frame = ctk.CTkFrame(self.edit_menu)
+        filter_params_frame.pack(side='left', padx=5)
+        
+        # Add Hz input with previous value
+        hz_frame = ctk.CTkFrame(filter_params_frame, fg_color="transparent")
+        hz_frame.pack(side='left', padx=5)
+        hz_label = ctk.CTkLabel(hz_frame, text="Hz:")
+        hz_label.pack(side='left', padx=2)
+        self.hz_var = ctk.StringVar(value="10.0" if prev_hz is None else prev_hz)
+        self.hz_entry = ctk.CTkEntry(hz_frame, textvariable=self.hz_var, width=50)
+        self.hz_entry.pack(side='left')
+        
+        # Add order input with previous value
+        order_frame = ctk.CTkFrame(filter_params_frame, fg_color="transparent")
+        order_frame.pack(side='left', padx=5)
+        order_label = ctk.CTkLabel(order_frame, text="Order:")
+        order_label.pack(side='left', padx=2)
+        self.filter_order_var = ctk.StringVar(value="4" if prev_filter_order is None else prev_filter_order)
+        self.filter_order_entry = ctk.CTkEntry(order_frame, textvariable=self.filter_order_var, width=50)
+        self.filter_order_entry.pack(side='left')
+
         edit_buttons = [
+            ("Filter", self.filter_selected_data),
             ("Delete", self.delete_selected_data),
             ("Interpolate", self.interpolate_selected_data),
             ("Restore", self.restore_original_data),
@@ -1023,6 +1093,8 @@ class TRCViewer(ctk.CTk):
         else:
             self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
             self.edit_button.configure(fg_color="#555555")
+            # Keep the selection data intact
+            self.selection_in_progress = False
 
     def clear_selection(self):
         if 'rects' in self.selection_data and self.selection_data['rects']:
@@ -1083,6 +1155,115 @@ class TRCViewer(ctk.CTk):
             self.selection_data['rects'].append(ax.add_patch(rect))
 
         self.marker_canvas.draw()
+
+    def filter_selected_data(self):
+        try:
+            # If no selection, use entire range
+            if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
+                start_frame = 0
+                end_frame = len(self.data) - 1
+            else:
+                start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
+                end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
+
+            # Store current view states
+            view_states = []
+            for ax in self.marker_axes:
+                view_states.append({
+                    'xlim': ax.get_xlim(),
+                    'ylim': ax.get_ylim()
+                })
+
+            # Store current selection
+            current_selection = {
+                'start': self.selection_data.get('start'),
+                'end': self.selection_data.get('end')
+            }
+
+            # Get filter parameters
+            try:
+                cutoff_freq = float(self.hz_var.get())
+                filter_order = int(self.filter_order_var.get())
+                
+                if cutoff_freq <= 0:
+                    messagebox.showerror("Input Error", "Hz must be greater than 0")
+                    return
+                if filter_order < 1:
+                    messagebox.showerror("Input Error", "Order must be at least 1")
+                    return
+                    
+            except ValueError:
+                messagebox.showerror("Input Error", "Please enter valid numbers for Hz and Order")
+                return
+
+            # Sampling frequency and Nyquist frequency
+            fs = float(self.fps_var.get())
+            nyq = 0.5 * fs
+            normal_cutoff = cutoff_freq / nyq
+
+            if normal_cutoff >= 1.0:
+                messagebox.showerror("Filtering Error", f"Cutoff frequency ({cutoff_freq} Hz) must be less than Nyquist frequency ({nyq} Hz)")
+                return
+
+            # Apply filter to each coordinate
+            for coord in ['X', 'Y', 'Z']:
+                col_name = f'{self.current_marker}_{coord}'
+                
+                # Get the complete data series
+                data_series = self.data[col_name].copy()
+                
+                # Extract the segment to filter
+                segment = data_series[start_frame:end_frame + 1]
+                
+                # Handle NaN values
+                valid_indices = ~segment.isna()
+                if not valid_indices.any():
+                    continue
+                    
+                valid_data = segment[valid_indices]
+                
+                if len(valid_data) > 3:  # Need at least a few points for filtering
+                    try:
+                        # Design and apply the Butterworth filter
+                        b, a = butter(filter_order, normal_cutoff, btype='low', analog=False)
+                        
+                        # Apply filtfilt to valid data only
+                        filtered_valid = filtfilt(b, a, valid_data)
+                        
+                        # Put filtered data back into the segment
+                        segment[valid_indices] = filtered_valid
+                        
+                        # Update the main data
+                        self.data.loc[start_frame:end_frame, col_name] = segment
+                        
+                    except Exception as e:
+                        messagebox.showerror("Filtering Error", f"Error filtering {coord} coordinate: {str(e)}")
+                        return
+
+            # Update plots and restore view
+            self.detect_outliers()
+            self.show_marker_plot(self.current_marker)
+            self.update_plot()
+
+            # Restore view states
+            for ax, view_state in zip(self.marker_axes, view_states):
+                ax.set_xlim(view_state['xlim'])
+                ax.set_ylim(view_state['ylim'])
+
+            # Restore selection
+            self.selection_data['start'] = current_selection['start']
+            self.selection_data['end'] = current_selection['end']
+            self.highlight_selection()
+
+            # Keep edit menu open and button highlighted
+            self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
+            self.edit_button.configure(fg_color="#555555")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred during filtering: {str(e)}")
+            print(f"Detailed error: {e}")
+            import traceback
+            traceback.print_exc()
 
     def delete_selected_data(self):
         if self.selection_data['start'] is None or self.selection_data['end'] is None:
@@ -1264,21 +1445,14 @@ class TRCViewer(ctk.CTk):
         self.is_z_up = not self.is_z_up
         self.coord_button.configure(text="Switch to Y-up" if self.is_z_up else "Switch to Z-up")
 
-        # Swap Y and Z data in self.data
-        for marker in self.marker_names:
-            y_col = f'{marker}_Y'
-            z_col = f'{marker}_Z'
-            self.data[y_col], self.data[z_col] = self.data[z_col].copy(), self.data[y_col].copy()
-
         # Redraw static elements and coordinate axes
         self._draw_static_elements()
         self._update_coordinate_axes()
 
-        # Adjust camera view based on the coordinate system
-        if self.is_z_up:
-            self.ax.view_init(elev=30, azim=45)  # Z-up view
-        else:
-            self.ax.view_init(elev=0, azim=90)  # Y-up view for appropriate orientation
+        # Update the plot with new data
+        self.update_plot()
+        self._draw_static_elements()
+        self._update_coordinate_axes()
 
         # Update the plot with new data
         self.update_plot()
