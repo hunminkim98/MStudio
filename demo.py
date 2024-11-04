@@ -139,6 +139,7 @@ class TRCViewer(ctk.CTk):
 
         # 사용 가능한 스켈레톤 모델들
         self.available_models = {
+            'No skeleton': None,
             'BODY_25B': BODY_25B,
             'BODY_25': BODY_25,
             'BODY_135': BODY_135,
@@ -249,16 +250,16 @@ class TRCViewer(ctk.CTk):
                                         **button_style)
         self.names_button.pack(side='left', padx=5)
 
-        # 스켈레톤 라인 표시/숨김 버튼
-        self.show_skeleton = True
-        self.skeleton_button = ctk.CTkButton(button_frame, 
-                                           text="Hide Skeleton", 
-                                           command=self.toggle_skeleton,
-                                           **button_style)
-        self.skeleton_button.pack(side='left', padx=5)
+        # # 스켈레톤 라인 표시/숨김 버튼
+        # self.show_skeleton = True
+        # self.skeleton_button = ctk.CTkButton(button_frame, 
+        #                                    text="Hide Skeleton", 
+        #                                    command=self.toggle_skeleton,
+        #                                    **button_style)
+        # self.skeleton_button.pack(side='left', padx=5)
 
         # 모델 선택 콤보박스
-        self.model_var = ctk.StringVar(value='COCO')
+        self.model_var = ctk.StringVar(value='No skeleton')
         self.model_combo = ctk.CTkComboBox(button_frame, 
                                          values=list(self.available_models.keys()),
                                          variable=self.model_var,
@@ -345,7 +346,13 @@ class TRCViewer(ctk.CTk):
     def on_model_change(self, choice):
         """스켈레톤 모델 변경 시 호출"""
         self.current_model = self.available_models[choice]
-        self.update_skeleton_pairs()
+        if self.current_model is None: 
+            self.skeleton_pairs = []
+            self.show_skeleton = False
+        else:
+            self.show_skeleton = True
+            self.update_skeleton_pairs()
+        
         if self.data is not None:
             self.detect_outliers()
             self.update_plot()
@@ -353,9 +360,10 @@ class TRCViewer(ctk.CTk):
     def update_skeleton_pairs(self):
         """현재 모델의 스켈레톤 연결 쌍 업데이트"""
         self.skeleton_pairs = []
-        for node in self.current_model.descendants:
-            if node.parent:
-                self.skeleton_pairs.append((node.parent.name, node.name))
+        if self.current_model is not None:
+            for node in self.current_model.descendants:
+                if node.parent:
+                    self.skeleton_pairs.append((node.parent.name, node.name))
 
     def open_file(self):
         """TRC/C3D 파일 열기"""
