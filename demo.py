@@ -254,75 +254,66 @@ class TRCViewer(ctk.CTk):
         self.canvas_frame = ctk.CTkFrame(canvas_container)
         self.canvas_frame.pack(side='left', fill='both', expand=True)
 
-        self.control_frame = ctk.CTkFrame(self)
+        # 통합된 컨트롤 프레임 생성 - 테두리 두께 감소
+        self.control_frame = ctk.CTkFrame(
+            self,
+            border_width=1,  # 테두리 두께 감소 (기본값은 2)
+            fg_color="#1A1A1A"  # 배경색 설정
+        )
         self.control_frame.pack(fill='x', padx=10, pady=(0, 10))
 
-        self.animation_frame = ctk.CTkFrame(self.control_frame)
-        self.animation_frame.pack(fill='x', padx=5, pady=(5, 0))
-
+        # 컨트롤 버튼 스타일
         control_style = {
             "width": 30,
             "fg_color": "#333333",
             "hover_color": "#444444"
         }
 
+        # 컨트롤 버튼 프레임
+        button_frame = ctk.CTkFrame(self.control_frame, fg_color="transparent")
+        button_frame.pack(side='left', padx=5)
+
+        # 재생 컨트롤 버튼들
         self.play_pause_button = ctk.CTkButton(
-            self.animation_frame,
+            button_frame,
             text="▶",
             command=self.toggle_animation,
             **control_style
         )
-        self.play_pause_button.pack(side='left', padx=5)
+        self.play_pause_button.pack(side='left', padx=2)
 
         self.stop_button = ctk.CTkButton(
-            self.animation_frame,
+            button_frame,
             text="■",
             command=self.stop_animation,
-            state='disabled',
+            # state='disabled',
             **control_style
         )
-        self.stop_button.pack(side='left', padx=5)
+        self.stop_button.pack(side='left', padx=2)
 
-        speed_frame = ctk.CTkFrame(self.animation_frame, fg_color="transparent")
-        speed_frame.pack(side='left', fill='x', expand=True, padx=10)
+        # Loop 체크박스 스타일
+        checkbox_style = {
+            "width": 60,
+            "fg_color": "#1A1A1A",  # transparent 대신 프레임의 배경색과 동일하게 설정
+            "border_color": "#666666",  # 테두리 색상
+            "hover_color": "#1A1A1A",  # hover 색상도 동일하게 설정
+            "checkmark_color": "#00A6FF",  # 체크마크 색상
+            "border_width": 2  # 테두리 두께
+        }
 
-        self.speed_label = ctk.CTkLabel(speed_frame, text="Speed: 1.0x")
-        self.speed_label.pack(side='left', padx=5)
-
-        self.speed_var = ctk.DoubleVar(value=1.0)
-        self.speed_slider = ctk.CTkSlider(
-            speed_frame,
-            from_=0.1,
-            to=3.0,
-            number_of_steps=99,
-            variable=self.speed_var,
-            command=self.update_playback_speed
-        )
-        self.speed_slider.pack(side='left', fill='x', expand=True, padx=5)
-
+        # Loop 체크박스
         self.loop_var = ctk.BooleanVar(value=False)
         self.loop_checkbox = ctk.CTkCheckBox(
-            self.animation_frame,
+            button_frame,
             text="Loop",
-            variable=self.loop_var
+            variable=self.loop_var,
+            text_color="#FFFFFF",
+            **checkbox_style
         )
         self.loop_checkbox.pack(side='left', padx=5)
 
-        # self.frame_counter = ctk.CTkLabel(
-        #     self.animation_frame,
-        #     text="Frame: 0/0"
-        # )
-        # self.frame_counter.pack(side='right', padx=5)
-
-        self.bottom_frame = ctk.CTkFrame(self.control_frame)
-        self.bottom_frame.pack(fill='x', padx=5)
-
-        # 타임라인 컨트롤 프레임 생성
-        timeline_control_frame = ctk.CTkFrame(self.control_frame)
-        timeline_control_frame.pack(fill='x', padx=5, pady=(5, 0))
-
         # 타임라인 메뉴 프레임
-        timeline_menu_frame = ctk.CTkFrame(timeline_control_frame, fg_color="transparent")
+        timeline_menu_frame = ctk.CTkFrame(self.control_frame, fg_color="transparent")
         timeline_menu_frame.pack(side='left', padx=(5, 10))
 
         # 현재 프레임/시간 표시 레이블
@@ -332,16 +323,13 @@ class TRCViewer(ctk.CTk):
             font=("Arial", 12),
             text_color="#FFFFFF"
         )
-        self.current_info_label.pack(pady=(0, 5))  # 모드 선택 버튼 위에 배치
+        self.current_info_label.pack(side='left', padx=5)
 
         # 모드 선택 버튼 프레임
         mode_frame = ctk.CTkFrame(timeline_menu_frame, fg_color="#222222", corner_radius=6)
-        mode_frame.pack(side='left', padx=2, pady=2)
+        mode_frame.pack(side='left', padx=2)
 
-        # 표시 방식 선택을 위한 변수
-        self.timeline_display_var = ctk.StringVar(value="time")
-        
-        # 버튼 스타일 설정
+        # Time/Frame 모드 버튼
         button_style = {
             "width": 60,
             "height": 24,
@@ -351,33 +339,32 @@ class TRCViewer(ctk.CTk):
             "text_color": "#888888",
             "hover_color": "#333333"
         }
-        
-        def create_mode_button(text, mode):
-            return ctk.CTkButton(
-                mode_frame,
-                text=text,
-                command=lambda m=mode: self.change_timeline_mode(m),
-                **button_style
-            )
 
-        # Time 버튼
-        self.time_btn = create_mode_button("Time", "time")
+        self.timeline_display_var = ctk.StringVar(value="time")
+        
+        self.time_btn = ctk.CTkButton(
+            mode_frame,
+            text="Time",
+            command=lambda: self.change_timeline_mode("time"),
+            **button_style
+        )
         self.time_btn.pack(side='left', padx=2, pady=2)
 
-        # Frame 버튼
-        self.frame_btn = create_mode_button("Frame", "frame")
+        self.frame_btn = ctk.CTkButton(
+            mode_frame,
+            text="Frame",
+            command=lambda: self.change_timeline_mode("frame"),
+            **button_style
+        )
         self.frame_btn.pack(side='left', padx=2, pady=2)
-
-        # 초기 선택 상태 설정
-        self.change_timeline_mode("time")
 
         # 타임라인 Figure 생성
         self.timeline_fig = Figure(figsize=(5, 0.8), facecolor='black')
         self.timeline_ax = self.timeline_fig.add_subplot(111)
         self.timeline_ax.set_facecolor('black')
         
-        # 타임라인 캔버스를 timeline_control_frame에 배치
-        self.timeline_canvas = FigureCanvasTkAgg(self.timeline_fig, master=timeline_control_frame)
+        # 타임라인 캔버스
+        self.timeline_canvas = FigureCanvasTkAgg(self.timeline_fig, master=self.control_frame)
         self.timeline_canvas.get_tk_widget().pack(fill='x', expand=True, padx=5, pady=5)
         
         # 타임라인 이벤트 연결
@@ -387,21 +374,8 @@ class TRCViewer(ctk.CTk):
         
         self.timeline_dragging = False
 
-        self.prev_button = ctk.CTkButton(
-            self.bottom_frame,
-            text="◀",
-            width=30,
-            command=self.prev_frame
-        )
-        self.prev_button.pack(side='left', padx=5)
-
-        self.next_button = ctk.CTkButton(
-            self.bottom_frame,
-            text="▶",
-            width=30,
-            command=self.next_frame
-        )
-        self.next_button.pack(side='left', padx=5)
+        # 초기 타임라인 모드 설정
+        self.change_timeline_mode("time")
 
         self.marker_label = ctk.CTkLabel(self, text="")
         self.marker_label.pack(pady=5)
@@ -461,7 +435,7 @@ class TRCViewer(ctk.CTk):
             for frame in major_frame_ticks:
                 self.timeline_ax.axvline(frame, color='white', alpha=0.3, linewidth=1)
                 self.timeline_ax.text(frame, -0.7, f"{frame}", 
-                                    color='white', fontsize=8, 
+                                    color='white', fontsize=6, alpha=0.5,
                                     horizontalalignment='center',
                                     verticalalignment='top')
             
@@ -521,13 +495,20 @@ class TRCViewer(ctk.CTk):
             # Initialize new skeleton lines
             if self.show_skeleton:
                 for _ in self.skeleton_pairs:
-                    line = Line3D([], [], [], color='gray', alpha=0.5)
+                    line = Line3D([], [], [], color='gray', alpha=0.8)
                     self.ax.add_line(line)
                     self.skeleton_lines.append(line)
+
+            # Re-detect outliers with new skeleton pairs
+            self.detect_outliers()
 
             # Update the plot with the current frame data
             self.update_plot()
             self.update_frame(current_frame)
+
+            # If a marker is currently selected, update its plot
+            if hasattr(self, 'current_marker') and self.current_marker:
+                self.show_marker_plot(self.current_marker)
 
             # Refresh the canvas
             if hasattr(self, 'canvas'):
@@ -600,7 +581,7 @@ class TRCViewer(ctk.CTk):
                     self.canvas.flush_events()
 
                 self.play_pause_button.configure(state='normal')
-                self.speed_slider.configure(state='normal')
+                # self.speed_slider.configure(state='normal')
                 self.loop_checkbox.configure(state='normal')
 
                 self.is_playing = False
@@ -777,8 +758,8 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'selected_marker_scatter'):
             self.selected_marker_scatter.remove()
 
-        self.markers_scatter = self.ax.scatter([], [], [], c='white', s=50, picker=5)
-        self.selected_marker_scatter = self.ax.scatter([], [], [], c='yellow', s=70)
+        self.markers_scatter = self.ax.scatter([], [], [], c='white', s=30, picker=5)
+        self.selected_marker_scatter = self.ax.scatter([], [], [], c='yellow', s=50)
 
         if hasattr(self, 'skeleton_lines'):
             for line in self.skeleton_lines:
@@ -787,7 +768,7 @@ class TRCViewer(ctk.CTk):
 
         if hasattr(self, 'skeleton_pairs') and self.skeleton_pairs:
             for _ in self.skeleton_pairs:
-                line = Line3D([], [], [], color='gray', alpha=0.5)
+                line = Line3D([], [], [], color='gray', alpha=0.8)
                 self.ax.add_line(line)
                 self.skeleton_lines.append(line)
 
@@ -980,7 +961,7 @@ class TRCViewer(ctk.CTk):
                     )
 
                     line.set_color('red' if is_outlier else 'gray')
-                    line.set_alpha(0.8 if is_outlier else 0.5)
+                    line.set_alpha(1 if is_outlier else 0.8)
                     line.set_linewidth(3 if is_outlier else 2)
 
         if self.show_names:
@@ -993,6 +974,10 @@ class TRCViewer(ctk.CTk):
                 color = 'yellow' if (hasattr(self, 'current_marker') and marker == self.current_marker) else 'white'
                 label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, fontsize=8)
                 self.marker_labels.append(label)
+        if not self.show_names:
+            for label in self.marker_labels:
+                label.remove()
+            self.marker_labels.clear()
 
         self.ax.view_init(elev=prev_elev, azim=prev_azim)
         self.ax.set_xlim(prev_xlim)
@@ -1859,18 +1844,20 @@ class TRCViewer(ctk.CTk):
             self.animation_job = None
 
     def stop_animation(self):
-        self.is_playing = False
-        self.play_pause_button.configure(text="▶")
+        # 재생 중이었다면 멈춤
+        if self.is_playing:
+            self.is_playing = False
+            self.play_pause_button.configure(text="▶")
+            if self.animation_job:
+                self.after_cancel(self.animation_job)
+                self.animation_job = None
+        
+        # 첫 프레임으로 되돌아감
+        self.frame_idx = 0
+        self.update_plot()
+        self.update_timeline()
         self.stop_button.configure(state='disabled')
 
-        if self.animation_job:
-            self.after_cancel(self.animation_job)
-            self.animation_job = None
-
-        self.frame_idx = 0
-        self.frame_slider.set(0)
-        self.update_plot()
-        # self.update_frame_counter()
 
     def animate(self):
         if self.is_playing:
@@ -1883,19 +1870,19 @@ class TRCViewer(ctk.CTk):
                     self.stop_animation()
                     return
 
-            self.frame_slider.set(self.frame_idx)
             self.update_plot()
-            # self.update_frame_counter()
+            self.update_timeline()
 
+            # Speed slider 관련 코드 제거하고 기본 FPS 사용
             base_fps = float(self.fps_var.get())
-            delay = int(1000 / (self.playback_speed * base_fps))
+            delay = int(1000 / base_fps)
             delay = max(1, delay)
 
             self.animation_job = self.after(delay, self.animate)
 
-    def update_playback_speed(self, value):
-        self.playback_speed = float(value)
-        self.speed_label.configure(text=f"Speed: {self.playback_speed:.1f}x")
+    # def update_playback_speed(self, value):
+    #     self.playback_speed = float(value)
+    #     self.speed_label.configure(text=f"Speed: {self.playback_speed:.1f}x")
 
     # def update_frame_counter(self):
     #     if self.data is not None:
