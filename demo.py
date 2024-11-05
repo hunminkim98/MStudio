@@ -3,8 +3,6 @@ import numpy as np
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt
-from tkinter import simpledialog
 from mpl_toolkits.mplot3d.art3d import Line3D
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Pose2Sim.skeletons import *
@@ -129,6 +127,25 @@ class TRCViewer(ctk.CTk):
         self.view_limits = None
         self.is_z_up = True
 
+        # 필터 타입 변수 초기화
+        self.filter_type_var = ctk.StringVar(value='butterworth')
+        
+        # 보간 메소드 리스트 추가
+        self.interp_methods = [
+            'linear',
+            'polynomial',
+            'spline',
+            'nearest',
+            'zero',
+            'slinear',
+            'quadratic',
+            'cubic'
+        ]
+        
+        # 보간 메소드 변수 초기화
+        self.interp_method_var = ctk.StringVar(value='linear')
+        self.order_var = ctk.StringVar(value='3')
+
         self.available_models = {
             'No skeleton': None,
             'BODY_25B': BODY_25B,
@@ -166,6 +183,8 @@ class TRCViewer(ctk.CTk):
         # 초기화 시 3D 플롯 생성
         self.create_plot()
         self.update_plot()  # 빈 플롯을 업데이트
+
+        self.edit_window = None
 
     def create_widgets(self):
         button_frame = ctk.CTkFrame(self)
@@ -324,7 +343,7 @@ class TRCViewer(ctk.CTk):
         self.current_info_label = ctk.CTkLabel(
             timeline_menu_frame,
             text="0.00s",
-            font=("Arial", 12),
+            font=("Arial", 14),
             text_color="#FFFFFF"
         )
         self.current_info_label.pack(side='left', padx=5)
@@ -1105,20 +1124,20 @@ class TRCViewer(ctk.CTk):
             self.connect_mouse_events()
 
     def show_marker_plot(self, marker_name):
-        prev_interp_method = None
-        prev_order = None
-        prev_hz = None
-        prev_filter_order = None
+        # Save current states
+        was_editing = getattr(self, 'editing', False)
         
-        # Store previous values if they exist
-        if hasattr(self, 'interp_method_var'):
-            prev_interp_method = self.interp_method_var.get()
-        if hasattr(self, 'order_var'):
-            prev_order = self.order_var.get()
-        if hasattr(self, 'hz_var'):
-            prev_hz = self.hz_var.get()
-        if hasattr(self, 'filter_order_var'):
-            prev_filter_order = self.filter_order_var.get()
+        # Save previous filter parameters if they exist
+        prev_filter_params = None
+        if hasattr(self, 'filter_params'):
+            prev_filter_params = {
+                filter_type: {
+                    param: var.get() for param, var in params.items()
+                } for filter_type, params in self.filter_params.items()
+            }
+        prev_filter_type = getattr(self, 'filter_type_var', None)
+        if prev_filter_type:
+            prev_filter_type = prev_filter_type.get()
 
         if not self.graph_frame.winfo_ismapped():
             self.graph_frame.pack(side='right', fill='both', expand=True)
@@ -1171,9 +1190,9 @@ class TRCViewer(ctk.CTk):
 
             if len(outlier_frames) > 0:
                 ax.legend(facecolor='black',
-                          labelcolor='white',
-                          loc='upper right',
-                          bbox_to_anchor=(1.0, 1.0))
+                        labelcolor='white',
+                        loc='upper right',
+                        bbox_to_anchor=(1.0, 1.0))
 
         self.marker_plot_fig.tight_layout()
 
@@ -1197,83 +1216,53 @@ class TRCViewer(ctk.CTk):
         button_frame.pack(fill='x', padx=5, pady=5)
 
         reset_button = ctk.CTkButton(button_frame,
-                                     text="Reset View",
-                                     command=self.reset_graph_view,
-                                     width=80,
-                                     fg_color="#333333",
-                                     hover_color="#444444")
+                                    text="Reset View",
+                                    command=self.reset_graph_view,
+                                    width=80,
+                                    fg_color="#333333",
+                                    hover_color="#444444")
         reset_button.pack(side='right', padx=5)
 
+        # Edit button to open the new window
         self.edit_button = ctk.CTkButton(button_frame,
-                                         text="Edit",
-                                         command=self.toggle_edit_menu,
-                                         width=80,
-                                         fg_color="#333333",
-                                         hover_color="#444444")
+                                        text="Edit",
+                                        command=self.toggle_edit_window,  # window rather than menu
+                                        width=80,
+                                        fg_color="#333333",
+                                        hover_color="#444444")
         self.edit_button.pack(side='right', padx=5)
 
-        self.edit_menu = ctk.CTkFrame(self.graph_frame)
-
-        # Add filter parameters frame
-        filter_params_frame = ctk.CTkFrame(self.edit_menu)
-        filter_params_frame.pack(side='left', padx=5)
+        # Initialize filter parameters if not already present
+        if not hasattr(self, 'filter_params'):
+            self.filter_params = {
+                'butterworth': {
+                    'order': ctk.StringVar(value="4"),
+                    'cut_off_frequency': ctk.StringVar(value="10")
+                },
+                'kalman': {
+                    'trust_ratio': ctk.StringVar(value="20"),
+                    'smooth': ctk.StringVar(value="1")
+                },
+                'gaussian': {
+                    'sigma_kernel': ctk.StringVar(value="3")
+                },
+                'LOESS': {
+                    'nb_values_used': ctk.StringVar(value="10")
+                },
+                'median': {
+                    'kernel_size': ctk.StringVar(value="3")
+                }
+            }
         
-        # Add Hz input with previous value
-        hz_frame = ctk.CTkFrame(filter_params_frame, fg_color="transparent")
-        hz_frame.pack(side='left', padx=5)
-        hz_label = ctk.CTkLabel(hz_frame, text="Hz:")
-        hz_label.pack(side='left', padx=2)
-        self.hz_var = ctk.StringVar(value="10.0" if prev_hz is None else prev_hz)
-        self.hz_entry = ctk.CTkEntry(hz_frame, textvariable=self.hz_var, width=50)
-        self.hz_entry.pack(side='left')
-        
-        # Add order input with previous value
-        order_frame = ctk.CTkFrame(filter_params_frame, fg_color="transparent")
-        order_frame.pack(side='left', padx=5)
-        order_label = ctk.CTkLabel(order_frame, text="Order:")
-        order_label.pack(side='left', padx=2)
-        self.filter_order_var = ctk.StringVar(value="4" if prev_filter_order is None else prev_filter_order)
-        self.filter_order_entry = ctk.CTkEntry(order_frame, textvariable=self.filter_order_var, width=50)
-        self.filter_order_entry.pack(side='left')
+        # Restore previous parameter values if they exist
+        if prev_filter_params:
+            for filter_type, params in prev_filter_params.items():
+                for param, value in params.items():
+                    self.filter_params[filter_type][param].set(value)
 
-        edit_buttons = [
-            ("Filter", self.filter_selected_data),
-            ("Delete", self.delete_selected_data),
-            ("Interpolate", self.interpolate_selected_data),
-            ("Restore", self.restore_original_data),
-            ("Cancel", lambda: self.edit_menu.pack_forget())
-        ]
-
-        for text, command in edit_buttons:
-            btn = ctk.CTkButton(self.edit_menu,
-                                text=text,
-                                command=command,
-                                width=80,
-                                fg_color="#333333",
-                                hover_color="#444444")
-            btn.pack(side='left', padx=5, pady=5)
-
-        self.interp_methods = ['linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic',
-                               'polynomial', 'spline', 'barycentric', 'krogh', 'pchip', 'akima', 'from_derivatives']
-        self.interp_method_var = ctk.StringVar(value='linear' if prev_interp_method is None else prev_interp_method)
-        interp_label = ctk.CTkLabel(self.edit_menu, text="Interpolation Method:")
-        interp_label.pack(side='left', padx=5)
-        self.interp_combo = ctk.CTkComboBox(self.edit_menu,
-                                            values=self.interp_methods,
-                                            variable=self.interp_method_var,
-                                            command=self.on_interp_method_change)
-        self.interp_combo.pack(side='left', padx=5)
-
-        self.order_var = ctk.IntVar(value=2 if prev_order is None else prev_order)
-        self.order_entry = ctk.CTkEntry(self.edit_menu, textvariable=self.order_var, width=50)
-        self.order_label = ctk.CTkLabel(self.edit_menu, text="Order:")
-        self.order_label.pack(side='left', padx=5)
-        self.order_entry.pack(side='left', padx=5)
-
-        if prev_interp_method in ['polynomial', 'spline']:
-            self.order_entry.configure(state='normal')
-        else:
-            self.order_entry.configure(state='disabled')
+        # Backwards compatibility for filter parameters
+        self.hz_var = self.filter_params['butterworth']['cut_off_frequency']
+        self.filter_order_var = self.filter_params['butterworth']['order']
 
         self.selection_data = {
             'start': None,
@@ -1283,22 +1272,57 @@ class TRCViewer(ctk.CTk):
 
         self.connect_mouse_events()
 
-    def on_interp_method_change(self, choice):
-        if choice in ['polynomial', 'spline']:
-            self.order_entry.configure(state='normal')
-        else:
-            self.order_entry.configure(state='disabled')
+        # Restore edit state if it was active
+        if was_editing:
+            self.start_edit()
 
-    def toggle_edit_menu(self):
-        if self.edit_menu.winfo_ismapped():
-            self.edit_menu.pack_forget()
-            self.edit_button.configure(fg_color="#333333")
-            self.clear_selection()
-        else:
-            self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
-            self.edit_button.configure(fg_color="#555555")
-            # Keep the selection data intact
-            self.selection_in_progress = False
+        # 마커 캔버스 이벤트 연결
+        self.marker_canvas.mpl_connect('button_press_event', self.on_marker_mouse_press)
+        self.marker_canvas.mpl_connect('button_release_event', self.on_marker_mouse_release)
+        self.marker_canvas.mpl_connect('motion_notify_event', self.on_marker_mouse_move)
+
+        # selection_data 초기화
+        self.selection_data = {
+            'start': None,
+            'end': None,
+            'rects': []
+        }
+
+        # selection_in_progress 초기화
+        self.selection_in_progress = False
+
+
+    def on_interp_method_change(self, choice):
+        if hasattr(self, 'edit_window') and self.edit_window:
+            if choice in ['polynomial', 'spline']:
+                self.edit_window.order_entry.configure(state='normal')
+                self.edit_window.order_label.configure(state='normal')
+            else:
+                self.edit_window.order_entry.configure(state='disabled')
+                self.edit_window.order_label.configure(state='disabled')
+
+    # def toggle_edit_menu(self):
+    #     if hasattr(self, 'edit_window') and self.edit_window:
+    #         self.edit_window.focus()  # 이미 존재하는 창에 포커스
+    #     else:
+    #         self.edit_window = EditWindow(self)
+    #         self.edit_window.focus()
+
+    def toggle_edit_window(self):
+        try:
+            # 기존 edit_window가 있으면 포커스
+            if hasattr(self, 'edit_window') and self.edit_window:
+                self.edit_window.focus()
+            else:
+                # 새로운 EditWindow 생성
+                self.edit_window = EditWindow(self)
+                self.edit_window.focus()
+                
+        except Exception as e:
+            print(f"Error in toggle_edit_window: {e}")
+            import traceback
+            traceback.print_exc()
+
 
     def clear_selection(self):
         if 'rects' in self.selection_data and self.selection_data['rects']:
@@ -1313,29 +1337,33 @@ class TRCViewer(ctk.CTk):
         if event.inaxes is None:
             return
 
-        if event.button == 2:
+        if event.button == 2:  # 중간 버튼
             self.marker_pan_enabled = True
             self.marker_last_pos = (event.xdata, event.ydata)
-        elif event.button == 1 and hasattr(self, 'edit_menu') and self.edit_menu.winfo_ismapped():
-            if event.xdata is not None:
-                if self.selection_data.get('rects'):
-                    start = min(self.selection_data['start'], self.selection_data['end'])
-                    end = max(self.selection_data['start'], self.selection_data['end'])
-                    if not (start <= event.xdata <= end):
-                        self.clear_selection()
+        elif event.button == 1:  # 왼쪽 버튼
+            # edit_menu 대신 edit_window 확인
+            if hasattr(self, 'edit_window') and self.edit_window:
+                if event.xdata is not None:
+                    if self.selection_data.get('rects'):
+                        start = min(self.selection_data['start'], self.selection_data['end'])
+                        end = max(self.selection_data['start'], self.selection_data['end'])
+                        if not (start <= event.xdata <= end):
+                            self.clear_selection()
+                            self.start_new_selection(event)
+                    else:
                         self.start_new_selection(event)
-                else:
-                    self.start_new_selection(event)
 
     def on_marker_mouse_release(self, event):
         if event.button == 2:
             self.marker_pan_enabled = False
             self.marker_last_pos = None
-        elif event.button == 1 and hasattr(self, 'edit_menu') and self.edit_menu.winfo_ismapped():
-            if self.selection_data.get('start') is not None and event.xdata is not None:
-                self.selection_data['end'] = event.xdata
-                self.selection_in_progress = False
-                self.highlight_selection()
+        elif event.button == 1:
+            # edit_menu 대신 edit_window 확인
+            if hasattr(self, 'edit_window') and self.edit_window:
+                if self.selection_data.get('start') is not None and event.xdata is not None:
+                    self.selection_data['end'] = event.xdata
+                    self.selection_in_progress = False
+                    self.highlight_selection()
 
     def highlight_selection(self):
         if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
@@ -1357,11 +1385,18 @@ class TRCViewer(ctk.CTk):
                                  facecolor='yellow',
                                  alpha=0.2)
             self.selection_data['rects'].append(ax.add_patch(rect))
-
         self.marker_canvas.draw()
 
     def filter_selected_data(self):
         try:
+            # 현재 선택 영역 저장
+            current_selection = None
+            if hasattr(self, 'selection_data'):
+                current_selection = {
+                    'start': self.selection_data.get('start'),
+                    'end': self.selection_data.get('end')
+                }
+
             # If no selection, use entire range
             if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
                 start_frame = 0
@@ -1378,90 +1413,78 @@ class TRCViewer(ctk.CTk):
                     'ylim': ax.get_ylim()
                 })
 
-            # Store current selection
-            current_selection = {
-                'start': self.selection_data.get('start'),
-                'end': self.selection_data.get('end')
-            }
-
             # Get filter parameters
-            try:
-                cutoff_freq = float(self.hz_var.get())
-                filter_order = int(self.filter_order_var.get())
-                
-                if cutoff_freq <= 0:
-                    messagebox.showerror("Input Error", "Hz must be greater than 0")
-                    return
-                if filter_order < 1:
-                    messagebox.showerror("Input Error", "Order must be at least 1")
-                    return
+            filter_type = self.filter_type_var.get()
+            
+            if filter_type == 'butterworth':
+                try:
+                    cutoff_freq = float(self.filter_params['butterworth']['cut_off_frequency'].get())
+                    filter_order = int(self.filter_params['butterworth']['order'].get())
                     
-            except ValueError:
-                messagebox.showerror("Input Error", "Please enter valid numbers for Hz and Order")
-                return
+                    if cutoff_freq <= 0:
+                        messagebox.showerror("Input Error", "Hz must be greater than 0")
+                        return
+                    if filter_order < 1:
+                        messagebox.showerror("Input Error", "Order must be at least 1")
+                        return
+                        
+                except ValueError:
+                    messagebox.showerror("Input Error", "Please enter valid numbers for Hz and Order")
+                    return
 
-            # Sampling frequency and Nyquist frequency
-            fs = float(self.fps_var.get())
-            nyq = 0.5 * fs
-            normal_cutoff = cutoff_freq / nyq
+                # Create config dict for Pose2Sim
+                config_dict = {
+                    'filtering': {
+                        'butterworth': {
+                            'order': filter_order,
+                            'cut_off_frequency': cutoff_freq
+                        }
+                    }
+                }
+            else:
+                # Handle other filter types similarly...
+                config_dict = {
+                    'filtering': {
+                        filter_type: {k: float(v.get()) for k, v in self.filter_params[filter_type].items()}
+                    }
+                }
 
-            if normal_cutoff >= 1.0:
-                messagebox.showerror("Filtering Error", f"Cutoff frequency ({cutoff_freq} Hz) must be less than Nyquist frequency ({nyq} Hz)")
-                return
-
-            # Apply filter to each coordinate
+            # Get frame rate and apply filter
+            frame_rate = float(self.fps_var.get())
+            
             for coord in ['X', 'Y', 'Z']:
                 col_name = f'{self.current_marker}_{coord}'
+                series = self.data[col_name]
                 
-                # Get the complete data series
-                data_series = self.data[col_name].copy()
+                # Apply Pose2Sim filter
+                filtered_data = filter1d(series, config_dict, filter_type, frame_rate)
                 
-                # Extract the segment to filter
-                segment = data_series[start_frame:end_frame + 1]
-                
-                # Handle NaN values
-                valid_indices = ~segment.isna()
-                if not valid_indices.any():
-                    continue
-                    
-                valid_data = segment[valid_indices]
-                
-                if len(valid_data) > 3:  # Need at least a few points for filtering
-                    try:
-                        # Design and apply the Butterworth filter
-                        b, a = butter(filter_order, normal_cutoff, btype='low', analog=False)
-                        
-                        # Apply filtfilt to valid data only
-                        filtered_valid = filtfilt(b, a, valid_data)
-                        
-                        # Put filtered data back into the segment
-                        segment[valid_indices] = filtered_valid
-                        
-                        # Update the main data
-                        self.data.loc[start_frame:end_frame, col_name] = segment
-                        
-                    except Exception as e:
-                        messagebox.showerror("Filtering Error", f"Error filtering {coord} coordinate: {str(e)}")
-                        return
+                # Update data
+                self.data[col_name] = filtered_data
 
-            # Update plots and restore view
+            # Update plots
             self.detect_outliers()
             self.show_marker_plot(self.current_marker)
-            self.update_plot()
 
             # Restore view states
             for ax, view_state in zip(self.marker_axes, view_states):
                 ax.set_xlim(view_state['xlim'])
                 ax.set_ylim(view_state['ylim'])
 
-            # Restore selection
-            self.selection_data['start'] = current_selection['start']
-            self.selection_data['end'] = current_selection['end']
-            self.highlight_selection()
+            # Restore selection if it existed
+            if current_selection and current_selection['start'] is not None:
+                self.selection_data['start'] = current_selection['start']
+                self.selection_data['end'] = current_selection['end']
+                self.highlight_selection()
+                
+            self.update_plot()
 
-            # Keep edit menu open and button highlighted
-            self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
-            self.edit_button.configure(fg_color="#555555")
+            # edit_menu 대신 edit_window 사용
+            if hasattr(self, 'edit_window') and self.edit_window:
+                self.edit_window.focus()
+                # edit_button 상태 업데이트
+                if hasattr(self, 'edit_button'):
+                    self.edit_button.configure(fg_color="#555555")
 
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred during filtering: {str(e)}")
@@ -1504,8 +1527,9 @@ class TRCViewer(ctk.CTk):
         self.selection_data['end'] = current_selection['end']
         self.highlight_selection()
 
-        self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
-        self.edit_button.configure(fg_color="#555555")
+        # Update edit button state if it exists
+        if hasattr(self, 'edit_button'):
+            self.edit_button.configure(fg_color="#555555")
 
     def interpolate_selected_data(self):
         if self.selection_data['start'] is None or self.selection_data['end'] is None:
@@ -1552,7 +1576,6 @@ class TRCViewer(ctk.CTk):
                 return
 
         self.detect_outliers()
-
         self.show_marker_plot(self.current_marker)
 
         for ax, view_state in zip(self.marker_axes, view_states):
@@ -1565,8 +1588,9 @@ class TRCViewer(ctk.CTk):
         self.selection_data['end'] = current_selection['end']
         self.highlight_selection()
 
-        self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
-        self.edit_button.configure(fg_color="#555555")
+        # Update edit button state if it exists
+        if hasattr(self, 'edit_button'):
+            self.edit_button.configure(fg_color="#555555")
 
     def restore_original_data(self):
         if self.original_data is not None:
@@ -1574,9 +1598,12 @@ class TRCViewer(ctk.CTk):
             self.detect_outliers()
             self.show_marker_plot(self.current_marker)
             self.update_plot()
-            self.edit_menu.pack(after=self.edit_button.winfo_parent(), pady=5)
-            self.edit_button.configure(fg_color="#555555")
-            print("Data has been restored to the original state.")
+            
+            # Update edit button state if it exists
+            if hasattr(self, 'edit_button'):
+                self.edit_button.configure(fg_color="#555555")
+                
+            # print("Data has been restored to the original state.")
         else:
             messagebox.showinfo("Restore Data", "No original data to restore.")
 
@@ -1910,16 +1937,6 @@ class TRCViewer(ctk.CTk):
 
             self.animation_job = self.after(delay, self.animate)
 
-    # def update_playback_speed(self, value):
-    #     self.playback_speed = float(value)
-    #     self.speed_label.configure(text=f"Speed: {self.playback_speed:.1f}x")
-
-    # def update_frame_counter(self):
-    #     if self.data is not None:
-    #         self.frame_counter.configure(
-    #             text=f"Frame: {self.frame_idx}/{self.num_frames-1}"
-    #         )
-
     def update_fps_label(self):
         fps = self.fps_var.get()
         if hasattr(self, 'fps_label'):
@@ -1966,7 +1983,7 @@ class TRCViewer(ctk.CTk):
             ),
             # 마커 이름 행을 수정: 각 마커 뒤에 빈 탭 2개 추가
             "\t".join(['Frame#', 'Time'] + [name + '\t\t' for name in self.marker_names]) + "\n",
-            # X,Y,Z 행은 그대로 유지
+            # X,Y,Z 행 그대로 유지
             "\t".join(['', ''] + ['X\tY\tZ' for _ in self.marker_names]) + "\n"
         ]
 
@@ -1990,7 +2007,7 @@ class TRCViewer(ctk.CTk):
             # Writer 객체 초기화 시 frame rate 설정
             writer = c3d.Writer(point_rate=frame_rate, analog_rate=0)
 
-            # 마커 레이블 설정
+            # 커 레이블 설정
             marker_labels = self.marker_names
             writer.set_point_labels(marker_labels)
 
@@ -2078,6 +2095,230 @@ class TRCViewer(ctk.CTk):
             self.time_btn.configure(fg_color="transparent", text_color="#888888")
         
         self.update_timeline()
+
+    def on_filter_type_change(self, choice):
+        if self.current_params_frame:
+            self.current_params_frame.destroy()
+        
+        self.current_params_frame = ctk.CTkFrame(self.filter_params_frame)
+        self.current_params_frame.pack(side='left', padx=5)
+        
+        if choice == 'butterworth':
+            order_label = ctk.CTkLabel(self.current_params_frame, text="Order:")
+            order_label.pack(side='left', padx=2)
+            order_entry = ctk.CTkEntry(self.current_params_frame, 
+                                     textvariable=self.parent.filter_params['butterworth']['order'],
+                                     width=50)
+            order_entry.pack(side='left', padx=2)
+
+            cutoff_label = ctk.CTkLabel(self.current_params_frame, text="Cutoff (Hz):")
+            cutoff_label.pack(side='left', padx=2)
+            cutoff_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['butterworth']['cut_off_frequency'],
+                                      width=50)
+            cutoff_entry.pack(side='left', padx=2)
+
+        elif choice == 'kalman':
+            trust_label = ctk.CTkLabel(self.current_params_frame, text="Trust Ratio:")
+            trust_label.pack(side='left', padx=2)
+            trust_entry = ctk.CTkEntry(self.current_params_frame,
+                                     textvariable=self.parent.filter_params['kalman']['trust_ratio'],
+                                     width=50)
+            trust_entry.pack(side='left', padx=2)
+
+            smooth_label = ctk.CTkLabel(self.current_params_frame, text="Smooth:")
+            smooth_label.pack(side='left', padx=2)
+            smooth_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['kalman']['smooth'],
+                                      width=50)
+            smooth_entry.pack(side='left', padx=2)
+
+        elif choice == 'gaussian':
+            kernel_label = ctk.CTkLabel(self.current_params_frame, text="Sigma Kernel:")
+            kernel_label.pack(side='left', padx=2)
+            kernel_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['gaussian']['sigma_kernel'],
+                                      width=50)
+            kernel_entry.pack(side='left', padx=2)
+
+        elif choice == 'LOESS':
+            values_label = ctk.CTkLabel(self.current_params_frame, text="Values Used:")
+            values_label.pack(side='left', padx=2)
+            values_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['LOESS']['nb_values_used'],
+                                      width=50)
+            values_entry.pack(side='left', padx=2)
+
+        elif choice == 'median':
+            kernel_label = ctk.CTkLabel(self.current_params_frame, text="Kernel Size:")
+            kernel_label.pack(side='left', padx=2)
+            kernel_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['median']['kernel_size'],
+                                      width=50)
+            kernel_entry.pack(side='left', padx=2)
+
+class EditWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        
+        # Always display on top
+        self.attributes('-topmost', True)
+        
+        # Window settings
+        self.title("Edit Options")
+        self.geometry("1230x120")  # 창 크기만 수정
+        self.resizable(False, False)
+        
+        # Main frame
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Filter parameters frame
+        self.filter_params_frame = ctk.CTkFrame(self.main_frame)
+        self.filter_params_frame.pack(side='left', padx=5)
+        
+        # Filter type selection
+        self.filter_type_frame = ctk.CTkFrame(self.filter_params_frame, fg_color="transparent")
+        self.filter_type_frame.pack(side='left', padx=5)
+        
+        filter_type_label = ctk.CTkLabel(self.filter_type_frame, text="Filter:")
+        filter_type_label.pack(side='left', padx=2)
+        
+        self.filter_type_combo = ctk.CTkComboBox(
+            self.filter_type_frame,
+            values=['kalman', 'butterworth', 'butterworth_on_speed', 'gaussian', 'LOESS', 'median'],
+            variable=parent.filter_type_var,
+            command=self.on_filter_type_change)
+        self.filter_type_combo.pack(side='left')
+        
+        # Buttons frame
+        self.button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.button_frame.pack(side='left', padx=5)
+        
+        # Edit buttons
+        button_style = {"width": 80, "fg_color": "#333333", "hover_color": "#444444"}
+        
+        buttons = [
+            ("Filter", parent.filter_selected_data),
+            ("Delete", parent.delete_selected_data),
+            ("Interpolate", parent.interpolate_selected_data),
+            ("Restore", parent.restore_original_data)
+        ]
+        
+        for text, command in buttons:
+            btn = ctk.CTkButton(
+                self.button_frame,
+                text=text,
+                command=command,
+                **button_style
+            )
+            btn.pack(side='left', padx=5)
+        
+        # Interpolation method frame
+        self.interp_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.interp_frame.pack(side='left', padx=5)
+        
+        interp_label = ctk.CTkLabel(self.interp_frame, text="Interpolation:")
+        interp_label.pack(side='left', padx=5)
+        
+        self.interp_combo = ctk.CTkComboBox(
+            self.interp_frame,
+            values=parent.interp_methods,
+            variable=parent.interp_method_var,
+            command=parent.on_interp_method_change)
+        self.interp_combo.pack(side='left', padx=5)
+        
+        # Order frame
+        self.order_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.order_frame.pack(side='left', padx=5)
+        
+        self.order_label = ctk.CTkLabel(self.order_frame, text="Order:")
+        self.order_label.pack(side='left', padx=5)
+        
+        self.order_entry = ctk.CTkEntry(
+            self.order_frame,
+            textvariable=parent.order_var,
+            width=50
+        )
+        self.order_entry.pack(side='left', padx=5)
+        
+        # Initialize state based on current interpolation method
+        if parent.interp_method_var.get() not in ['polynomial', 'spline']:
+            self.order_entry.configure(state='disabled')
+            self.order_label.configure(state='disabled')
+        
+        # Create initial filter parameter UI
+        self.current_params_frame = None
+        self.on_filter_type_change(parent.filter_type_var.get())
+        
+        # Handle window close event
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def on_closing(self):
+        self.parent.edit_window = None
+        self.destroy()
+    
+    def on_filter_type_change(self, choice):
+        if self.current_params_frame:
+            self.current_params_frame.destroy()
+        
+        self.current_params_frame = ctk.CTkFrame(self.filter_params_frame)
+        self.current_params_frame.pack(side='left', padx=5)
+        
+        if choice == 'butterworth':
+            order_label = ctk.CTkLabel(self.current_params_frame, text="Order:")
+            order_label.pack(side='left', padx=2)
+            order_entry = ctk.CTkEntry(self.current_params_frame, 
+                                     textvariable=self.parent.filter_params['butterworth']['order'],
+                                     width=50)
+            order_entry.pack(side='left', padx=2)
+
+            cutoff_label = ctk.CTkLabel(self.current_params_frame, text="Cutoff Frequency (Hz):")
+            cutoff_label.pack(side='left', padx=2)
+            cutoff_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['butterworth']['cut_off_frequency'],
+                                      width=50)
+            cutoff_entry.pack(side='left', padx=2)
+
+        elif choice == 'kalman':
+            trust_label = ctk.CTkLabel(self.current_params_frame, text="Trust Ratio:")
+            trust_label.pack(side='left', padx=2)
+            trust_entry = ctk.CTkEntry(self.current_params_frame,
+                                     textvariable=self.parent.filter_params['kalman']['trust_ratio'],
+                                     width=50)
+            trust_entry.pack(side='left', padx=2)
+
+            smooth_label = ctk.CTkLabel(self.current_params_frame, text="Smoothing:")
+            smooth_label.pack(side='left', padx=2)
+            smooth_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['kalman']['smooth'],
+                                      width=50)
+            smooth_entry.pack(side='left', padx=2)
+
+        elif choice == 'gaussian':
+            kernel_label = ctk.CTkLabel(self.current_params_frame, text="Sigma Kernel:")
+            kernel_label.pack(side='left', padx=2)
+            kernel_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['gaussian']['sigma_kernel'],
+                                      width=50)
+            kernel_entry.pack(side='left', padx=2)
+
+        elif choice == 'LOESS':
+            values_label = ctk.CTkLabel(self.current_params_frame, text="Values Used:")
+            values_label.pack(side='left', padx=2)
+            values_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['LOESS']['nb_values_used'],
+                                      width=50)
+            values_entry.pack(side='left', padx=2)
+
+        elif choice == 'median':
+            kernel_label = ctk.CTkLabel(self.current_params_frame, text="Kernel Size:")
+            kernel_label.pack(side='left', padx=2)
+            kernel_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['median']['kernel_size'],
+                                      width=50)
+            kernel_entry.pack(side='left', padx=2)
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("System")
