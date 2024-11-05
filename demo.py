@@ -139,12 +139,17 @@ class TRCViewer(ctk.CTk):
             'zero',
             'slinear',
             'quadratic',
-            'cubic'
+            'cubic',
+            'pattern-based' # 11/05
         ]
         
         # 보간 메소드 변수 초기화
         self.interp_method_var = ctk.StringVar(value='linear')
         self.order_var = ctk.StringVar(value='3')
+
+        # 패턴 마커 관련 속성 초기화
+        self.pattern_markers = set()
+        self._selected_markers_list = None  # 인스턴스 변수로 초기화
 
         self.available_models = {
             'No skeleton': None,
@@ -171,6 +176,8 @@ class TRCViewer(ctk.CTk):
         self.playback_speed = 1.0
         self.animation_job = None
         self.fps_var = ctk.StringVar(value="30")
+
+        self.current_frame_line = None  # 현재 프레임 표시 라인 초기화
 
         self.bind('<space>', lambda e: self.toggle_animation())
         self.bind('<Return>', lambda e: self.toggle_animation())
@@ -941,7 +948,10 @@ class TRCViewer(ctk.CTk):
         prev_ylim = self.ax.get_ylim()
         prev_zlim = self.ax.get_zlim()
 
+        # 마커 위치 데이터 수집
         positions = []
+        colors = []
+        alphas = []
         selected_position = []
         marker_positions = {}
         valid_markers = []
@@ -960,13 +970,30 @@ class TRCViewer(ctk.CTk):
                     # Z-up 시각화
                     marker_positions[marker] = np.array([x, y, z])
                     positions.append([x, y, z])
-                    if hasattr(self, 'current_marker') and marker == self.current_marker:
-                        selected_position.append([x, y, z])
                 else:
                     # Y-up 시각화
                     marker_positions[marker] = np.array([x, -z, y])
                     positions.append([x, -z, y])
-                    if hasattr(self, 'current_marker') and marker == self.current_marker:
+
+                # 마커 색상 결정
+                if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
+                    if marker in self.pattern_markers:
+                        colors.append('red')
+                        alphas.append(0.3)
+                    else:
+                        colors.append('white')
+                        alphas.append(1.0)
+                elif marker == self.current_marker:
+                    colors.append('yellow')
+                    alphas.append(1.0)
+                else:
+                    colors.append('white')
+                    alphas.append(1.0)
+
+                if marker == self.current_marker:
+                    if self.is_z_up:
+                        selected_position.append([x, y, z])
+                    else:
                         selected_position.append([x, -z, y])
                 valid_markers.append(marker)
             except KeyError:
@@ -975,9 +1002,11 @@ class TRCViewer(ctk.CTk):
         positions = np.array(positions)
         selected_position = np.array(selected_position)
 
-        # 일반 마커 업데이트
+        # 기존 scatter plot 업데이트
         if len(positions) > 0:
             self.markers_scatter._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
+            self.markers_scatter.set_color(colors)
+            self.markers_scatter.set_alpha(alphas)
         else:
             self.markers_scatter._offsets3d = ([], [], [])
 
@@ -1020,22 +1049,41 @@ class TRCViewer(ctk.CTk):
 
             for marker in valid_markers:
                 pos = marker_positions[marker]
-                color = 'yellow' if (hasattr(self, 'current_marker') and marker == self.current_marker) else 'white'
+                color = 'white'
+                alpha = 1.0
+                
+                if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
+                    if marker in self.pattern_markers:
+                        color = 'red'
+                        alpha = 0.7
+                elif marker == self.current_marker:
+                    color = 'yellow'
+                
                 label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, fontsize=8)
                 self.marker_labels.append(label)
+                
         if not self.show_names:
             for label in self.marker_labels:
                 label.remove()
             self.marker_labels.clear()
+
+        # 마커 그래프가 표시되어 있을 때 현재 프레임 라인 업데이트
+        if hasattr(self, 'marker_canvas') and self.marker_canvas:
+            # 기존의 current_frame_line 관련 코드 제거
+            if hasattr(self, 'marker_lines') and self.marker_lines:
+                for line in self.marker_lines:
+                    line.set_xdata([self.frame_idx, self.frame_idx])
+                self.marker_canvas.draw_idle()
 
         self.ax.view_init(elev=prev_elev, azim=prev_azim)
         self.ax.set_xlim(prev_xlim)
         self.ax.set_ylim(prev_ylim)
         self.ax.set_zlim(prev_zlim)
 
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def connect_mouse_events(self):
+        """마우스 이벤트 연결"""
         if self.canvas:
             self.canvas.mpl_disconnect('scroll_event')
             self.canvas.mpl_disconnect('pick_event')
@@ -1048,14 +1096,20 @@ class TRCViewer(ctk.CTk):
             self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
             self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
             self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+            
+    def disconnect_mouse_events(self):
+        """마우스 이벤트 연결 해제"""
+        if hasattr(self, 'canvas'):
+            for cid in self.canvas.callbacks.callbacks.copy():
+                self.canvas.mpl_disconnect(cid)
 
     def update_frame(self, value):
         if self.data is not None:
             self.frame_idx = int(float(value))
             self.update_plot()
-            # self.update_frame_counter()
             self.update_timeline()
 
+            # 마커 그래프가 표시되어 있다면 수직선 업데이트
             if hasattr(self, 'marker_lines') and self.marker_lines:
                 for line in self.marker_lines:
                     line.set_xdata([self.frame_idx, self.frame_idx])
@@ -1064,10 +1118,11 @@ class TRCViewer(ctk.CTk):
 
     def on_pick(self, event):
         try:
-            if event.mouseevent.button != 3:  # Only handle right clicks
+            # 오른쪽 클릭이 아닌 경우 무시
+            if event.mouseevent.button != 3:
                 return
-
-            # Save current view state
+            
+            # 현재 뷰 상태 저장
             current_view = {
                 'elev': self.ax.elev,
                 'azim': self.ax.azim,
@@ -1076,17 +1131,17 @@ class TRCViewer(ctk.CTk):
                 'zlim': self.ax.get_zlim()
             }
 
-            # Get valid markers from the current frame
+            # 마우스 이벤트 연결 해제
+            self.disconnect_mouse_events()
+
+            # 유효한 마커 찾기
             valid_markers = []
             for marker in self.marker_names:
-                try:
-                    x = self.data.loc[self.frame_idx, f'{marker}_X']
-                    y = self.data.loc[self.frame_idx, f'{marker}_Y']
-                    z = self.data.loc[self.frame_idx, f'{marker}_Z']
-                    if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
-                        valid_markers.append(marker)
-                except KeyError:
-                    continue
+                x = self.data.loc[self.frame_idx, f'{marker}_X']
+                y = self.data.loc[self.frame_idx, f'{marker}_Y']
+                z = self.data.loc[self.frame_idx, f'{marker}_Z']
+                if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
+                    valid_markers.append(marker)
 
             if not valid_markers:
                 print("No valid markers in current frame")
@@ -1099,28 +1154,49 @@ class TRCViewer(ctk.CTk):
 
             # Store valid markers and selected marker
             self.valid_markers = valid_markers
-            self.current_marker = valid_markers[ind]
+            selected_marker = valid_markers[ind]
 
-            # Show marker plot if valid marker selected
-            if self.current_marker in self.marker_names:
-                self.show_marker_plot(self.current_marker)
-
-            # Update main plot
+            # pattern-based interpolation이 선택된 경우에만 패턴 마커 선택 UI 표시
+            if hasattr(self, 'interp_method_var') and self.interp_method_var.get() == 'pattern-based':
+                # 패턴 선택 UI가 없으면 생성
+                if self._selected_markers_list is None:
+                    self.show_pattern_selection_ui()
+                    
+                # 현재 마커는 패턴 마커로 선택할 수 없음
+                if selected_marker == self.current_marker:
+                    messagebox.showwarning("Invalid Selection", "Cannot select the current marker as a pattern marker")
+                    return
+                    
+                # 패턴 마커 토글
+                if selected_marker in self.pattern_markers:
+                    self.pattern_markers.remove(selected_marker)
+                else:
+                    self.pattern_markers.add(selected_marker)
+                
+                # 선택된 마커 목록 업데이트
+                self.update_selected_markers_list()
+            else:
+                # 일반적인 edit을 위한 마커 선택
+                self.current_marker = selected_marker
+                if self.current_marker in self.marker_names:
+                    self.show_marker_plot(self.current_marker)
+            
+            # 즉시 마커 색상 업데이트
             self.update_plot()
+            self.canvas.draw_idle()
 
             # Restore view state
             self.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
             self.ax.set_xlim(current_view['xlim'])
             self.ax.set_ylim(current_view['ylim'])
             self.ax.set_zlim(current_view['zlim'])
-            self.canvas.draw()
 
         except Exception as e:
-            print(f"Error in on_pick: {str(e)}")
+            print(f"Error in on_pick: {e}")
             import traceback
             traceback.print_exc()
-
         finally:
+            # 마우스 이벤트 다시 연결
             self.connect_mouse_events()
 
     def show_marker_plot(self, marker_name):
@@ -1184,8 +1260,6 @@ class TRCViewer(ctk.CTk):
             for spine in ax.spines.values():
                 spine.set_color('white')
 
-            line = ax.axvline(x=self.frame_idx, color='red', linestyle='--')
-            self.marker_lines.append(line)
             self.marker_axes.append(ax)
 
             if len(outlier_frames) > 0:
@@ -1193,6 +1267,12 @@ class TRCViewer(ctk.CTk):
                         labelcolor='white',
                         loc='upper right',
                         bbox_to_anchor=(1.0, 1.0))
+
+        # 현재 프레임 표시 라인 초기화
+        self.marker_lines = []  # 기존 lines 초기화
+        for ax in self.marker_axes:
+            line = ax.axvline(x=self.frame_idx, color='red', linestyle='--', alpha=0.8)
+            self.marker_lines.append(line)
 
         self.marker_plot_fig.tight_layout()
 
@@ -1293,6 +1373,22 @@ class TRCViewer(ctk.CTk):
 
 
     def on_interp_method_change(self, choice):
+        """보간 방법 변경 시 처리"""
+        # pattern-based에서 다른 방법으로 변경될 때 초기화
+        if choice != 'pattern-based':
+            # 패턴 마커 초기화
+            self.pattern_markers.clear()
+            
+            # 패턴 선택 UI가 열려있다면 닫기
+            if hasattr(self, 'pattern_window') and self.pattern_window:
+                self.pattern_window.destroy()
+                self._selected_markers_list = None
+            
+            # 화면 업데이트
+            self.update_plot()
+            self.canvas.draw_idle()
+        
+        # EditWindow가 열려있을 때만 Order 입력 필드 상태 변경
         if hasattr(self, 'edit_window') and self.edit_window:
             if choice in ['polynomial', 'spline']:
                 self.edit_window.order_entry.configure(state='normal')
@@ -1300,7 +1396,60 @@ class TRCViewer(ctk.CTk):
             else:
                 self.edit_window.order_entry.configure(state='disabled')
                 self.edit_window.order_label.configure(state='disabled')
-
+                
+    def show_pattern_selection_ui(self):
+        """Pattern selection을 위한 UI 표시"""
+        if not hasattr(self, 'pattern_window'):
+            self.pattern_window = ctk.CTkToplevel(self)
+            self.pattern_window.title("Selected Pattern Markers")
+            self.pattern_window.geometry("300x400")
+            
+            # 창을 항상 맨 앞으로
+            self.pattern_window.attributes('-topmost', True)
+            
+            # 안내 텍스트
+            instruction_label = ctk.CTkLabel(
+                self.pattern_window,
+                text="Right-click markers to select/deselect.\nSelected markers:",
+                wraplength=280
+            )
+            instruction_label.pack(pady=10, padx=10)
+            
+            # 선택된 마커들을 표시할 리스트 프레임
+            self.selected_markers_frame = ctk.CTkFrame(self.pattern_window)
+            self.selected_markers_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            # 선택된 마커 목록 (스크롤 가능)
+            self._selected_markers_list = ctk.CTkTextbox(
+                self.selected_markers_frame,
+                height=200,
+                state='disabled'
+            )
+            self._selected_markers_list.pack(fill='both', expand=True)
+            
+            # 버튼 프레임
+            button_frame = ctk.CTkFrame(self.pattern_window)
+            button_frame.pack(fill='x', padx=10, pady=10)
+            
+            # 초기화 버튼
+            clear_btn = ctk.CTkButton(
+                button_frame,
+                text="Clear Selection",
+                command=self.clear_pattern_selection
+            )
+            clear_btn.pack(side='left', padx=5)
+            
+            # 확인 버튼
+            confirm_btn = ctk.CTkButton(
+                button_frame,
+                text="Confirm",
+                command=self.on_pattern_selection_confirm
+            )
+            confirm_btn.pack(side='right', padx=5)
+            
+            # 마커 선택 모드 활성화
+            self.pattern_selection_mode = True
+            
     # def toggle_edit_menu(self):
     #     if hasattr(self, 'edit_window') and self.edit_window:
     #         self.edit_window.focus()  # 이미 존재하는 창에 포커스
@@ -1551,29 +1700,33 @@ class TRCViewer(ctk.CTk):
         end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
 
         method = self.interp_method_var.get()
-        order = None
-        if method in ['polynomial', 'spline']:
-            try:
-                order = self.order_var.get()
-            except:
-                messagebox.showerror("Error", "Please enter a valid order number")
-                return
+        
+        if method == 'pattern-based':
+            self.interpolate_with_pattern()
+        else:
+            order = None
+            if method in ['polynomial', 'spline']:
+                try:
+                    order = self.order_var.get()
+                except:
+                    messagebox.showerror("Error", "Please enter a valid order number")
+                    return
 
-        for coord in ['X', 'Y', 'Z']:
-            col_name = f'{self.current_marker}_{coord}'
-            series = self.data[col_name]
+            for coord in ['X', 'Y', 'Z']:
+                col_name = f'{self.current_marker}_{coord}'
+                series = self.data[col_name]
 
-            self.data.loc[start_frame:end_frame, col_name] = np.nan
+                self.data.loc[start_frame:end_frame, col_name] = np.nan
 
-            interp_kwargs = {}
-            if order is not None:
-                interp_kwargs['order'] = order
+                interp_kwargs = {}
+                if order is not None:
+                    interp_kwargs['order'] = order
 
-            try:
-                self.data[col_name] = series.interpolate(method=method, **interp_kwargs)
-            except Exception as e:
-                messagebox.showerror("Interpolation Error", f"Error interpolating {coord} with method '{method}': {e}")
-                return
+                try:
+                    self.data[col_name] = series.interpolate(method=method, **interp_kwargs)
+                except Exception as e:
+                    messagebox.showerror("Interpolation Error", f"Error interpolating {coord} with method '{method}': {e}")
+                    return
 
         self.detect_outliers()
         self.show_marker_plot(self.current_marker)
@@ -1592,6 +1745,61 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'edit_button'):
             self.edit_button.configure(fg_color="#555555")
 
+    def interpolate_with_pattern(self):
+        """Pattern-based interpolation 실행"""
+        # 선택된 패턴 마커들 확인
+        selected_pattern_markers = list(self.pattern_markers)  # set을 list로 변환
+        
+        if not selected_pattern_markers:
+            messagebox.showerror("Error", "Please select at least one pattern marker")
+            return
+            
+        start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
+        end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
+        
+        # 각 좌표에 대해 패턴 기반 보간 수행
+        for coord in ['X', 'Y', 'Z']:
+            # 패턴 마커들의 상대적 움직임 계산
+            pattern_movements = []
+            for pattern_marker in selected_pattern_markers:
+                pattern_data = self.data[f'{pattern_marker}_{coord}']
+                movement = pattern_data[end_frame] - pattern_data[start_frame]
+                pattern_movements.append(movement)
+                
+            # 평균 movement 계산
+            avg_movement = np.mean(pattern_movements)
+            
+            # 선형으로 보간하되 패턴의 movement를 반영
+            col_name = f'{self.current_marker}_{coord}'
+            start_val = self.data.loc[start_frame, col_name]
+            end_val = start_val + avg_movement
+            
+            # 프레임 간격에 따른 보간값 계산
+            frames = np.arange(start_frame, end_frame + 1)
+            values = np.linspace(start_val, end_val, len(frames))
+            
+            # 데이터 업데이트
+            self.data.loc[frames, col_name] = values
+
+    def on_pattern_selection_confirm(self):
+        """패턴 선택 확인 시 처리"""
+        if not self.pattern_markers:
+            messagebox.showwarning("No Selection", "Please select at least one pattern marker")
+            return
+            
+        if hasattr(self, 'pattern_window'):
+            self.pattern_window.destroy()
+            self._selected_markers_list = None  # UI 닫을 때 변수 초기화
+        
+        # 패턴 선택 모드 비활성화
+        self.pattern_selection_mode = False
+        
+        # 마커 표시 복원
+        self.update_plot()
+        
+        # 보간 실행
+        self.interpolate_selected_data()
+
     def restore_original_data(self):
         if self.original_data is not None:
             self.data = self.original_data.copy(deep=True)
@@ -1603,7 +1811,7 @@ class TRCViewer(ctk.CTk):
             if hasattr(self, 'edit_button'):
                 self.edit_button.configure(fg_color="#555555")
                 
-            # print("Data has been restored to the original state.")
+            print("Data has been restored to the original state.")
         else:
             messagebox.showinfo("Restore Data", "No original data to restore.")
 
@@ -1741,6 +1949,13 @@ class TRCViewer(ctk.CTk):
             self.frame_idx -= 1
             self.frame_slider.set(self.frame_idx)
             self.update_plot()
+            
+            # 마커 그래프가 표시되어 있다면 수직선 업데이트
+            if hasattr(self, 'marker_lines') and self.marker_lines:
+                for line in self.marker_lines:
+                    line.set_xdata([self.frame_idx, self.frame_idx])
+                if hasattr(self, 'marker_canvas'):
+                    self.marker_canvas.draw()
             # self.update_frame_counter()
 
     def next_frame(self):
@@ -1748,6 +1963,13 @@ class TRCViewer(ctk.CTk):
             self.frame_idx += 1
             self.frame_slider.set(self.frame_idx)
             self.update_plot()
+            
+            # 마커 그래프가 표시되어 있다면 수직선 업데이트
+            if hasattr(self, 'marker_lines') and self.marker_lines:
+                for line in self.marker_lines:
+                    line.set_xdata([self.frame_idx, self.frame_idx])
+                if hasattr(self, 'marker_canvas'):
+                    self.marker_canvas.draw()
             # self.update_frame_counter()
 
     def toggle_marker_names(self):
@@ -2156,6 +2378,33 @@ class TRCViewer(ctk.CTk):
                                       textvariable=self.parent.filter_params['median']['kernel_size'],
                                       width=50)
             kernel_entry.pack(side='left', padx=2)
+
+    def update_selected_markers_list(self):
+        """선택된 마커 목록 업데이트"""
+        try:
+            # 패턴 선택 창이 존재하고 유효한지 확인
+            if (hasattr(self, 'pattern_window') and 
+                self.pattern_window.winfo_exists() and 
+                self._selected_markers_list and 
+                self._selected_markers_list.winfo_exists()):
+                
+                self._selected_markers_list.configure(state='normal')
+                self._selected_markers_list.delete('1.0', 'end')
+                for marker in sorted(self.pattern_markers):
+                    self._selected_markers_list.insert('end', f"• {marker}\n")
+                self._selected_markers_list.configure(state='disabled')
+        except Exception as e:
+            print(f"Error updating markers list: {e}")
+            # 에러 발생 시 관련 변수들 초기화
+            if hasattr(self, 'pattern_window'):
+                delattr(self, 'pattern_window')
+            self._selected_markers_list = None
+
+    def clear_pattern_selection(self):
+        """패턴 마커 선택 초기화"""
+        self.pattern_markers.clear()
+        self.update_selected_markers_list()
+        self.update_plot()
 
 class EditWindow(ctk.CTkToplevel):
     def __init__(self, parent):
