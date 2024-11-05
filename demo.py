@@ -1115,30 +1115,28 @@ class TRCViewer(ctk.CTk):
                     line.set_visible(False)
 
         # 마커 이름 업데이트
-        if self.show_names:
-            for label in self.marker_labels:
-                label.remove()
-            self.marker_labels.clear()
+        # 기존 라벨 제거
+        for label in self.marker_labels:
+            label.remove()
+        self.marker_labels.clear()
 
-            for marker in valid_markers:
-                pos = marker_positions[marker]
-                color = 'white'
-                alpha = 1.0
-                
-                if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
-                    if marker in self.pattern_markers:
-                        color = 'red'
-                        alpha = 0.7
-                elif marker == self.current_marker:
-                    color = 'yellow'
-                
+        for marker in valid_markers:
+            pos = marker_positions[marker]
+            color = 'white'
+            alpha = 1.0
+            
+            # pattern-based로 선택된 마커는 항상 표시
+            if hasattr(self, 'pattern_selection_mode') and marker in self.pattern_markers:
+                color = 'red'
+                alpha = 0.7
                 label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, alpha=alpha, fontsize=8)
                 self.marker_labels.append(label)
-                
-        if not self.show_names:
-            for label in self.marker_labels:
-                label.remove()
-            self.marker_labels.clear()
+            # 그 외 마커는 show_names가 True일 때만 표시
+            elif self.show_names:
+                if marker == self.current_marker:
+                    color = 'yellow'
+                label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, alpha=alpha, fontsize=8)
+                self.marker_labels.append(label)
 
         # 마커 그래프가 표시되어 있을 때 현재 프레임 라인 업데이트
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
