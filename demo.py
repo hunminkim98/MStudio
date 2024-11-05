@@ -1229,12 +1229,8 @@ class TRCViewer(ctk.CTk):
             self.valid_markers = valid_markers
             selected_marker = valid_markers[ind]
 
-            # pattern-based interpolation이 선택된 경우에만 패턴 마커 선택 UI 표시
-            if hasattr(self, 'interp_method_var') and self.interp_method_var.get() == 'pattern-based':
-                # 패턴 선택 UI가 없으면 생성
-                if self._selected_markers_list is None:
-                    self.show_pattern_selection_ui()
-                    
+            # pattern-based interpolation이 선택된 경우
+            if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
                 # 현재 마커는 패턴 마커로 선택할 수 없음
                 if selected_marker == self.current_marker:
                     messagebox.showwarning("Invalid Selection", "Cannot select the current marker as a pattern marker")
@@ -1246,8 +1242,8 @@ class TRCViewer(ctk.CTk):
                 else:
                     self.pattern_markers.add(selected_marker)
                 
-                # 선택된 마커 목록 업데이트
-                self.update_selected_markers_list()
+                # 화면 업데이트
+                self.update_plot()
             else:
                 # 일반적인 edit을 위한 마커 선택
                 self.current_marker = selected_marker
@@ -1444,22 +1440,42 @@ class TRCViewer(ctk.CTk):
         # selection_in_progress 초기화
         self.selection_in_progress = False
 
+        # 마커 이름 표시 로직 수정
+        if self.show_names or (hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode):
+            for marker in self.marker_names:
+                x = self.data.loc[self.frame_idx, f'{marker}_X']
+                y = self.data.loc[self.frame_idx, f'{marker}_Y']
+                z = self.data.loc[self.frame_idx, f'{marker}_Z']
+                
+                # 마커 이름의 색상 결정
+                if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode and marker in self.pattern_markers:
+                    name_color = 'red'  # 패턴으로 선택된 마커
+                else:
+                    name_color = 'black'  # 일반 마커
+                    
+                if not np.isnan(x) and not np.isnan(y) and not np.isnan(z):
+                    if self.is_z_up:
+                        self.ax.text(x, y, z, marker, color=name_color)
+                    else:
+                        self.ax.text(x, z, y, marker, color=name_color)
+
 
     def on_interp_method_change(self, choice):
         """보간 방법 변경 시 처리"""
-        # pattern-based에서 다른 방법으로 변경될 때 초기화
         if choice != 'pattern-based':
             # 패턴 마커 초기화
             self.pattern_markers.clear()
-            
-            # 패턴 선택 UI가 열려있다면 닫기
-            if hasattr(self, 'pattern_window') and self.pattern_window:
-                self.pattern_window.destroy()
-                self._selected_markers_list = None
+            self.pattern_selection_mode = False
             
             # 화면 업데이트
             self.update_plot()
             self.canvas.draw_idle()
+        else:
+            # pattern-based가 선택되면 선택 모드 활성화
+            self.pattern_selection_mode = True
+            messagebox.showinfo("Pattern Selection", 
+                "Right-click markers to select/deselect them as reference patterns.\n"
+                "Selected markers will be shown in red.")
         
         # EditWindow가 열려있을 때만 Order 입력 필드 상태 변경
         if hasattr(self, 'edit_window') and self.edit_window:
@@ -1469,66 +1485,6 @@ class TRCViewer(ctk.CTk):
             else:
                 self.edit_window.order_entry.configure(state='disabled')
                 self.edit_window.order_label.configure(state='disabled')
-                
-    def show_pattern_selection_ui(self):
-        """Pattern selection을 위한 UI 표시"""
-        if not hasattr(self, 'pattern_window'):
-            self.pattern_window = ctk.CTkToplevel(self)
-            self.pattern_window.title("Selected Pattern Markers")
-            self.pattern_window.geometry("300x400")
-            
-            # 창을 항상 맨 앞으로
-            self.pattern_window.attributes('-topmost', True)
-            
-            # 안내 텍스트
-            instruction_label = ctk.CTkLabel(
-                self.pattern_window,
-                text="Right-click markers to select/deselect.\nSelected markers:",
-                wraplength=280
-            )
-            instruction_label.pack(pady=10, padx=10)
-            
-            # 선택된 마커들을 표시할 리스트 프레임
-            self.selected_markers_frame = ctk.CTkFrame(self.pattern_window)
-            self.selected_markers_frame.pack(fill='both', expand=True, padx=10, pady=10)
-            
-            # 선택된 마커 목록 (스크롤 가능)
-            self._selected_markers_list = ctk.CTkTextbox(
-                self.selected_markers_frame,
-                height=200,
-                state='disabled'
-            )
-            self._selected_markers_list.pack(fill='both', expand=True)
-            
-            # 버튼 프레임
-            button_frame = ctk.CTkFrame(self.pattern_window)
-            button_frame.pack(fill='x', padx=10, pady=10)
-            
-            # 초기화 버튼
-            clear_btn = ctk.CTkButton(
-                button_frame,
-                text="Clear Selection",
-                command=self.clear_pattern_selection
-            )
-            clear_btn.pack(side='left', padx=5)
-            
-            # 확인 버튼
-            confirm_btn = ctk.CTkButton(
-                button_frame,
-                text="Confirm",
-                command=self.on_pattern_selection_confirm
-            )
-            confirm_btn.pack(side='right', padx=5)
-            
-            # 마커 선택 모드 활성화
-            self.pattern_selection_mode = True
-            
-    # def toggle_edit_menu(self):
-    #     if hasattr(self, 'edit_window') and self.edit_window:
-    #         self.edit_window.focus()  # 이미 존재하는 창에 포커스
-    #     else:
-    #         self.edit_window = EditWindow(self)
-    #         self.edit_window.focus()
 
     def toggle_edit_window(self):
         try:
@@ -1554,7 +1510,6 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'marker_canvas'):
             self.marker_canvas.draw_idle()
         self.selection_in_progress = False
-
     def on_marker_mouse_press(self, event):
         if event.inaxes is None:
             return
@@ -1934,6 +1889,14 @@ class TRCViewer(ctk.CTk):
             print(f"\nInterpolation completed successfully")
             print(f"Total frames interpolated: {interpolated_count}")
             
+            # 패턴 기반 모드 종료 및 초기화
+            self.pattern_selection_mode = False
+            self.pattern_markers.clear()
+            
+            # UI 업데이트
+            self.update_plot()
+            self.show_marker_plot(self.current_marker)
+            
         except Exception as e:
             print(f"\nFATAL ERROR during interpolation: {e}")
             print("Traceback:")
@@ -1941,7 +1904,9 @@ class TRCViewer(ctk.CTk):
             traceback.print_exc()
             messagebox.showerror("Interpolation Error", f"Error during pattern-based interpolation: {str(e)}")
         finally:
-            print("\nReconnecting mouse events")
+            # 마우스 이벤트 재설정
+            print("\nResetting mouse events and UI state")
+            self.disconnect_mouse_events()
             self.connect_mouse_events()
 
     def on_pattern_selection_confirm(self):
@@ -1955,32 +1920,20 @@ class TRCViewer(ctk.CTk):
                 messagebox.showwarning("No Selection", "Please select at least one pattern marker")
                 return
             
-            print("Closing pattern selection window")    
-            if hasattr(self, 'pattern_window'):
-                self.pattern_window.destroy()
-                self._selected_markers_list = None
-            
-            print("Pattern selection mode disabled")
-            self.pattern_selection_mode = False
-            
-            print("Updating plot")
-            self.update_plot()
-            
             print("Starting interpolation")
             self.interpolate_selected_data()
             
-            # 마우스 이벤트 재설정
-            print("Resetting mouse events")
-            self.disconnect_mouse_events()  # 기존 이벤트 연결 해제
-            self.connect_mouse_events()     # 새로운 이벤트 연결
-            
-            # 패턴 선택 관련 변수들 초기화
-            self.pattern_selection_mode = False
-            self.pattern_markers = set()
+            # 패턴 선택 창 닫기는 interpolate_with_pattern에서 처리됨
             
         except Exception as e:
             print(f"Error in pattern selection confirmation: {e}")
             traceback.print_exc()
+            
+            # 에러 발생 시에도 상태 초기화
+            self.pattern_selection_mode = False
+            self.pattern_markers.clear()
+            self.disconnect_mouse_events()
+            self.connect_mouse_events()
 
 
     def restore_original_data(self):
