@@ -15,7 +15,7 @@ import os
 # 1. Code Refactoring
 # - Break down large functions into smaller, more focused ones
 # - Extract common functionality into utility modules
-# - Implement proper error handling and logging
+# - Implement proper error handling and loggingek
 # - Follow PEP 8 style guidelines consistently
 
 # 2. Code Organization
@@ -1819,67 +1819,169 @@ class TRCViewer(ctk.CTk):
             self.edit_button.configure(fg_color="#555555")
 
     def interpolate_with_pattern(self):
-        """Pattern-based interpolation 실행"""
+        """
+        Pattern-based interpolation using reference markers to interpolate target marker
+        """
         try:
-            # 선택된 패턴 마커들 확인
-            selected_pattern_markers = list(self.pattern_markers)  # set을 list로 변환
+            print(f"\nStarting pattern-based interpolation:")
+            print(f"Target marker to interpolate: {self.current_marker}")
+            print(f"Reference markers: {list(self.pattern_markers)}")
             
-            if not selected_pattern_markers:
-                messagebox.showerror("Error", "Please select at least one pattern marker")
+            reference_markers = list(self.pattern_markers)
+            if not reference_markers:
+                print("Error: No reference markers selected")
+                messagebox.showerror("Error", "Please select reference markers")
                 return
-                
+
             start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
             end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
+            print(f"Frame range for interpolation: {start_frame} to {end_frame}")
             
-            # 각 좌표에 대해 패턴 기반 보간 수행
-            for coord in ['X', 'Y', 'Z']:
-                # 패턴 마커들의 상대적 움직임 계산
-                pattern_movements = []
-                for pattern_marker in selected_pattern_markers:
-                    pattern_data = self.data[f'{pattern_marker}_{coord}']
-                    movement = pattern_data[end_frame] - pattern_data[start_frame]
-                    pattern_movements.append(movement)
+            # 전체 데이터에서 유효한 프레임 찾기
+            print("\nSearching for valid target marker data...")
+            all_valid_frames = []
+            for frame in range(len(self.data)):
+                if not any(pd.isna(self.data.loc[frame, f'{self.current_marker}_{coord}']) 
+                          for coord in ['X', 'Y', 'Z']):
+                    all_valid_frames.append(frame)
+            
+            if not all_valid_frames:
+                print("Error: No valid data found for target marker in entire dataset")
+                messagebox.showerror("Error", "No valid data found for target marker in entire dataset")
+                return
+                
+            print(f"Found {len(all_valid_frames)} valid frames for target marker")
+            print(f"Valid frames range: {min(all_valid_frames)} to {max(all_valid_frames)}")
+            
+            # 가장 가까운 유효한 프레임 찾기
+            closest_frame = min(all_valid_frames, 
+                              key=lambda x: min(abs(x - start_frame), abs(x - end_frame)))
+            print(f"\nUsing frame {closest_frame} as reference frame")
+            
+            # Get initial positions using closest valid frame
+            target_pos_init = np.array([
+                self.data.loc[closest_frame, f'{self.current_marker}_X'],
+                self.data.loc[closest_frame, f'{self.current_marker}_Y'],
+                self.data.loc[closest_frame, f'{self.current_marker}_Z']
+            ])
+            print(f"Initial target position: {target_pos_init}")
+            
+            # Calculate initial distances and positions
+            marker_distances = {}
+            marker_positions_init = {}
+            
+            print("\nCalculating initial distances:")
+            for ref_marker in reference_markers:
+                ref_pos = np.array([
+                    self.data.loc[closest_frame, f'{ref_marker}_X'],
+                    self.data.loc[closest_frame, f'{ref_marker}_Y'],
+                    self.data.loc[closest_frame, f'{ref_marker}_Z']
+                ])
+                marker_positions_init[ref_marker] = ref_pos
+                marker_distances[ref_marker] = np.linalg.norm(target_pos_init - ref_pos)
+                print(f"{ref_marker}:")
+                print(f"  Initial position: {ref_pos}")
+                print(f"  Distance from target: {marker_distances[ref_marker]:.3f}")
+            
+            # Interpolate missing frames
+            print("\nStarting frame interpolation:")
+            interpolated_count = 0
+            frames = range(start_frame, end_frame + 1)
+            for frame in frames:
+                # Check if target marker needs interpolation
+                if any(pd.isna(self.data.loc[frame, f'{self.current_marker}_{coord}']) 
+                      for coord in ['X', 'Y', 'Z']):
+                    if frame % 10 == 0:
+                        print(f"\nProcessing frame {frame} (missing data)")
                     
-                # 평균 movement 계산
-                avg_movement = np.mean(pattern_movements)
+                    weighted_pos = np.zeros(3)
+                    total_weight = 0
+                    
+                    # Use each reference marker to estimate position
+                    for ref_marker in reference_markers:
+                        current_ref_pos = np.array([
+                            self.data.loc[frame, f'{ref_marker}_X'],
+                            self.data.loc[frame, f'{ref_marker}_Y'],
+                            self.data.loc[frame, f'{ref_marker}_Z']
+                        ])
+                        
+                        # Calculate expected position based on initial distance
+                        init_distance = marker_distances[ref_marker]
+                        init_direction = target_pos_init - marker_positions_init[ref_marker]
+                        init_unit_vector = init_direction / np.linalg.norm(init_direction)
+                        
+                        # Weight based on initial distance
+                        weight = 1.0 / (init_distance + 1e-6)
+                        weighted_pos += weight * (current_ref_pos + init_unit_vector * init_distance)
+                        total_weight += weight
+                    
+                    # Calculate final interpolated position
+                    interpolated_pos = weighted_pos / total_weight
+                    
+                    # Update target marker position
+                    self.data.loc[frame, f'{self.current_marker}_X'] = interpolated_pos[0]
+                    self.data.loc[frame, f'{self.current_marker}_Y'] = interpolated_pos[1]
+                    self.data.loc[frame, f'{self.current_marker}_Z'] = interpolated_pos[2]
+                    
+                    interpolated_count += 1
+                    
+                    if frame % 10 == 0:
+                        print(f"  Interpolated position: {interpolated_pos}")
                 
-                # 선형으로 보간하되 패턴의 movement를 반영
-                col_name = f'{self.current_marker}_{coord}'
-                start_val = self.data.loc[start_frame, col_name]
-                end_val = start_val + avg_movement
-                
-                # 프레임 간격에 따른 보간값 계산
-                frames = np.arange(start_frame, end_frame + 1)
-                values = np.linspace(start_val, end_val, len(frames))
-                
-                # 데이터 업데이트
-                self.data.loc[frames, col_name] = values
+                elif frame % 10 == 0:
+                    print(f"\nSkipping frame {frame} (valid data exists)")
+            
+            print(f"\nInterpolation completed successfully")
+            print(f"Total frames interpolated: {interpolated_count}")
+            
+        except Exception as e:
+            print(f"\nFATAL ERROR during interpolation: {e}")
+            print("Traceback:")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Interpolation Error", f"Error during pattern-based interpolation: {str(e)}")
         finally:
-            # 마우스 이벤트 재연결 보장
+            print("\nReconnecting mouse events")
             self.connect_mouse_events()
 
     def on_pattern_selection_confirm(self):
         """패턴 선택 확인 시 처리"""
         try:
+            print("\nPattern selection confirmation:")
+            print(f"Selected markers: {self.pattern_markers}")
+            
             if not self.pattern_markers:
+                print("Error: No markers selected")
                 messagebox.showwarning("No Selection", "Please select at least one pattern marker")
                 return
-                
+            
+            print("Closing pattern selection window")    
             if hasattr(self, 'pattern_window'):
                 self.pattern_window.destroy()
-                self._selected_markers_list = None  # UI 닫을 때 변수 초기화
+                self._selected_markers_list = None
             
-            # 패턴 선택 모드 비활성화
+            print("Pattern selection mode disabled")
             self.pattern_selection_mode = False
             
-            # 마커 표시 복원
+            print("Updating plot")
             self.update_plot()
             
-            # 보간 실행
+            print("Starting interpolation")
             self.interpolate_selected_data()
-        finally:
-            # 마우스 이벤트 재연결 보장
-            self.connect_mouse_events()
+            
+            # 마우스 이벤트 재설정
+            print("Resetting mouse events")
+            self.disconnect_mouse_events()  # 기존 이벤트 연결 해제
+            self.connect_mouse_events()     # 새로운 이벤트 연결
+            
+            # 패턴 선택 관련 변수들 초기화
+            self.pattern_selection_mode = False
+            self.pattern_markers = set()
+            
+        except Exception as e:
+            print(f"Error in pattern selection confirmation: {e}")
+            traceback.print_exc()
+
 
     def restore_original_data(self):
         if self.original_data is not None:
