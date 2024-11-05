@@ -1,5 +1,5 @@
 # MarkerStudio
-A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies.
+A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies. Designed to be compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim), providing seamless integration for marker data processing and analysis.
 
 
 ## Features
