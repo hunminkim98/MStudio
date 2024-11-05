@@ -950,7 +950,7 @@ class TRCViewer(ctk.CTk):
 
             self.canvas.draw()
             return
-        
+
         # 기존 궤적 라인 제거
         if hasattr(self, 'trajectory_line') and self.trajectory_line is not None:
             self.trajectory_line.remove()
@@ -996,26 +996,26 @@ class TRCViewer(ctk.CTk):
         marker_positions = {}
         valid_markers = []
 
-        # 마커 위치 데이터 수집
+        # 현재 프레임의 유효한 마커만 수집
         for marker in self.marker_names:
             try:
                 x = self.data.loc[self.frame_idx, f'{marker}_X']
                 y = self.data.loc[self.frame_idx, f'{marker}_Y']
                 z = self.data.loc[self.frame_idx, f'{marker}_Z']
                 
-                if np.isnan(x) or np.isnan(y) or np.isnan(z):
+                # NaN 값이나 삭제된 데이터는 건너뛰기
+                if pd.isna(x) or pd.isna(y) or pd.isna(z):
                     continue
                     
+                # 유효한 데이터만 추가
                 if self.is_z_up:
-                    # Z-up 시각화
                     marker_positions[marker] = np.array([x, y, z])
                     positions.append([x, y, z])
                 else:
-                    # Y-up 시각화
                     marker_positions[marker] = np.array([x, -z, y])
                     positions.append([x, -z, y])
 
-                # 마커 색상 결정
+                # 유효한 마커에 대해서만 색상과 알파값 추가
                 if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
                     if marker in self.pattern_markers:
                         colors.append('red')
@@ -1038,17 +1038,46 @@ class TRCViewer(ctk.CTk):
                 valid_markers.append(marker)
             except KeyError:
                 continue
-        
-        positions = np.array(positions)
-        selected_position = np.array(selected_position)
 
-        # 기존 scatter plot 업데이트
+        # 배열 변환
+        positions = np.array(positions) if positions else np.zeros((0, 3))
+        selected_position = np.array(selected_position) if selected_position else np.zeros((0, 3))
+
+        # scatter plot 업데이트 - 유효한 데이터만 표시
         if len(positions) > 0:
-            self.markers_scatter._offsets3d = (positions[:, 0], positions[:, 1], positions[:, 2])
-            self.markers_scatter.set_color(colors)
-            self.markers_scatter.set_alpha(alphas)
+            try:
+                # 기존 scatter 제거
+                if hasattr(self, 'markers_scatter'):
+                    self.markers_scatter.remove()
+                
+                # 새로운 scatter plot 생성
+                self.markers_scatter = self.ax.scatter(
+                    positions[:, 0], 
+                    positions[:, 1], 
+                    positions[:, 2],
+                    c=colors[:len(positions)],  # 길이 맞춤
+                    alpha=alphas[:len(positions)],  # 길이 맞춤
+                    s=30,
+                    picker=5
+                )
+            except Exception as e:
+                print(f"Error updating scatter plot: {e}")
+                # 오류 발생 시 기본 scatter plot 생성
+                if hasattr(self, 'markers_scatter'):
+                    self.markers_scatter.remove()
+                self.markers_scatter = self.ax.scatter(
+                    positions[:, 0],
+                    positions[:, 1],
+                    positions[:, 2],
+                    c='white',
+                    s=30,
+                    picker=5
+                )
         else:
-            self.markers_scatter._offsets3d = ([], [], [])
+            # 데이터가 없는 경우 빈 scatter plot 생성
+            if hasattr(self, 'markers_scatter'):
+                self.markers_scatter.remove()
+            self.markers_scatter = self.ax.scatter([], [], [], c='white', s=30, picker=5)
 
         # 선택된 마커 업데이트
         if len(selected_position) > 0:
@@ -1062,6 +1091,7 @@ class TRCViewer(ctk.CTk):
             self.selected_marker_scatter._offsets3d = ([], [], [])
             self.selected_marker_scatter.set_visible(False)
 
+        # 스켈레톤 라인 업데이트
         if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_lines'):
             for line, pair in zip(self.skeleton_lines, self.skeleton_pairs):
                 if pair[0] in marker_positions and pair[1] in marker_positions:
@@ -1077,11 +1107,14 @@ class TRCViewer(ctk.CTk):
                         [p1[1], p2[1]],
                         [p1[2], p2[2]]
                     )
-
+                    line.set_visible(True)
                     line.set_color('red' if is_outlier else 'gray')
                     line.set_alpha(1 if is_outlier else 0.8)
                     line.set_linewidth(3 if is_outlier else 2)
+                else:
+                    line.set_visible(False)
 
+        # 마커 이름 업데이트
         if self.show_names:
             for label in self.marker_labels:
                 label.remove()
@@ -1099,7 +1132,7 @@ class TRCViewer(ctk.CTk):
                 elif marker == self.current_marker:
                     color = 'yellow'
                 
-                label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, fontsize=8)
+                label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, alpha=alpha, fontsize=8)
                 self.marker_labels.append(label)
                 
         if not self.show_names:
@@ -1787,58 +1820,66 @@ class TRCViewer(ctk.CTk):
 
     def interpolate_with_pattern(self):
         """Pattern-based interpolation 실행"""
-        # 선택된 패턴 마커들 확인
-        selected_pattern_markers = list(self.pattern_markers)  # set을 list로 변환
-        
-        if not selected_pattern_markers:
-            messagebox.showerror("Error", "Please select at least one pattern marker")
-            return
+        try:
+            # 선택된 패턴 마커들 확인
+            selected_pattern_markers = list(self.pattern_markers)  # set을 list로 변환
             
-        start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
-        end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
-        
-        # 각 좌표에 대해 패턴 기반 보간 수행
-        for coord in ['X', 'Y', 'Z']:
-            # 패턴 마커들의 상대적 움직임 계산
-            pattern_movements = []
-            for pattern_marker in selected_pattern_markers:
-                pattern_data = self.data[f'{pattern_marker}_{coord}']
-                movement = pattern_data[end_frame] - pattern_data[start_frame]
-                pattern_movements.append(movement)
+            if not selected_pattern_markers:
+                messagebox.showerror("Error", "Please select at least one pattern marker")
+                return
                 
-            # 평균 movement 계산
-            avg_movement = np.mean(pattern_movements)
+            start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
+            end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
             
-            # 선형으로 보간하되 패턴의 movement를 반영
-            col_name = f'{self.current_marker}_{coord}'
-            start_val = self.data.loc[start_frame, col_name]
-            end_val = start_val + avg_movement
-            
-            # 프레임 간격에 따른 보간값 계산
-            frames = np.arange(start_frame, end_frame + 1)
-            values = np.linspace(start_val, end_val, len(frames))
-            
-            # 데이터 업데이트
-            self.data.loc[frames, col_name] = values
+            # 각 좌표에 대해 패턴 기반 보간 수행
+            for coord in ['X', 'Y', 'Z']:
+                # 패턴 마커들의 상대적 움직임 계산
+                pattern_movements = []
+                for pattern_marker in selected_pattern_markers:
+                    pattern_data = self.data[f'{pattern_marker}_{coord}']
+                    movement = pattern_data[end_frame] - pattern_data[start_frame]
+                    pattern_movements.append(movement)
+                    
+                # 평균 movement 계산
+                avg_movement = np.mean(pattern_movements)
+                
+                # 선형으로 보간하되 패턴의 movement를 반영
+                col_name = f'{self.current_marker}_{coord}'
+                start_val = self.data.loc[start_frame, col_name]
+                end_val = start_val + avg_movement
+                
+                # 프레임 간격에 따른 보간값 계산
+                frames = np.arange(start_frame, end_frame + 1)
+                values = np.linspace(start_val, end_val, len(frames))
+                
+                # 데이터 업데이트
+                self.data.loc[frames, col_name] = values
+        finally:
+            # 마우스 이벤트 재연결 보장
+            self.connect_mouse_events()
 
     def on_pattern_selection_confirm(self):
         """패턴 선택 확인 시 처리"""
-        if not self.pattern_markers:
-            messagebox.showwarning("No Selection", "Please select at least one pattern marker")
-            return
+        try:
+            if not self.pattern_markers:
+                messagebox.showwarning("No Selection", "Please select at least one pattern marker")
+                return
+                
+            if hasattr(self, 'pattern_window'):
+                self.pattern_window.destroy()
+                self._selected_markers_list = None  # UI 닫을 때 변수 초기화
             
-        if hasattr(self, 'pattern_window'):
-            self.pattern_window.destroy()
-            self._selected_markers_list = None  # UI 닫을 때 변수 초기화
-        
-        # 패턴 선택 모드 비활성화
-        self.pattern_selection_mode = False
-        
-        # 마커 표시 복원
-        self.update_plot()
-        
-        # 보간 실행
-        self.interpolate_selected_data()
+            # 패턴 선택 모드 비활성화
+            self.pattern_selection_mode = False
+            
+            # 마커 표시 복원
+            self.update_plot()
+            
+            # 보간 실행
+            self.interpolate_selected_data()
+        finally:
+            # 마우스 이벤트 재연결 보장
+            self.connect_mouse_events()
 
     def restore_original_data(self):
         if self.original_data is not None:
