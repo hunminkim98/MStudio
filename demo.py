@@ -11,6 +11,46 @@ from matplotlib.figure import Figure
 import matplotlib
 import os
 
+# TODO:
+# 1. Code Refactoring
+# - Break down large functions into smaller, more focused ones
+# - Extract common functionality into utility modules
+# - Implement proper error handling and logging
+# - Follow PEP 8 style guidelines consistently
+
+# 2. Code Organization
+# - Create separate modules for:
+#   * GUI components (main_window.py, dialogs.py)
+#   * Data handling (data_processor.py, file_io.py) 
+#   * Visualization (plot_utils.py, graph_manager.py)
+#   * Business logic (marker_processor.py, interpolation.py)
+# - Add __init__.py files and proper imports
+
+# 3. Documentation
+# - Add detailed docstrings for all classes and methods
+# - Include usage examples in docstrings
+# - Document complex algorithms and data structures
+# - Create user guide and API documentation
+
+# 4. Testing
+# - Write unit tests for core functionality
+# - Add integration tests for GUI components
+# - Set up CI/CD pipeline
+# - Add test coverage reporting
+
+# 5. Packaging
+# - Create setup.py with proper dependencies
+# - Add README.md, LICENSE, MANIFEST.in
+# - Configure package metadata
+# - Publish to PyPI
+
+# 6. Distribution
+# - Set up PyInstaller configuration
+# - Create installer for Windows/Mac/Linux
+# - Add version checking and auto-update
+# - Create standalone executable
+
+
 # Interactive mode on
 plt.ion()
 matplotlib.use('TkAgg')
