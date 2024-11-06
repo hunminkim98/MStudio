@@ -565,7 +565,7 @@ class TRCViewer(ctk.CTk):
             # Initialize new skeleton lines
             if self.show_skeleton:
                 for _ in self.skeleton_pairs:
-                    line = Line3D([], [], [], color='gray', alpha=0.8)
+                    line = Line3D([], [], [], color='gray', alpha=0.9)
                     self.ax.add_line(line)
                     self.skeleton_lines.append(line)
 
@@ -833,8 +833,8 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'selected_marker_scatter'):
             self.selected_marker_scatter.remove()
 
-        self.markers_scatter = self.ax.scatter([], [], [], c='white', s=30, picker=5)
-        self.selected_marker_scatter = self.ax.scatter([], [], [], c='yellow', s=50)
+        self.markers_scatter = self.ax.scatter([], [], [], c='white', s=5, picker=5)
+        self.selected_marker_scatter = self.ax.scatter([], [], [], c='yellow', s=15)
 
         if hasattr(self, 'skeleton_lines'):
             for line in self.skeleton_lines:
@@ -843,7 +843,7 @@ class TRCViewer(ctk.CTk):
 
         if hasattr(self, 'skeleton_pairs') and self.skeleton_pairs:
             for _ in self.skeleton_pairs:
-                line = Line3D([], [], [], color='gray', alpha=0.8)
+                line = Line3D([], [], [], color='gray', alpha=0.9)
                 self.ax.add_line(line)
                 self.skeleton_lines.append(line)
 
@@ -867,7 +867,7 @@ class TRCViewer(ctk.CTk):
 
         # 축 설정
         origin = np.zeros(3)
-        axis_length = 0.5
+        axis_length = 0.4
         
         # 축 색상 정의
         x_color = 'red'
