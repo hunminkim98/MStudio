@@ -2079,26 +2079,27 @@ class TRCViewer(ctk.CTk):
                     continue
 
     def prev_frame(self):
+        """Move to the previous frame when left arrow key is pressed."""
         if self.data is not None and self.frame_idx > 0:
             self.frame_idx -= 1
-            self.frame_slider.set(self.frame_idx)
             self.update_plot()
+            self.update_timeline()
             
-            # 마커 그래프가 표시되어 있다면 수직선 업데이트
+            # Update marker graph vertical line if it exists
             if hasattr(self, 'marker_lines') and self.marker_lines:
                 for line in self.marker_lines:
                     line.set_xdata([self.frame_idx, self.frame_idx])
                 if hasattr(self, 'marker_canvas'):
                     self.marker_canvas.draw()
             # self.update_frame_counter()
-
     def next_frame(self):
+        """Move to the next frame when right arrow key is pressed."""
         if self.data is not None and self.frame_idx < self.num_frames - 1:
             self.frame_idx += 1
-            self.frame_slider.set(self.frame_idx)
             self.update_plot()
+            self.update_timeline()
             
-            # 마커 그래프가 표시되어 있다면 수직선 업데이트
+            # Update marker graph vertical line if it exists
             if hasattr(self, 'marker_lines') and self.marker_lines:
                 for line in self.marker_lines:
                     line.set_xdata([self.frame_idx, self.frame_idx])
