@@ -15,46 +15,6 @@ from utils.data_saver import save_to_trc, save_to_c3d
 from gui.EditWindow import EditWindow
 from utils.mouse_handler import MouseHandler
 
-# TODO:
-# 1. Code Refactoring
-# - Break down large functions into smaller, more focused ones
-# - Extract common functionality into utility modules
-# - Implement proper error handling and loggingek
-# - Follow PEP 8 style guidelines consistently
-
-# 2. Code Organization
-# - Create separate modules for:
-#   * GUI components (main_window.py, dialogs.py)
-#   * Data handling (data_processor.py, file_io.py) 
-#   * Visualization (plot_utils.py, graph_manager.py)
-#   * Business logic (marker_processor.py, interpolation.py)
-# - Add __init__.py files and proper imports
-
-# 3. Documentation
-# - Add detailed docstrings for all classes and methods
-# - Include usage examples in docstrings
-# - Document complex algorithms and data structures
-# - Create user guide and API documentation
-
-# 4. Testing
-# - Write unit tests for core functionality
-# - Add integration tests for GUI components
-# - Set up CI/CD pipeline
-# - Add test coverage reporting
-
-# 5. Packaging
-# - Create setup.py with proper dependencies
-# - Add README.md, LICENSE, MANIFEST.in
-# - Configure package metadata
-# - Publish to PyPI
-
-# 6. Distribution
-# - Set up PyInstaller configuration
-# - Create installer for Windows/Mac/Linux
-# - Add version checking and auto-update
-# - Create standalone executable
-
-
 # Interactive mode on
 plt.ion()
 matplotlib.use('TkAgg')
@@ -1111,85 +1071,6 @@ class TRCViewer(ctk.CTk):
                 if hasattr(self, 'marker_canvas'):
                     self.marker_canvas.draw()
 
-    # def on_pick(self, event):
-    #     try:
-    #         # 오른쪽 클릭이 아닌 경우 무시
-    #         if event.mouseevent.button != 3:
-    #             return
-            
-    #         # 현재 뷰 상태 저장
-    #         current_view = {
-    #             'elev': self.ax.elev,
-    #             'azim': self.ax.azim,
-    #             'xlim': self.ax.get_xlim(),
-    #             'ylim': self.ax.get_ylim(),
-    #             'zlim': self.ax.get_zlim()
-    #         }
-
-    #         # 마우스 이벤트 연결 해제
-    #         self.disconnect_mouse_events()
-
-    #         # 유효한 마커 찾기
-    #         valid_markers = []
-    #         for marker in self.marker_names:
-    #             x = self.data.loc[self.frame_idx, f'{marker}_X']
-    #             y = self.data.loc[self.frame_idx, f'{marker}_Y']
-    #             z = self.data.loc[self.frame_idx, f'{marker}_Z']
-    #             if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
-    #                 valid_markers.append(marker)
-
-    #         if not valid_markers:
-    #             print("No valid markers in current frame")
-    #             return
-
-    #         # Get selected marker index
-    #         ind = event.ind[0]
-    #         if ind >= len(valid_markers):
-    #             return
-
-    #         # Store valid markers and selected marker
-    #         self.valid_markers = valid_markers
-    #         selected_marker = valid_markers[ind]
-
-    #         # pattern-based interpolation이 선택된 경우
-    #         if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
-    #             # 현재 마커는 패턴 마커로 선택할 수 없음
-    #             if selected_marker == self.current_marker:
-    #                 messagebox.showwarning("Invalid Selection", "Cannot select the current marker as a pattern marker")
-    #                 return
-                    
-    #             # 패턴 마커 토글
-    #             if selected_marker in self.pattern_markers:
-    #                 self.pattern_markers.remove(selected_marker)
-    #             else:
-    #                 self.pattern_markers.add(selected_marker)
-                
-    #             # 화면 업데이트
-    #             self.update_plot()
-    #         else:
-    #             # 일반적인 edit을 위한 마커 선택
-    #             self.current_marker = selected_marker
-    #             if self.current_marker in self.marker_names:
-    #                 self.show_marker_plot(self.current_marker)
-            
-    #         # 즉시 마커 색상 업데이트
-    #         self.update_plot()
-    #         self.canvas.draw_idle()
-
-    #         # Restore view state
-    #         self.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
-    #         self.ax.set_xlim(current_view['xlim'])
-    #         self.ax.set_ylim(current_view['ylim'])
-    #         self.ax.set_zlim(current_view['zlim'])
-
-    #     except Exception as e:
-    #         print(f"Error in on_pick: {e}")
-    #         import traceback
-    #         traceback.print_exc()
-    #     finally:
-    #         # 마우스 이벤트 다시 연결
-    #         self.connect_mouse_events()
-
     def show_marker_plot(self, marker_name):
         # Save current states
         was_editing = getattr(self, 'editing', False)
@@ -1451,18 +1332,6 @@ class TRCViewer(ctk.CTk):
                             self.start_new_selection(event)
                     else:
                         self.start_new_selection(event)
-
-    # def on_marker_mouse_release(self, event):
-    #     if event.button == 2:
-    #         self.marker_pan_enabled = False
-    #         self.marker_last_pos = None
-    #     elif event.button == 1:
-    #         # edit_menu 대신 edit_window 확인
-    #         if hasattr(self, 'edit_window') and self.edit_window:
-    #             if self.selection_data.get('start') is not None and event.xdata is not None:
-    #                 self.selection_data['end'] = event.xdata
-    #                 self.selection_in_progress = False
-    #                 self.highlight_selection()
 
     def highlight_selection(self):
         if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
@@ -1871,67 +1740,6 @@ class TRCViewer(ctk.CTk):
         else:
             messagebox.showinfo("Restore Data", "No original data to restore.")
 
-    # def on_scroll(self, event):
-    #     try:
-    #         if event.inaxes != self.ax:
-    #             return
-
-    #         x_min, x_max = self.ax.get_xlim()
-    #         y_min, y_max = self.ax.get_ylim()
-    #         z_min, z_max = self.ax.get_zlim()
-
-    #         scale_factor = 0.9 if event.button == 'up' else 1.1
-
-    #         x_center = (x_min + x_max) / 2
-    #         y_center = (y_min + y_max) / 2
-    #         z_center = (z_min + z_max) / 2
-
-    #         x_range = (x_max - x_min) * scale_factor
-    #         y_range = (y_max - y_min) * scale_factor
-    #         z_range = (z_max - z_min) * scale_factor
-
-    #         min_range = 1e-3
-    #         max_range = 1e5
-
-    #         x_range = max(min(x_range, max_range), min_range)
-    #         y_range = max(min(y_range, max_range), min_range)
-    #         z_range = max(min(z_range, max_range), min_range)
-
-    #         self.ax.set_xlim(x_center - x_range / 2, x_center + x_range / 2)
-    #         self.ax.set_ylim(y_center - y_range / 2, y_center + y_range / 2)
-    #         self.ax.set_zlim(z_center - z_range / 2, z_center + z_range / 2)
-
-    #         self.canvas.draw_idle()
-    #     except Exception as e:
-    #         print(f"Scroll event error: {e}")
-    #         self.connect_mouse_events()
-
-    # def on_marker_scroll(self, event):
-    #     if not event.inaxes:
-    #         return
-
-    #     ax = event.inaxes
-    #     x_min, x_max = ax.get_xlim()
-    #     y_min, y_max = ax.get_ylim()
-
-    #     x_center = event.xdata if event.xdata is not None else (x_min + x_max) / 2
-    #     y_center = event.ydata if event.ydata is not None else (y_min + y_max) / 2
-
-    #     scale_factor = 0.9 if event.button == 'up' else 1.1
-
-    #     new_x_range = (x_max - x_min) * scale_factor
-    #     new_y_range = (y_max - y_min) * scale_factor
-
-    #     x_left = x_center - new_x_range * (x_center - x_min) / (x_max - x_min)
-    #     x_right = x_center + new_x_range * (x_max - x_center) / (x_max - x_min)
-    #     y_bottom = y_center - new_y_range * (y_center - y_min) / (y_max - y_min)
-    #     y_top = y_center + new_y_range * (y_max - y_center) / (y_max - y_min)
-
-    #     ax.set_xlim(x_left, x_right)
-    #     ax.set_ylim(y_bottom, y_top)
-
-    #     self.marker_canvas.draw_idle()
-
     def toggle_coordinates(self):
         """Toggle between Z-up and Y-up coordinate systems."""
         if self.data is None:
@@ -2014,6 +1822,7 @@ class TRCViewer(ctk.CTk):
                 if hasattr(self, 'marker_canvas'):
                     self.marker_canvas.draw()
             # self.update_frame_counter()
+
     def next_frame(self):
         """Move to the next frame when right arrow key is pressed."""
         if self.data is not None and self.frame_idx < self.num_frames - 1:
@@ -2033,77 +1842,6 @@ class TRCViewer(ctk.CTk):
         self.show_names = not self.show_names
         self.names_button.configure(text="Show Names" if not self.show_names else "Hide Names")
         self.update_plot()
-
-    # def on_mouse_press(self, event):
-    #     if event.button == 1:
-    #         self.pan_enabled = True
-    #         self.last_mouse_pos = (event.xdata, event.ydata)
-
-    # def on_mouse_release(self, event):
-    #     if event.button == 1:
-    #         self.pan_enabled = False
-    #         self.last_mouse_pos = None
-
-    # def on_mouse_move(self, event):
-    #     if self.pan_enabled and event.xdata is not None and event.ydata is not None:
-    #         x_min, x_max = self.ax.get_xlim()
-    #         y_min, y_max = self.ax.get_ylim()
-
-    #         dx = event.xdata - self.last_mouse_pos[0]
-    #         dy = event.ydata - self.last_mouse_pos[1]
-
-    #         new_x_min = x_min - dx
-    #         new_x_max = x_max - dx
-    #         new_y_min = y_min - dy
-    #         new_y_max = y_max - dy
-
-    #         min_limit = -1e5
-    #         max_limit = 1e5
-
-    #         new_x_min = max(new_x_min, min_limit)
-    #         new_x_max = min(new_x_max, max_limit)
-    #         new_y_min = max(new_y_min, min_limit)
-    #         new_y_max = min(new_y_max, max_limit)
-
-    #         self.ax.set_xlim(new_x_min, new_x_max)
-    #         self.ax.set_ylim(new_y_min, new_y_max)
-
-    #         self.canvas.draw_idle()
-
-    #         self.last_mouse_pos = (event.xdata, event.ydata)
-
-    # def on_marker_mouse_move(self, event):
-    #     if not hasattr(self, 'marker_pan_enabled'):
-    #         self.marker_pan_enabled = False
-    #     if not hasattr(self, 'selection_in_progress'):
-    #         self.selection_in_progress = False
-
-    #     if self.marker_pan_enabled and self.marker_last_pos:
-    #         if event.inaxes and event.xdata is not None and event.ydata is not None:
-    #             dx = event.xdata - self.marker_last_pos[0]
-    #             dy = event.ydata - self.marker_last_pos[1]
-
-    #             ax = event.inaxes
-    #             x_min, x_max = ax.get_xlim()
-    #             y_min, y_max = ax.get_ylim()
-
-    #             ax.set_xlim(x_min - dx, x_max - dx)
-    #             ax.set_ylim(y_min - dy, y_max - dy)
-
-    #             self.marker_last_pos = (event.xdata, event.ydata)
-
-    #             self.marker_canvas.draw_idle()
-    #     elif self.selection_in_progress and event.xdata is not None:
-    #         self.selection_data['end'] = event.xdata
-
-    #         start_x = min(self.selection_data['start'], self.selection_data['end'])
-    #         width = abs(self.selection_data['end'] - self.selection_data['start'])
-
-    #         for rect in self.selection_data['rects']:
-    #             rect.set_x(start_x)
-    #             rect.set_width(width)
-
-    #         self.marker_canvas.draw_idle()
 
     def reset_main_view(self):
         if hasattr(self, 'data_limits'):
@@ -2245,18 +1983,6 @@ class TRCViewer(ctk.CTk):
                 messagebox.showerror("Unsupported Format", "Unsupported file format.")
         except Exception as e:
             messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
-
-    # def on_timeline_click(self, event):
-    #     if event.inaxes == self.timeline_ax:
-    #         self.timeline_dragging = True
-    #         self.update_frame_from_timeline(event.xdata)
-
-    # def on_timeline_drag(self, event):
-    #     if self.timeline_dragging and event.inaxes == self.timeline_ax:
-    #         self.update_frame_from_timeline(event.xdata)
-
-    # def on_timeline_release(self, event):
-    #     self.timeline_dragging = False
 
     def update_frame_from_timeline(self, x_pos):
         if x_pos is not None and self.data is not None:
