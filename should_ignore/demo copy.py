@@ -12,8 +12,6 @@ import matplotlib
 import os
 from utils.data_loader import read_data_from_c3d, read_data_from_trc
 from utils.data_saver import save_to_trc, save_to_c3d
-from gui.EditWindow import EditWindow
-from utils.mouse_handler import MouseHandler
 
 # TODO:
 # 1. Code Refactoring
@@ -59,6 +57,88 @@ from utils.mouse_handler import MouseHandler
 plt.ion()
 matplotlib.use('TkAgg')
 
+# def read_data_from_c3d(c3d_file_path):
+#     """
+#     Read data from a C3D file and return header lines, data frame, marker names, and frame rate.
+#     """
+#     try:
+#         import c3d
+#         with open(c3d_file_path, 'rb') as f:
+#             reader = c3d.Reader(f)
+#             point_labels = reader.point_labels
+#             frame_rate = reader.header.frame_rate
+#             first_frame = reader.header.first_frame
+#             last_frame = reader.header.last_frame
+
+#             point_labels = [label.strip() for label in point_labels if label.strip()]
+#             point_labels = list(dict.fromkeys(point_labels))
+
+#             frames = []
+#             times = []
+#             marker_data = {label: {'X': [], 'Y': [], 'Z': []} for label in point_labels}
+
+#             for i, points, analog in reader.read_frames():
+#                 frames.append(i)
+#                 times.append(i / frame_rate)
+#                 points_meters = points[:, :3] / 1000.0
+
+#                 for j, label in enumerate(point_labels):
+#                     if j < len(points_meters):
+#                         marker_data[label]['X'].append(points_meters[j, 0])
+#                         marker_data[label]['Y'].append(points_meters[j, 1])
+#                         marker_data[label]['Z'].append(points_meters[j, 2])
+
+#             data_dict = {'Frame#': frames, 'Time': times}
+
+#             for label in point_labels:
+#                 if label in marker_data:
+#                     data_dict[f'{label}_X'] = marker_data[label]['X']
+#                     data_dict[f'{label}_Y'] = marker_data[label]['Y']
+#                     data_dict[f'{label}_Z'] = marker_data[label]['Z']
+
+#             data = pd.DataFrame(data_dict)
+
+#             header_lines = [
+#                 f"PathFileType\t4\t(X/Y/Z)\t{c3d_file_path}\n",
+#                 "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
+#                 f"{frame_rate}\t{frame_rate}\t{len(frames)}\t{len(point_labels)}\tm\t{frame_rate}\t{first_frame}\t{last_frame}\n",
+#                 "\t".join(['Frame#', 'Time'] + point_labels) + "\n",
+#                 "\t".join(['', ''] + ['X\tY\tZ' for _ in point_labels]) + "\n"
+#             ]
+
+#             return header_lines, data, point_labels, frame_rate
+
+#     except Exception as e:
+#         raise Exception(f"Error reading C3D file: {str(e)}")
+
+# def read_data_from_trc(trc_file_path):
+#     """
+#     Read data from a TRC file and return header lines, data frame, marker names, and frame rate.
+#     """
+#     with open(trc_file_path, 'r') as f:
+#         lines = f.readlines()
+
+#     header_lines = lines[:5]
+
+#     try:
+#         frame_rate = float(header_lines[2].split('\t')[0])
+#     except (IndexError, ValueError):
+#         frame_rate = 30.0
+
+#     marker_names_line = lines[3].strip().split('\t')[2:]
+
+#     marker_names = []
+#     for name in marker_names_line:
+#         if name.strip() and name not in marker_names:
+#             marker_names.append(name.strip())
+
+#     column_names = ['Frame#', 'Time']
+#     for marker in marker_names:
+#         column_names.extend([f'{marker}_X', f'{marker}_Y', f'{marker}_Z'])
+
+#     data = pd.read_csv(trc_file_path, sep='\t', skiprows=6, names=column_names)
+
+#     return header_lines, data, marker_names, frame_rate
 
 class TRCViewer(ctk.CTk):
     def __init__(self):
@@ -91,9 +171,6 @@ class TRCViewer(ctk.CTk):
 
         # 필터 타입 변수 초기화
         self.filter_type_var = ctk.StringVar(value='butterworth')
-
-        # 마우스 핸들러 초기화
-        self.mouse_handler = MouseHandler(self)
         
         # 보간 메소드 리스트 추가
         self.interp_methods = [
@@ -157,7 +234,6 @@ class TRCViewer(ctk.CTk):
         self.update_plot()  # 빈 플롯을 업데이트
 
         self.edit_window = None
-        
 
     def create_widgets(self):
         button_frame = ctk.CTkFrame(self)
@@ -364,9 +440,9 @@ class TRCViewer(ctk.CTk):
         self.timeline_canvas.get_tk_widget().pack(fill='x', expand=True, padx=5, pady=5)
         
         # 타임라인 이벤트 연결
-        self.timeline_canvas.mpl_connect('button_press_event', self.mouse_handler.on_timeline_click)
-        self.timeline_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_timeline_drag)
-        self.timeline_canvas.mpl_connect('button_release_event', self.mouse_handler.on_timeline_release)
+        self.timeline_canvas.mpl_connect('button_press_event', self.on_timeline_click)
+        self.timeline_canvas.mpl_connect('motion_notify_event', self.on_timeline_drag)
+        self.timeline_canvas.mpl_connect('button_release_event', self.on_timeline_release)
         
         self.timeline_dragging = False
 
@@ -377,9 +453,9 @@ class TRCViewer(ctk.CTk):
         self.marker_label.pack(pady=5)
 
         if self.canvas:
-            self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
-            self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
-            self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
+            self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
+            self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
+            self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
 
     def update_trajectory_length(self, value):
         self.trajectory_length = int(float(value))
@@ -698,11 +774,11 @@ class TRCViewer(ctk.CTk):
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
 
-        self.canvas.mpl_connect('scroll_event', self.mouse_handler.on_scroll)
-        self.canvas.mpl_connect('pick_event', self.mouse_handler.on_pick)
-        self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
-        self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
-        self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
+        self.canvas.mpl_connect('scroll_event', self.on_scroll)
+        self.canvas.mpl_connect('pick_event', self.on_pick)
+        self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
+        self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
 
         if self.data is None:
             # 축 범위를 -1에서 1로 설정
@@ -1080,17 +1156,19 @@ class TRCViewer(ctk.CTk):
         self.canvas.draw_idle()
 
     def connect_mouse_events(self):
+        """마우스 이벤트 연결"""
         if self.canvas:
-            self.canvas.mpl_connect('scroll_event', self.mouse_handler.on_scroll)
-            self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
-            self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
-            self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
-            
-            if self.marker_canvas:
-                self.marker_canvas.mpl_connect('scroll_event', self.mouse_handler.on_marker_scroll)
-                self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
-                self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
-                self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
+            self.canvas.mpl_disconnect('scroll_event')
+            self.canvas.mpl_disconnect('pick_event')
+            self.canvas.mpl_disconnect('button_press_event')
+            self.canvas.mpl_disconnect('button_release_event')
+            self.canvas.mpl_disconnect('motion_notify_event')
+
+            self.canvas.mpl_connect('scroll_event', self.on_scroll)
+            self.canvas.mpl_connect('pick_event', self.on_pick)
+            self.canvas.mpl_connect('button_press_event', self.on_mouse_press)
+            self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
+            self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
             
     def disconnect_mouse_events(self):
         """마우스 이벤트 연결 해제"""
@@ -1111,84 +1189,84 @@ class TRCViewer(ctk.CTk):
                 if hasattr(self, 'marker_canvas'):
                     self.marker_canvas.draw()
 
-    # def on_pick(self, event):
-    #     try:
-    #         # 오른쪽 클릭이 아닌 경우 무시
-    #         if event.mouseevent.button != 3:
-    #             return
+    def on_pick(self, event):
+        try:
+            # 오른쪽 클릭이 아닌 경우 무시
+            if event.mouseevent.button != 3:
+                return
             
-    #         # 현재 뷰 상태 저장
-    #         current_view = {
-    #             'elev': self.ax.elev,
-    #             'azim': self.ax.azim,
-    #             'xlim': self.ax.get_xlim(),
-    #             'ylim': self.ax.get_ylim(),
-    #             'zlim': self.ax.get_zlim()
-    #         }
+            # 현재 뷰 상태 저장
+            current_view = {
+                'elev': self.ax.elev,
+                'azim': self.ax.azim,
+                'xlim': self.ax.get_xlim(),
+                'ylim': self.ax.get_ylim(),
+                'zlim': self.ax.get_zlim()
+            }
 
-    #         # 마우스 이벤트 연결 해제
-    #         self.disconnect_mouse_events()
+            # 마우스 이벤트 연결 해제
+            self.disconnect_mouse_events()
 
-    #         # 유효한 마커 찾기
-    #         valid_markers = []
-    #         for marker in self.marker_names:
-    #             x = self.data.loc[self.frame_idx, f'{marker}_X']
-    #             y = self.data.loc[self.frame_idx, f'{marker}_Y']
-    #             z = self.data.loc[self.frame_idx, f'{marker}_Z']
-    #             if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
-    #                 valid_markers.append(marker)
+            # 유효한 마커 찾기
+            valid_markers = []
+            for marker in self.marker_names:
+                x = self.data.loc[self.frame_idx, f'{marker}_X']
+                y = self.data.loc[self.frame_idx, f'{marker}_Y']
+                z = self.data.loc[self.frame_idx, f'{marker}_Z']
+                if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
+                    valid_markers.append(marker)
 
-    #         if not valid_markers:
-    #             print("No valid markers in current frame")
-    #             return
+            if not valid_markers:
+                print("No valid markers in current frame")
+                return
 
-    #         # Get selected marker index
-    #         ind = event.ind[0]
-    #         if ind >= len(valid_markers):
-    #             return
+            # Get selected marker index
+            ind = event.ind[0]
+            if ind >= len(valid_markers):
+                return
 
-    #         # Store valid markers and selected marker
-    #         self.valid_markers = valid_markers
-    #         selected_marker = valid_markers[ind]
+            # Store valid markers and selected marker
+            self.valid_markers = valid_markers
+            selected_marker = valid_markers[ind]
 
-    #         # pattern-based interpolation이 선택된 경우
-    #         if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
-    #             # 현재 마커는 패턴 마커로 선택할 수 없음
-    #             if selected_marker == self.current_marker:
-    #                 messagebox.showwarning("Invalid Selection", "Cannot select the current marker as a pattern marker")
-    #                 return
+            # pattern-based interpolation이 선택된 경우
+            if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
+                # 현재 마커는 패턴 마커로 선택할 수 없음
+                if selected_marker == self.current_marker:
+                    messagebox.showwarning("Invalid Selection", "Cannot select the current marker as a pattern marker")
+                    return
                     
-    #             # 패턴 마커 토글
-    #             if selected_marker in self.pattern_markers:
-    #                 self.pattern_markers.remove(selected_marker)
-    #             else:
-    #                 self.pattern_markers.add(selected_marker)
+                # 패턴 마커 토글
+                if selected_marker in self.pattern_markers:
+                    self.pattern_markers.remove(selected_marker)
+                else:
+                    self.pattern_markers.add(selected_marker)
                 
-    #             # 화면 업데이트
-    #             self.update_plot()
-    #         else:
-    #             # 일반적인 edit을 위한 마커 선택
-    #             self.current_marker = selected_marker
-    #             if self.current_marker in self.marker_names:
-    #                 self.show_marker_plot(self.current_marker)
+                # 화면 업데이트
+                self.update_plot()
+            else:
+                # 일반적인 edit을 위한 마커 선택
+                self.current_marker = selected_marker
+                if self.current_marker in self.marker_names:
+                    self.show_marker_plot(self.current_marker)
             
-    #         # 즉시 마커 색상 업데이트
-    #         self.update_plot()
-    #         self.canvas.draw_idle()
+            # 즉시 마커 색상 업데이트
+            self.update_plot()
+            self.canvas.draw_idle()
 
-    #         # Restore view state
-    #         self.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
-    #         self.ax.set_xlim(current_view['xlim'])
-    #         self.ax.set_ylim(current_view['ylim'])
-    #         self.ax.set_zlim(current_view['zlim'])
+            # Restore view state
+            self.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
+            self.ax.set_xlim(current_view['xlim'])
+            self.ax.set_ylim(current_view['ylim'])
+            self.ax.set_zlim(current_view['zlim'])
 
-    #     except Exception as e:
-    #         print(f"Error in on_pick: {e}")
-    #         import traceback
-    #         traceback.print_exc()
-    #     finally:
-    #         # 마우스 이벤트 다시 연결
-    #         self.connect_mouse_events()
+        except Exception as e:
+            print(f"Error in on_pick: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # 마우스 이벤트 다시 연결
+            self.connect_mouse_events()
 
     def show_marker_plot(self, marker_name):
         # Save current states
@@ -1278,10 +1356,10 @@ class TRCViewer(ctk.CTk):
                 'y': ax.get_ylim()
             })
 
-        self.marker_canvas.mpl_connect('scroll_event', self.mouse_handler.on_marker_scroll)
-        self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
-        self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
-        self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
+        self.marker_canvas.mpl_connect('scroll_event', self.on_marker_scroll)
+        self.marker_canvas.mpl_connect('button_press_event', self.on_marker_mouse_press)
+        self.marker_canvas.mpl_connect('button_release_event', self.on_marker_mouse_release)
+        self.marker_canvas.mpl_connect('motion_notify_event', self.on_marker_mouse_move)
 
         button_frame = ctk.CTkFrame(self.graph_frame)
         button_frame.pack(fill='x', padx=5, pady=5)
@@ -1348,9 +1426,9 @@ class TRCViewer(ctk.CTk):
             self.start_edit()
 
         # 마커 캔버스 이벤트 연결
-        self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
-        self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
-        self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
+        self.marker_canvas.mpl_connect('button_press_event', self.on_marker_mouse_press)
+        self.marker_canvas.mpl_connect('button_release_event', self.on_marker_mouse_release)
+        self.marker_canvas.mpl_connect('motion_notify_event', self.on_marker_mouse_move)
 
         # selection_data 초기화
         self.selection_data = {
@@ -1452,17 +1530,17 @@ class TRCViewer(ctk.CTk):
                     else:
                         self.start_new_selection(event)
 
-    # def on_marker_mouse_release(self, event):
-    #     if event.button == 2:
-    #         self.marker_pan_enabled = False
-    #         self.marker_last_pos = None
-    #     elif event.button == 1:
-    #         # edit_menu 대신 edit_window 확인
-    #         if hasattr(self, 'edit_window') and self.edit_window:
-    #             if self.selection_data.get('start') is not None and event.xdata is not None:
-    #                 self.selection_data['end'] = event.xdata
-    #                 self.selection_in_progress = False
-    #                 self.highlight_selection()
+    def on_marker_mouse_release(self, event):
+        if event.button == 2:
+            self.marker_pan_enabled = False
+            self.marker_last_pos = None
+        elif event.button == 1:
+            # edit_menu 대신 edit_window 확인
+            if hasattr(self, 'edit_window') and self.edit_window:
+                if self.selection_data.get('start') is not None and event.xdata is not None:
+                    self.selection_data['end'] = event.xdata
+                    self.selection_in_progress = False
+                    self.highlight_selection()
 
     def highlight_selection(self):
         if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
@@ -1871,66 +1949,66 @@ class TRCViewer(ctk.CTk):
         else:
             messagebox.showinfo("Restore Data", "No original data to restore.")
 
-    # def on_scroll(self, event):
-    #     try:
-    #         if event.inaxes != self.ax:
-    #             return
+    def on_scroll(self, event):
+        try:
+            if event.inaxes != self.ax:
+                return
 
-    #         x_min, x_max = self.ax.get_xlim()
-    #         y_min, y_max = self.ax.get_ylim()
-    #         z_min, z_max = self.ax.get_zlim()
+            x_min, x_max = self.ax.get_xlim()
+            y_min, y_max = self.ax.get_ylim()
+            z_min, z_max = self.ax.get_zlim()
 
-    #         scale_factor = 0.9 if event.button == 'up' else 1.1
+            scale_factor = 0.9 if event.button == 'up' else 1.1
 
-    #         x_center = (x_min + x_max) / 2
-    #         y_center = (y_min + y_max) / 2
-    #         z_center = (z_min + z_max) / 2
+            x_center = (x_min + x_max) / 2
+            y_center = (y_min + y_max) / 2
+            z_center = (z_min + z_max) / 2
 
-    #         x_range = (x_max - x_min) * scale_factor
-    #         y_range = (y_max - y_min) * scale_factor
-    #         z_range = (z_max - z_min) * scale_factor
+            x_range = (x_max - x_min) * scale_factor
+            y_range = (y_max - y_min) * scale_factor
+            z_range = (z_max - z_min) * scale_factor
 
-    #         min_range = 1e-3
-    #         max_range = 1e5
+            min_range = 1e-3
+            max_range = 1e5
 
-    #         x_range = max(min(x_range, max_range), min_range)
-    #         y_range = max(min(y_range, max_range), min_range)
-    #         z_range = max(min(z_range, max_range), min_range)
+            x_range = max(min(x_range, max_range), min_range)
+            y_range = max(min(y_range, max_range), min_range)
+            z_range = max(min(z_range, max_range), min_range)
 
-    #         self.ax.set_xlim(x_center - x_range / 2, x_center + x_range / 2)
-    #         self.ax.set_ylim(y_center - y_range / 2, y_center + y_range / 2)
-    #         self.ax.set_zlim(z_center - z_range / 2, z_center + z_range / 2)
+            self.ax.set_xlim(x_center - x_range / 2, x_center + x_range / 2)
+            self.ax.set_ylim(y_center - y_range / 2, y_center + y_range / 2)
+            self.ax.set_zlim(z_center - z_range / 2, z_center + z_range / 2)
 
-    #         self.canvas.draw_idle()
-    #     except Exception as e:
-    #         print(f"Scroll event error: {e}")
-    #         self.connect_mouse_events()
+            self.canvas.draw_idle()
+        except Exception as e:
+            print(f"Scroll event error: {e}")
+            self.connect_mouse_events()
 
-    # def on_marker_scroll(self, event):
-    #     if not event.inaxes:
-    #         return
+    def on_marker_scroll(self, event):
+        if not event.inaxes:
+            return
 
-    #     ax = event.inaxes
-    #     x_min, x_max = ax.get_xlim()
-    #     y_min, y_max = ax.get_ylim()
+        ax = event.inaxes
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
 
-    #     x_center = event.xdata if event.xdata is not None else (x_min + x_max) / 2
-    #     y_center = event.ydata if event.ydata is not None else (y_min + y_max) / 2
+        x_center = event.xdata if event.xdata is not None else (x_min + x_max) / 2
+        y_center = event.ydata if event.ydata is not None else (y_min + y_max) / 2
 
-    #     scale_factor = 0.9 if event.button == 'up' else 1.1
+        scale_factor = 0.9 if event.button == 'up' else 1.1
 
-    #     new_x_range = (x_max - x_min) * scale_factor
-    #     new_y_range = (y_max - y_min) * scale_factor
+        new_x_range = (x_max - x_min) * scale_factor
+        new_y_range = (y_max - y_min) * scale_factor
 
-    #     x_left = x_center - new_x_range * (x_center - x_min) / (x_max - x_min)
-    #     x_right = x_center + new_x_range * (x_max - x_center) / (x_max - x_min)
-    #     y_bottom = y_center - new_y_range * (y_center - y_min) / (y_max - y_min)
-    #     y_top = y_center + new_y_range * (y_max - y_center) / (y_max - y_min)
+        x_left = x_center - new_x_range * (x_center - x_min) / (x_max - x_min)
+        x_right = x_center + new_x_range * (x_max - x_center) / (x_max - x_min)
+        y_bottom = y_center - new_y_range * (y_center - y_min) / (y_max - y_min)
+        y_top = y_center + new_y_range * (y_max - y_center) / (y_max - y_min)
 
-    #     ax.set_xlim(x_left, x_right)
-    #     ax.set_ylim(y_bottom, y_top)
+        ax.set_xlim(x_left, x_right)
+        ax.set_ylim(y_bottom, y_top)
 
-    #     self.marker_canvas.draw_idle()
+        self.marker_canvas.draw_idle()
 
     def toggle_coordinates(self):
         """Toggle between Z-up and Y-up coordinate systems."""
@@ -2034,76 +2112,76 @@ class TRCViewer(ctk.CTk):
         self.names_button.configure(text="Show Names" if not self.show_names else "Hide Names")
         self.update_plot()
 
-    # def on_mouse_press(self, event):
-    #     if event.button == 1:
-    #         self.pan_enabled = True
-    #         self.last_mouse_pos = (event.xdata, event.ydata)
+    def on_mouse_press(self, event):
+        if event.button == 1:
+            self.pan_enabled = True
+            self.last_mouse_pos = (event.xdata, event.ydata)
 
-    # def on_mouse_release(self, event):
-    #     if event.button == 1:
-    #         self.pan_enabled = False
-    #         self.last_mouse_pos = None
+    def on_mouse_release(self, event):
+        if event.button == 1:
+            self.pan_enabled = False
+            self.last_mouse_pos = None
 
-    # def on_mouse_move(self, event):
-    #     if self.pan_enabled and event.xdata is not None and event.ydata is not None:
-    #         x_min, x_max = self.ax.get_xlim()
-    #         y_min, y_max = self.ax.get_ylim()
+    def on_mouse_move(self, event):
+        if self.pan_enabled and event.xdata is not None and event.ydata is not None:
+            x_min, x_max = self.ax.get_xlim()
+            y_min, y_max = self.ax.get_ylim()
 
-    #         dx = event.xdata - self.last_mouse_pos[0]
-    #         dy = event.ydata - self.last_mouse_pos[1]
+            dx = event.xdata - self.last_mouse_pos[0]
+            dy = event.ydata - self.last_mouse_pos[1]
 
-    #         new_x_min = x_min - dx
-    #         new_x_max = x_max - dx
-    #         new_y_min = y_min - dy
-    #         new_y_max = y_max - dy
+            new_x_min = x_min - dx
+            new_x_max = x_max - dx
+            new_y_min = y_min - dy
+            new_y_max = y_max - dy
 
-    #         min_limit = -1e5
-    #         max_limit = 1e5
+            min_limit = -1e5
+            max_limit = 1e5
 
-    #         new_x_min = max(new_x_min, min_limit)
-    #         new_x_max = min(new_x_max, max_limit)
-    #         new_y_min = max(new_y_min, min_limit)
-    #         new_y_max = min(new_y_max, max_limit)
+            new_x_min = max(new_x_min, min_limit)
+            new_x_max = min(new_x_max, max_limit)
+            new_y_min = max(new_y_min, min_limit)
+            new_y_max = min(new_y_max, max_limit)
 
-    #         self.ax.set_xlim(new_x_min, new_x_max)
-    #         self.ax.set_ylim(new_y_min, new_y_max)
+            self.ax.set_xlim(new_x_min, new_x_max)
+            self.ax.set_ylim(new_y_min, new_y_max)
 
-    #         self.canvas.draw_idle()
+            self.canvas.draw_idle()
 
-    #         self.last_mouse_pos = (event.xdata, event.ydata)
+            self.last_mouse_pos = (event.xdata, event.ydata)
 
-    # def on_marker_mouse_move(self, event):
-    #     if not hasattr(self, 'marker_pan_enabled'):
-    #         self.marker_pan_enabled = False
-    #     if not hasattr(self, 'selection_in_progress'):
-    #         self.selection_in_progress = False
+    def on_marker_mouse_move(self, event):
+        if not hasattr(self, 'marker_pan_enabled'):
+            self.marker_pan_enabled = False
+        if not hasattr(self, 'selection_in_progress'):
+            self.selection_in_progress = False
 
-    #     if self.marker_pan_enabled and self.marker_last_pos:
-    #         if event.inaxes and event.xdata is not None and event.ydata is not None:
-    #             dx = event.xdata - self.marker_last_pos[0]
-    #             dy = event.ydata - self.marker_last_pos[1]
+        if self.marker_pan_enabled and self.marker_last_pos:
+            if event.inaxes and event.xdata is not None and event.ydata is not None:
+                dx = event.xdata - self.marker_last_pos[0]
+                dy = event.ydata - self.marker_last_pos[1]
 
-    #             ax = event.inaxes
-    #             x_min, x_max = ax.get_xlim()
-    #             y_min, y_max = ax.get_ylim()
+                ax = event.inaxes
+                x_min, x_max = ax.get_xlim()
+                y_min, y_max = ax.get_ylim()
 
-    #             ax.set_xlim(x_min - dx, x_max - dx)
-    #             ax.set_ylim(y_min - dy, y_max - dy)
+                ax.set_xlim(x_min - dx, x_max - dx)
+                ax.set_ylim(y_min - dy, y_max - dy)
 
-    #             self.marker_last_pos = (event.xdata, event.ydata)
+                self.marker_last_pos = (event.xdata, event.ydata)
 
-    #             self.marker_canvas.draw_idle()
-    #     elif self.selection_in_progress and event.xdata is not None:
-    #         self.selection_data['end'] = event.xdata
+                self.marker_canvas.draw_idle()
+        elif self.selection_in_progress and event.xdata is not None:
+            self.selection_data['end'] = event.xdata
 
-    #         start_x = min(self.selection_data['start'], self.selection_data['end'])
-    #         width = abs(self.selection_data['end'] - self.selection_data['start'])
+            start_x = min(self.selection_data['start'], self.selection_data['end'])
+            width = abs(self.selection_data['end'] - self.selection_data['start'])
 
-    #         for rect in self.selection_data['rects']:
-    #             rect.set_x(start_x)
-    #             rect.set_width(width)
+            for rect in self.selection_data['rects']:
+                rect.set_x(start_x)
+                rect.set_width(width)
 
-    #         self.marker_canvas.draw_idle()
+            self.marker_canvas.draw_idle()
 
     def reset_main_view(self):
         if hasattr(self, 'data_limits'):
@@ -2246,17 +2324,112 @@ class TRCViewer(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
 
-    # def on_timeline_click(self, event):
-    #     if event.inaxes == self.timeline_ax:
-    #         self.timeline_dragging = True
-    #         self.update_frame_from_timeline(event.xdata)
+    # def save_to_trc(self, file_path):
+    #     # 기존 헤더 라인들은 유지
+    #     header_lines = [
+    #         "PathFileType\t4\t(X/Y/Z)\t{}\n".format(os.path.basename(file_path)),
+    #         "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
+    #         "{}\t{}\t{}\t{}\tm\t{}\t{}\t{}\n".format(
+    #             self.fps_var.get(),
+    #             self.fps_var.get(),
+    #             self.num_frames,
+    #             len(self.marker_names),
+    #             self.fps_var.get(),
+    #             1,
+    #             self.num_frames
+    #         ),
+    #         # 마커 이름 행을 수정: 각 마커 뒤에 빈 탭 2개 추가
+    #         "\t".join(['Frame#', 'Time'] + [name + '\t\t' for name in self.marker_names]) + "\n",
+    #         # X,Y,Z 행 그대로 유지
+    #         "\t".join(['', ''] + ['X\tY\tZ' for _ in self.marker_names]) + "\n"
+    #     ]
 
-    # def on_timeline_drag(self, event):
-    #     if self.timeline_dragging and event.inaxes == self.timeline_ax:
-    #         self.update_frame_from_timeline(event.xdata)
+    #     with open(file_path, 'w') as f:
+    #         f.writelines(header_lines)
+    #         self.data.to_csv(f, sep='\t', index=False, header=False, lineterminator='\n')
 
-    # def on_timeline_release(self, event):
-    #     self.timeline_dragging = False
+    #     messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
+
+    # def save_to_c3d(self, file_path):
+    #     try:
+    #         import c3d
+    #     except ImportError:
+    #         messagebox.showerror("c3d Library Missing", "Please install the 'c3d' library to save in C3D format.")
+    #         return
+
+    #     try:
+    #         # Frame rate 설정
+    #         frame_rate = float(self.fps_var.get())
+            
+    #         # Writer 객체 초기화 시 frame rate 설정
+    #         writer = c3d.Writer(point_rate=frame_rate, analog_rate=0)
+
+    #         # 커 레이블 설정
+    #         marker_labels = self.marker_names
+    #         writer.set_point_labels(marker_labels)
+
+    #         # 모든 프레임의 데이터를 한 번에 준비
+    #         all_frames = []
+            
+    #         # 데이터 채우기
+    #         for frame_idx in range(self.num_frames):
+    #             # 각 프레임의 데이터 준비
+    #             points = np.zeros((len(marker_labels), 5))  # 열 개수를 5로 변경
+                    
+    #             for i, marker in enumerate(marker_labels):
+    #                 try:
+    #                     x = self.data.loc[frame_idx, f'{marker}_X'] * 1000.0  # mm 단위로 변환
+    #                     y = self.data.loc[frame_idx, f'{marker}_Y'] * 1000.0
+    #                     z = self.data.loc[frame_idx, f'{marker}_Z'] * 1000.0
+
+    #                     if np.isnan(x) or np.isnan(y) or np.isnan(z):
+    #                         points[i, :3] = [0.0, 0.0, 0.0]
+    #                         points[i, 3] = -1.0  # Residual
+    #                         points[i, 4] = 0    # Camera_Mask
+    #                     else:
+    #                         points[i, :3] = [x, y, z]
+    #                         points[i, 3] = 0.0   # ResidualChatGPT o1-preview
+                            
+                            
+    #                         points[i, 4] = 0     # Camera_Mask (필요에 따라 변경 가능)
+    #                 except Exception as e:
+    #                     print(f"Error processing marker {marker} at frame {frame_idx}: {e}")
+    #                     points[i, :3] = [0.0, 0.0, 0.0]
+    #                     points[i, 3] = -1.0  # Residual
+    #                     points[i, 4] = 0     # Camera_Mask
+
+    #             # 디버깅 정보 출력
+    #             if frame_idx % 100 == 0:
+    #                 print(f"Frame {frame_idx}:")
+    #                 print(f"Points shape: {points.shape}")
+
+    #             # 프레임 데이터를 리스트에 추가 (아날로그 데이터는 빈 넘파이 배열로)
+    #             all_frames.append((points, np.empty((0, 0))))
+
+    #         # 모든 프레임을 한 번에 추가
+    #         writer.add_frames(all_frames)
+
+    #         # 파일 저장
+    #         with open(file_path, 'wb') as h:
+    #             writer.write(h)
+
+    #         messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
+
+    #     except Exception as e:
+    #         messagebox.showerror("Save Error", f"An error occurred while saving: {str(e)}\n\nPlease check the console for more details.")
+    #         print(f"Detailed error: {e}")
+
+    def on_timeline_click(self, event):
+        if event.inaxes == self.timeline_ax:
+            self.timeline_dragging = True
+            self.update_frame_from_timeline(event.xdata)
+
+    def on_timeline_drag(self, event):
+        if self.timeline_dragging and event.inaxes == self.timeline_ax:
+            self.update_frame_from_timeline(event.xdata)
+
+    def on_timeline_release(self, event):
+        self.timeline_dragging = False
 
     def update_frame_from_timeline(self, x_pos):
         if x_pos is not None and self.data is not None:
@@ -2367,6 +2540,169 @@ class TRCViewer(ctk.CTk):
         self.pattern_markers.clear()
         self.update_selected_markers_list()
         self.update_plot()
+
+class EditWindow(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        
+        # Always display on top
+        self.attributes('-topmost', True)
+        
+        # Window settings
+        self.title("Edit Options")
+        self.geometry("1230x120")  # 창 크기만 수정
+        self.resizable(False, False)
+        
+        # Main frame
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Filter parameters frame
+        self.filter_params_frame = ctk.CTkFrame(self.main_frame)
+        self.filter_params_frame.pack(side='left', padx=5)
+        
+        # Filter type selection
+        self.filter_type_frame = ctk.CTkFrame(self.filter_params_frame, fg_color="transparent")
+        self.filter_type_frame.pack(side='left', padx=5)
+        
+        filter_type_label = ctk.CTkLabel(self.filter_type_frame, text="Filter:")
+        filter_type_label.pack(side='left', padx=2)
+        
+        self.filter_type_combo = ctk.CTkComboBox(
+            self.filter_type_frame,
+            values=['kalman', 'butterworth', 'butterworth_on_speed', 'gaussian', 'LOESS', 'median'],
+            variable=parent.filter_type_var,
+            command=self.on_filter_type_change)
+        self.filter_type_combo.pack(side='left')
+        
+        # Buttons frame
+        self.button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.button_frame.pack(side='left', padx=5)
+        
+        # Edit buttons
+        button_style = {"width": 80, "fg_color": "#333333", "hover_color": "#444444"}
+        
+        buttons = [
+            ("Filter", parent.filter_selected_data),
+            ("Delete", parent.delete_selected_data),
+            ("Interpolate", parent.interpolate_selected_data),
+            ("Restore", parent.restore_original_data)
+        ]
+        
+        for text, command in buttons:
+            btn = ctk.CTkButton(
+                self.button_frame,
+                text=text,
+                command=command,
+                **button_style
+            )
+            btn.pack(side='left', padx=5)
+        
+        # Interpolation method frame
+        self.interp_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.interp_frame.pack(side='left', padx=5)
+        
+        interp_label = ctk.CTkLabel(self.interp_frame, text="Interpolation:")
+        interp_label.pack(side='left', padx=5)
+        
+        self.interp_combo = ctk.CTkComboBox(
+            self.interp_frame,
+            values=parent.interp_methods,
+            variable=parent.interp_method_var,
+            command=parent.on_interp_method_change)
+        self.interp_combo.pack(side='left', padx=5)
+        
+        # Order frame
+        self.order_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.order_frame.pack(side='left', padx=5)
+        
+        self.order_label = ctk.CTkLabel(self.order_frame, text="Order:")
+        self.order_label.pack(side='left', padx=5)
+        
+        self.order_entry = ctk.CTkEntry(
+            self.order_frame,
+            textvariable=parent.order_var,
+            width=50
+        )
+        self.order_entry.pack(side='left', padx=5)
+        
+        # Initialize state based on current interpolation method
+        if parent.interp_method_var.get() not in ['polynomial', 'spline']:
+            self.order_entry.configure(state='disabled')
+            self.order_label.configure(state='disabled')
+        
+        # Create initial filter parameter UI
+        self.current_params_frame = None
+        self.on_filter_type_change(parent.filter_type_var.get())
+        
+        # Handle window close event
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def on_closing(self):
+        self.parent.edit_window = None
+        self.destroy()
+    
+    def on_filter_type_change(self, choice):
+        if self.current_params_frame:
+            self.current_params_frame.destroy()
+        
+        self.current_params_frame = ctk.CTkFrame(self.filter_params_frame)
+        self.current_params_frame.pack(side='left', padx=5)
+        
+        if choice == 'butterworth':
+            order_label = ctk.CTkLabel(self.current_params_frame, text="Order:")
+            order_label.pack(side='left', padx=2)
+            order_entry = ctk.CTkEntry(self.current_params_frame, 
+                                     textvariable=self.parent.filter_params['butterworth']['order'],
+                                     width=50)
+            order_entry.pack(side='left', padx=2)
+
+            cutoff_label = ctk.CTkLabel(self.current_params_frame, text="Cutoff Frequency (Hz):")
+            cutoff_label.pack(side='left', padx=2)
+            cutoff_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['butterworth']['cut_off_frequency'],
+                                      width=50)
+            cutoff_entry.pack(side='left', padx=2)
+
+        elif choice == 'kalman':
+            trust_label = ctk.CTkLabel(self.current_params_frame, text="Trust Ratio:")
+            trust_label.pack(side='left', padx=2)
+            trust_entry = ctk.CTkEntry(self.current_params_frame,
+                                     textvariable=self.parent.filter_params['kalman']['trust_ratio'],
+                                     width=50)
+            trust_entry.pack(side='left', padx=2)
+
+            smooth_label = ctk.CTkLabel(self.current_params_frame, text="Smoothing:")
+            smooth_label.pack(side='left', padx=2)
+            smooth_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['kalman']['smooth'],
+                                      width=50)
+            smooth_entry.pack(side='left', padx=2)
+
+        elif choice == 'gaussian':
+            kernel_label = ctk.CTkLabel(self.current_params_frame, text="Sigma Kernel:")
+            kernel_label.pack(side='left', padx=2)
+            kernel_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['gaussian']['sigma_kernel'],
+                                      width=50)
+            kernel_entry.pack(side='left', padx=2)
+
+        elif choice == 'LOESS':
+            values_label = ctk.CTkLabel(self.current_params_frame, text="Values Used:")
+            values_label.pack(side='left', padx=2)
+            values_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['LOESS']['nb_values_used'],
+                                      width=50)
+            values_entry.pack(side='left', padx=2)
+
+        elif choice == 'median':
+            kernel_label = ctk.CTkLabel(self.current_params_frame, text="Kernel Size:")
+            kernel_label.pack(side='left', padx=2)
+            kernel_entry = ctk.CTkEntry(self.current_params_frame,
+                                      textvariable=self.parent.filter_params['median']['kernel_size'],
+                                      width=50)
+            kernel_entry.pack(side='left', padx=2)
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("System")
