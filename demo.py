@@ -10,6 +10,8 @@ from Pose2Sim.filtering import *
 from matplotlib.figure import Figure
 import matplotlib
 import os
+from utils.data_loader import read_data_from_c3d, read_data_from_trc
+from utils.data_saver import save_to_trc, save_to_c3d
 
 # TODO:
 # 1. Code Refactoring
@@ -55,88 +57,88 @@ import os
 plt.ion()
 matplotlib.use('TkAgg')
 
-def read_data_from_c3d(c3d_file_path):
-    """
-    Read data from a C3D file and return header lines, data frame, marker names, and frame rate.
-    """
-    try:
-        import c3d
-        with open(c3d_file_path, 'rb') as f:
-            reader = c3d.Reader(f)
-            point_labels = reader.point_labels
-            frame_rate = reader.header.frame_rate
-            first_frame = reader.header.first_frame
-            last_frame = reader.header.last_frame
+# def read_data_from_c3d(c3d_file_path):
+#     """
+#     Read data from a C3D file and return header lines, data frame, marker names, and frame rate.
+#     """
+#     try:
+#         import c3d
+#         with open(c3d_file_path, 'rb') as f:
+#             reader = c3d.Reader(f)
+#             point_labels = reader.point_labels
+#             frame_rate = reader.header.frame_rate
+#             first_frame = reader.header.first_frame
+#             last_frame = reader.header.last_frame
 
-            point_labels = [label.strip() for label in point_labels if label.strip()]
-            point_labels = list(dict.fromkeys(point_labels))
+#             point_labels = [label.strip() for label in point_labels if label.strip()]
+#             point_labels = list(dict.fromkeys(point_labels))
 
-            frames = []
-            times = []
-            marker_data = {label: {'X': [], 'Y': [], 'Z': []} for label in point_labels}
+#             frames = []
+#             times = []
+#             marker_data = {label: {'X': [], 'Y': [], 'Z': []} for label in point_labels}
 
-            for i, points, analog in reader.read_frames():
-                frames.append(i)
-                times.append(i / frame_rate)
-                points_meters = points[:, :3] / 1000.0
+#             for i, points, analog in reader.read_frames():
+#                 frames.append(i)
+#                 times.append(i / frame_rate)
+#                 points_meters = points[:, :3] / 1000.0
 
-                for j, label in enumerate(point_labels):
-                    if j < len(points_meters):
-                        marker_data[label]['X'].append(points_meters[j, 0])
-                        marker_data[label]['Y'].append(points_meters[j, 1])
-                        marker_data[label]['Z'].append(points_meters[j, 2])
+#                 for j, label in enumerate(point_labels):
+#                     if j < len(points_meters):
+#                         marker_data[label]['X'].append(points_meters[j, 0])
+#                         marker_data[label]['Y'].append(points_meters[j, 1])
+#                         marker_data[label]['Z'].append(points_meters[j, 2])
 
-            data_dict = {'Frame#': frames, 'Time': times}
+#             data_dict = {'Frame#': frames, 'Time': times}
 
-            for label in point_labels:
-                if label in marker_data:
-                    data_dict[f'{label}_X'] = marker_data[label]['X']
-                    data_dict[f'{label}_Y'] = marker_data[label]['Y']
-                    data_dict[f'{label}_Z'] = marker_data[label]['Z']
+#             for label in point_labels:
+#                 if label in marker_data:
+#                     data_dict[f'{label}_X'] = marker_data[label]['X']
+#                     data_dict[f'{label}_Y'] = marker_data[label]['Y']
+#                     data_dict[f'{label}_Z'] = marker_data[label]['Z']
 
-            data = pd.DataFrame(data_dict)
+#             data = pd.DataFrame(data_dict)
 
-            header_lines = [
-                f"PathFileType\t4\t(X/Y/Z)\t{c3d_file_path}\n",
-                "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
-                f"{frame_rate}\t{frame_rate}\t{len(frames)}\t{len(point_labels)}\tm\t{frame_rate}\t{first_frame}\t{last_frame}\n",
-                "\t".join(['Frame#', 'Time'] + point_labels) + "\n",
-                "\t".join(['', ''] + ['X\tY\tZ' for _ in point_labels]) + "\n"
-            ]
+#             header_lines = [
+#                 f"PathFileType\t4\t(X/Y/Z)\t{c3d_file_path}\n",
+#                 "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
+#                 f"{frame_rate}\t{frame_rate}\t{len(frames)}\t{len(point_labels)}\tm\t{frame_rate}\t{first_frame}\t{last_frame}\n",
+#                 "\t".join(['Frame#', 'Time'] + point_labels) + "\n",
+#                 "\t".join(['', ''] + ['X\tY\tZ' for _ in point_labels]) + "\n"
+#             ]
 
-            return header_lines, data, point_labels, frame_rate
+#             return header_lines, data, point_labels, frame_rate
 
-    except Exception as e:
-        raise Exception(f"Error reading C3D file: {str(e)}")
+#     except Exception as e:
+#         raise Exception(f"Error reading C3D file: {str(e)}")
 
-def read_data_from_trc(trc_file_path):
-    """
-    Read data from a TRC file and return header lines, data frame, marker names, and frame rate.
-    """
-    with open(trc_file_path, 'r') as f:
-        lines = f.readlines()
+# def read_data_from_trc(trc_file_path):
+#     """
+#     Read data from a TRC file and return header lines, data frame, marker names, and frame rate.
+#     """
+#     with open(trc_file_path, 'r') as f:
+#         lines = f.readlines()
 
-    header_lines = lines[:5]
+#     header_lines = lines[:5]
 
-    try:
-        frame_rate = float(header_lines[2].split('\t')[0])
-    except (IndexError, ValueError):
-        frame_rate = 30.0
+#     try:
+#         frame_rate = float(header_lines[2].split('\t')[0])
+#     except (IndexError, ValueError):
+#         frame_rate = 30.0
 
-    marker_names_line = lines[3].strip().split('\t')[2:]
+#     marker_names_line = lines[3].strip().split('\t')[2:]
 
-    marker_names = []
-    for name in marker_names_line:
-        if name.strip() and name not in marker_names:
-            marker_names.append(name.strip())
+#     marker_names = []
+#     for name in marker_names_line:
+#         if name.strip() and name not in marker_names:
+#             marker_names.append(name.strip())
 
-    column_names = ['Frame#', 'Time']
-    for marker in marker_names:
-        column_names.extend([f'{marker}_X', f'{marker}_Y', f'{marker}_Z'])
+#     column_names = ['Frame#', 'Time']
+#     for marker in marker_names:
+#         column_names.extend([f'{marker}_X', f'{marker}_Y', f'{marker}_Z'])
 
-    data = pd.read_csv(trc_file_path, sep='\t', skiprows=6, names=column_names)
+#     data = pd.read_csv(trc_file_path, sep='\t', skiprows=6, names=column_names)
 
-    return header_lines, data, marker_names, frame_rate
+#     return header_lines, data, marker_names, frame_rate
 
 class TRCViewer(ctk.CTk):
     def __init__(self):
@@ -2316,108 +2318,108 @@ class TRCViewer(ctk.CTk):
 
         try:
             if file_extension == '.trc':
-                self.save_to_trc(file_path)
+                save_to_trc(file_path, self.data, self.fps_var.get(), self.marker_names, self.num_frames)
             elif file_extension == '.c3d':
-                self.save_to_c3d(file_path)
+                save_to_c3d(file_path, self.data, self.fps_var.get(), self.marker_names, self.num_frames)
             else:
                 messagebox.showerror("Unsupported Format", "Unsupported file format.")
         except Exception as e:
             messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
 
-    def save_to_trc(self, file_path):
-        # 기존 헤더 라인들은 유지
-        header_lines = [
-            "PathFileType\t4\t(X/Y/Z)\t{}\n".format(os.path.basename(file_path)),
-            "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
-            "{}\t{}\t{}\t{}\tm\t{}\t{}\t{}\n".format(
-                self.fps_var.get(),
-                self.fps_var.get(),
-                self.num_frames,
-                len(self.marker_names),
-                self.fps_var.get(),
-                1,
-                self.num_frames
-            ),
-            # 마커 이름 행을 수정: 각 마커 뒤에 빈 탭 2개 추가
-            "\t".join(['Frame#', 'Time'] + [name + '\t\t' for name in self.marker_names]) + "\n",
-            # X,Y,Z 행 그대로 유지
-            "\t".join(['', ''] + ['X\tY\tZ' for _ in self.marker_names]) + "\n"
-        ]
+    # def save_to_trc(self, file_path):
+    #     # 기존 헤더 라인들은 유지
+    #     header_lines = [
+    #         "PathFileType\t4\t(X/Y/Z)\t{}\n".format(os.path.basename(file_path)),
+    #         "DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n",
+    #         "{}\t{}\t{}\t{}\tm\t{}\t{}\t{}\n".format(
+    #             self.fps_var.get(),
+    #             self.fps_var.get(),
+    #             self.num_frames,
+    #             len(self.marker_names),
+    #             self.fps_var.get(),
+    #             1,
+    #             self.num_frames
+    #         ),
+    #         # 마커 이름 행을 수정: 각 마커 뒤에 빈 탭 2개 추가
+    #         "\t".join(['Frame#', 'Time'] + [name + '\t\t' for name in self.marker_names]) + "\n",
+    #         # X,Y,Z 행 그대로 유지
+    #         "\t".join(['', ''] + ['X\tY\tZ' for _ in self.marker_names]) + "\n"
+    #     ]
 
-        with open(file_path, 'w') as f:
-            f.writelines(header_lines)
-            self.data.to_csv(f, sep='\t', index=False, header=False, lineterminator='\n')
+    #     with open(file_path, 'w') as f:
+    #         f.writelines(header_lines)
+    #         self.data.to_csv(f, sep='\t', index=False, header=False, lineterminator='\n')
 
-        messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
+    #     messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
 
-    def save_to_c3d(self, file_path):
-        try:
-            import c3d
-        except ImportError:
-            messagebox.showerror("c3d Library Missing", "Please install the 'c3d' library to save in C3D format.")
-            return
+    # def save_to_c3d(self, file_path):
+    #     try:
+    #         import c3d
+    #     except ImportError:
+    #         messagebox.showerror("c3d Library Missing", "Please install the 'c3d' library to save in C3D format.")
+    #         return
 
-        try:
-            # Frame rate 설정
-            frame_rate = float(self.fps_var.get())
+    #     try:
+    #         # Frame rate 설정
+    #         frame_rate = float(self.fps_var.get())
             
-            # Writer 객체 초기화 시 frame rate 설정
-            writer = c3d.Writer(point_rate=frame_rate, analog_rate=0)
+    #         # Writer 객체 초기화 시 frame rate 설정
+    #         writer = c3d.Writer(point_rate=frame_rate, analog_rate=0)
 
-            # 커 레이블 설정
-            marker_labels = self.marker_names
-            writer.set_point_labels(marker_labels)
+    #         # 커 레이블 설정
+    #         marker_labels = self.marker_names
+    #         writer.set_point_labels(marker_labels)
 
-            # 모든 프레임의 데이터를 한 번에 준비
-            all_frames = []
+    #         # 모든 프레임의 데이터를 한 번에 준비
+    #         all_frames = []
             
-            # 데이터 채우기
-            for frame_idx in range(self.num_frames):
-                # 각 프레임의 데이터 준비
-                points = np.zeros((len(marker_labels), 5))  # 열 개수를 5로 변경
+    #         # 데이터 채우기
+    #         for frame_idx in range(self.num_frames):
+    #             # 각 프레임의 데이터 준비
+    #             points = np.zeros((len(marker_labels), 5))  # 열 개수를 5로 변경
                     
-                for i, marker in enumerate(marker_labels):
-                    try:
-                        x = self.data.loc[frame_idx, f'{marker}_X'] * 1000.0  # mm 단위로 변환
-                        y = self.data.loc[frame_idx, f'{marker}_Y'] * 1000.0
-                        z = self.data.loc[frame_idx, f'{marker}_Z'] * 1000.0
+    #             for i, marker in enumerate(marker_labels):
+    #                 try:
+    #                     x = self.data.loc[frame_idx, f'{marker}_X'] * 1000.0  # mm 단위로 변환
+    #                     y = self.data.loc[frame_idx, f'{marker}_Y'] * 1000.0
+    #                     z = self.data.loc[frame_idx, f'{marker}_Z'] * 1000.0
 
-                        if np.isnan(x) or np.isnan(y) or np.isnan(z):
-                            points[i, :3] = [0.0, 0.0, 0.0]
-                            points[i, 3] = -1.0  # Residual
-                            points[i, 4] = 0    # Camera_Mask
-                        else:
-                            points[i, :3] = [x, y, z]
-                            points[i, 3] = 0.0   # ResidualChatGPT o1-preview
+    #                     if np.isnan(x) or np.isnan(y) or np.isnan(z):
+    #                         points[i, :3] = [0.0, 0.0, 0.0]
+    #                         points[i, 3] = -1.0  # Residual
+    #                         points[i, 4] = 0    # Camera_Mask
+    #                     else:
+    #                         points[i, :3] = [x, y, z]
+    #                         points[i, 3] = 0.0   # ResidualChatGPT o1-preview
                             
                             
-                            points[i, 4] = 0     # Camera_Mask (필요에 따라 변경 가능)
-                    except Exception as e:
-                        print(f"Error processing marker {marker} at frame {frame_idx}: {e}")
-                        points[i, :3] = [0.0, 0.0, 0.0]
-                        points[i, 3] = -1.0  # Residual
-                        points[i, 4] = 0     # Camera_Mask
+    #                         points[i, 4] = 0     # Camera_Mask (필요에 따라 변경 가능)
+    #                 except Exception as e:
+    #                     print(f"Error processing marker {marker} at frame {frame_idx}: {e}")
+    #                     points[i, :3] = [0.0, 0.0, 0.0]
+    #                     points[i, 3] = -1.0  # Residual
+    #                     points[i, 4] = 0     # Camera_Mask
 
-                # 디버깅 정보 출력
-                if frame_idx % 100 == 0:
-                    print(f"Frame {frame_idx}:")
-                    print(f"Points shape: {points.shape}")
+    #             # 디버깅 정보 출력
+    #             if frame_idx % 100 == 0:
+    #                 print(f"Frame {frame_idx}:")
+    #                 print(f"Points shape: {points.shape}")
 
-                # 프레임 데이터를 리스트에 추가 (아날로그 데이터는 빈 넘파이 배열로)
-                all_frames.append((points, np.empty((0, 0))))
+    #             # 프레임 데이터를 리스트에 추가 (아날로그 데이터는 빈 넘파이 배열로)
+    #             all_frames.append((points, np.empty((0, 0))))
 
-            # 모든 프레임을 한 번에 추가
-            writer.add_frames(all_frames)
+    #         # 모든 프레임을 한 번에 추가
+    #         writer.add_frames(all_frames)
 
-            # 파일 저장
-            with open(file_path, 'wb') as h:
-                writer.write(h)
+    #         # 파일 저장
+    #         with open(file_path, 'wb') as h:
+    #             writer.write(h)
 
-            messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
+    #         messagebox.showinfo("Save Successful", f"Data saved to {file_path}")
 
-        except Exception as e:
-            messagebox.showerror("Save Error", f"An error occurred while saving: {str(e)}\n\nPlease check the console for more details.")
-            print(f"Detailed error: {e}")
+    #     except Exception as e:
+    #         messagebox.showerror("Save Error", f"An error occurred while saving: {str(e)}\n\nPlease check the console for more details.")
+    #         print(f"Detailed error: {e}")
 
     def on_timeline_click(self, event):
         if event.inaxes == self.timeline_ax:
