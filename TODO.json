@@ -1,156 +1,27 @@
 {
-    "tasks": [
-        {
-            "id": 1,
-            "title": "Code Refactoring",
-            "subtasks": [
-                {
-                    "id": "1.1",
-                    "title": "Break down large functions into smaller, more focused ones",
-                    "status": "pending"
-                },
-                {
-                    "id": "1.2",
-                    "title": "Extract common functionality into utility modules",
-                    "status": "pending"
-                },
-                {
-                    "id": "1.3",
-                    "title": "Implement proper error handling and logging",
-                    "status": "pending"
-                },
-                {
-                    "id": "1.4",
-                    "title": "Follow PEP 8 style guidelines consistently",
-                    "status": "pending"
-                }
-            ]
+    "project_root": {
+      "main.py": "",
+      "gui": {
+        "__init__.py": "",
+        "EditWindow.py": "",
+        "components": {
+          "__init__.py": "",
+          "control_panel.py": "",
+          "timeline.py": "",
+          "plot_area.py": ""
+          // 추가적인 컴포넌트 파일들...
         },
-        {
-            "id": 2,
-            "title": "Code Organization",
-            "subtasks": [
-                {
-                    "id": "2.1",
-                    "title": "Create separate modules",
-                    "modules": [
-                        "GUI components (main_window.py, dialogs.py)",
-                        "Data handling (data_processor.py, file_io.py)",
-                        "Visualization (plot_utils.py, graph_manager.py)",
-                        "Business logic (marker_processor.py, interpolation.py)"
-                    ],
-                    "status": "pending"
-                },
-                {
-                    "id": "2.2",
-                    "title": "Add __init__.py files and proper imports",
-                    "status": "pending"
-                }
-            ]
-        },
-        {
-            "id": 3,
-            "title": "Documentation",
-            "subtasks": [
-                {
-                    "id": "3.1",
-                    "title": "Add detailed docstrings for all classes and methods",
-                    "status": "pending"
-                },
-                {
-                    "id": "3.2",
-                    "title": "Include usage examples in docstrings",
-                    "status": "pending"
-                },
-                {
-                    "id": "3.3",
-                    "title": "Document complex algorithms and data structures",
-                    "status": "pending"
-                },
-                {
-                    "id": "3.4",
-                    "title": "Create user guide and API documentation",
-                    "status": "pending"
-                }
-            ]
-        },
-        {
-            "id": 4,
-            "title": "Testing",
-            "subtasks": [
-                {
-                    "id": "4.1",
-                    "title": "Write unit tests for core functionality",
-                    "status": "pending"
-                },
-                {
-                    "id": "4.2",
-                    "title": "Add integration tests for GUI components",
-                    "status": "pending"
-                },
-                {
-                    "id": "4.3",
-                    "title": "Set up CI/CD pipeline",
-                    "status": "pending"
-                },
-                {
-                    "id": "4.4",
-                    "title": "Add test coverage reporting",
-                    "status": "pending"
-                }
-            ]
-        },
-        {
-            "id": 5,
-            "title": "Packaging",
-            "subtasks": [
-                {
-                    "id": "5.1",
-                    "title": "Create setup.py with proper dependencies",
-                    "status": "pending"
-                },
-                {
-                    "id": "5.2",
-                    "title": "Add README.md, LICENSE, MANIFEST.in",
-                    "status": "pending"
-                },
-                {
-                    "id": "5.3",
-                    "title": "Configure package metadata",
-                    "status": "pending"
-                },
-                {
-                    "id": "5.4",
-                    "title": "Publish to PyPI",
-                    "status": "pending"
-                }
-            ]
-        },
-        {
-            "id": 6,
-            "title": "Distribution",
-            "subtasks": [
-                {
-                    "id": "6.1",
-                    "title": "Set up PyInstaller configuration",
-                    "status": "pending"
-                },
-                {
-                    "id": "6.2",
-                    "title": "Create installer for Windows/Mac/Linux",
-                    "status": "pending"
-                },
-                {
-                    "id": "6.3",
-                    "title": "Add version checking and auto-update",
-                    "status": "pending"
-                },
-                {
-                    "id": "6.4",
-                    "title": "Create standalone executable",
-                    "status": "pending"
-                }
-            ]
+        "assets": {
+          // 아이콘, 이미지 등 정적 리소스 파일들...
         }
-    ]
-}
+      },
+      "utils": {
+        "__init__.py": "",
+        "data_loader.py": "",
+        "data_saver.py": "",
+        "mouse_handler.py": "",
+        "trajectory.py": ""
+        // 기타 유틸리티 모듈들...
+      }
+    }
+  }

@@ -349,10 +349,6 @@ class TRCViewer(ctk.CTk):
             self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
             self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
             self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
-
-    def update_trajectory_length(self, value):
-        self.trajectory_length = int(float(value))
-        self.update_plot()
         
     def update_timeline(self):
         if self.data is None:
@@ -484,7 +480,6 @@ class TRCViewer(ctk.CTk):
             print(f"Error in on_model_change: {e}")
             import traceback
             traceback.print_exc()
-
 
     def update_skeleton_pairs(self):
         """스켈레톤 페어 업데이트"""
@@ -678,7 +673,6 @@ class TRCViewer(ctk.CTk):
             self.ax.set_xlim([-1, 1])
             self.ax.set_ylim([-1, 1])
             self.ax.set_zlim([-1, 1])
-
 
     def _setup_plot_style(self):
         self.ax.set_facecolor('black')
@@ -1275,7 +1269,6 @@ class TRCViewer(ctk.CTk):
                     else:
                         self.ax.text(x, z, y, marker, color=name_color)
 
-
     def on_interp_method_change(self, choice):
         """보간 방법 변경 시 처리"""
         if choice != 'pattern-based':
@@ -1317,7 +1310,6 @@ class TRCViewer(ctk.CTk):
             import traceback
             traceback.print_exc()
 
-
     def clear_selection(self):
         if 'rects' in self.selection_data and self.selection_data['rects']:
             for rect in self.selection_data['rects']:
@@ -1326,25 +1318,6 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'marker_canvas'):
             self.marker_canvas.draw_idle()
         self.selection_in_progress = False
-    def on_marker_mouse_press(self, event):
-        if event.inaxes is None:
-            return
-
-        if event.button == 2:  # 중간 버튼
-            self.marker_pan_enabled = True
-            self.marker_last_pos = (event.xdata, event.ydata)
-        elif event.button == 1:  # 왼쪽 버튼
-            # edit_menu 대신 edit_window 확인
-            if hasattr(self, 'edit_window') and self.edit_window:
-                if event.xdata is not None:
-                    if self.selection_data.get('rects'):
-                        start = min(self.selection_data['start'], self.selection_data['end'])
-                        end = max(self.selection_data['start'], self.selection_data['end'])
-                        if not (start <= event.xdata <= end):
-                            self.clear_selection()
-                            self.start_new_selection(event)
-                    else:
-                        self.start_new_selection(event)
 
     def highlight_selection(self):
         if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
