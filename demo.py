@@ -14,6 +14,7 @@ from utils.data_loader import read_data_from_c3d, read_data_from_trc
 from utils.data_saver import save_to_trc, save_to_c3d
 from gui.EditWindow import EditWindow
 from utils.mouse_handler import MouseHandler
+from utils.trajectory import MarkerTrajectory
 
 # Interactive mode on
 plt.ion()
@@ -118,6 +119,14 @@ class TRCViewer(ctk.CTk):
 
         self.edit_window = None
         
+        # Initialize trajectory handler
+        self.trajectory_handler = MarkerTrajectory()
+        
+        # Keep these for compatibility with existing code
+        self.show_trajectory = False
+        self.trajectory_length = 10
+        self.trajectory_line = None
+        self.marker_lines = []
 
     def create_widgets(self):
         button_frame = ctk.CTkFrame(self)
@@ -814,9 +823,13 @@ class TRCViewer(ctk.CTk):
         self.axis_labels = [label_x, label_y, label_z]
 
     def update_plot(self):
-        if self.canvas is None:
+        if self.data is None:
             return
-        
+
+        # Update trajectories using the handler
+        if hasattr(self, 'trajectory_handler'):
+            self.trajectory_handler.update_trajectory(self.data, self.frame_idx, self.marker_names, self.ax)
+
         # 데이터가 없는 경우에도 빈 3D 공간을 표시하도록 처리
         if self.data is None:
             # 기존 마커 및 스켈레톤 초기화
@@ -1383,7 +1396,7 @@ class TRCViewer(ctk.CTk):
 
             # Get filter parameters
             filter_type = self.filter_type_var.get()
-            
+
             if filter_type == 'butterworth':
                 try:
                     cutoff_freq = float(self.filter_params['butterworth']['cut_off_frequency'].get())
@@ -1410,7 +1423,6 @@ class TRCViewer(ctk.CTk):
                     }
                 }
             else:
-                # Handle other filter types similarly...
                 config_dict = {
                     'filtering': {
                         filter_type: {k: float(v.get()) for k, v in self.filter_params[filter_type].items()}
@@ -1444,7 +1456,7 @@ class TRCViewer(ctk.CTk):
                 self.selection_data['start'] = current_selection['start']
                 self.selection_data['end'] = current_selection['end']
                 self.highlight_selection()
-                
+
             self.update_plot()
 
             # edit_menu 대신 edit_window 사용
@@ -1761,7 +1773,8 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
 
     def toggle_trajectory(self):
-        self.show_trajectory = not getattr(self, 'show_trajectory', False)
+        """Toggle the visibility of marker trajectories"""
+        self.show_trajectory = self.trajectory_handler.toggle_trajectory()
         self.trajectory_button.configure(text="Hide Trajectory" if self.show_trajectory else "Show Trajectory")
         self.update_plot()
 
@@ -2092,6 +2105,13 @@ class TRCViewer(ctk.CTk):
         """패턴 마커 선택 초기화"""
         self.pattern_markers.clear()
         self.update_selected_markers_list()
+        self.update_plot()
+
+    def on_marker_selected(self, marker_name):
+        """Handle marker selection event"""
+        self.current_marker = marker_name
+        if hasattr(self, 'trajectory_handler'):
+            self.trajectory_handler.set_current_marker(marker_name)
         self.update_plot()
 
 if __name__ == "__main__":
