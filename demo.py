@@ -28,14 +28,14 @@ class TRCViewer(ctk.CTk):
         self.geometry("1200x1000")
 
         # 기 변수 초기화
-        self.marker_names = []  # 빈 리스트로 초기화
+        self.marker_names = []
         self.data = None
         self.original_data = None
         self.num_frames = 0
         self.frame_idx = 0
         self.canvas = None
         self.selection_in_progress = False
-        self.outliers = {}  # 빈 딕셔너리로 초기화
+        self.outliers = {}
 
         self.marker_last_pos = None
         self.marker_pan_enabled = False
@@ -75,7 +75,7 @@ class TRCViewer(ctk.CTk):
 
         # 패턴 마커 관련 속성 초기화
         self.pattern_markers = set()
-        self._selected_markers_list = None  # 인스턴스 변수로 초기화
+        self._selected_markers_list = None
 
         self.available_models = {
             'No skeleton': None,
@@ -103,7 +103,7 @@ class TRCViewer(ctk.CTk):
         self.animation_job = None
         self.fps_var = ctk.StringVar(value="30")
 
-        self.current_frame_line = None  # 현재 프레임 표시 라인 초기화
+        self.current_frame_line = None
 
         self.bind('<space>', lambda e: self.toggle_animation())
         self.bind('<Return>', lambda e: self.toggle_animation())
@@ -113,9 +113,9 @@ class TRCViewer(ctk.CTk):
 
         self.create_widgets()
 
-        # 초기화 시 3D 플롯 생성
+        # initialize plot
         self.create_plot()
-        self.update_plot()  # 빈 플롯을 업데이트
+        self.update_plot()
 
         self.edit_window = None
         
@@ -219,26 +219,25 @@ class TRCViewer(ctk.CTk):
         self.canvas_frame = ctk.CTkFrame(canvas_container)
         self.canvas_frame.pack(side='left', fill='both', expand=True)
 
-        # 통합된 컨트롤 프레임 생성 - 테두리 두께 감소
         self.control_frame = ctk.CTkFrame(
             self,
-            border_width=1,  # 테두리 두께 감소 (기본값은 2)
-            fg_color="#1A1A1A"  # 배경색 설정
+            border_width=1,  
+            fg_color="#1A1A1A"  # background color
         )
         self.control_frame.pack(fill='x', padx=10, pady=(0, 10))
 
-        # 컨트롤 버튼 스타일
+        # control button style
         control_style = {
             "width": 30,
             "fg_color": "#333333",
             "hover_color": "#444444"
         }
 
-        # 컨트롤 버튼 프레임
+        # control button frame
         button_frame = ctk.CTkFrame(self.control_frame, fg_color="transparent")
         button_frame.pack(side='left', padx=5)
 
-        # 재생 컨트롤 버튼들
+        # play control buttons
         self.play_pause_button = ctk.CTkButton(
             button_frame,
             text="▶",
@@ -256,17 +255,17 @@ class TRCViewer(ctk.CTk):
         )
         self.stop_button.pack(side='left', padx=2)
 
-        # Loop 체크박스 스타일
+        # loop checkbox style
         checkbox_style = {
             "width": 60,
-            "fg_color": "#1A1A1A",  # transparent 대신 프레임의 배경색과 동일하게 설정
-            "border_color": "#666666",  # 테두리 색상
-            "hover_color": "#1A1A1A",  # hover 색상도 동일하게 설정
-            "checkmark_color": "#00A6FF",  # 체크마크 색상
-            "border_width": 2  # 테두리 두께
+            "fg_color": "#1A1A1A",  # transparent instead of background color
+            "border_color": "#666666",  # border color
+            "hover_color": "#1A1A1A",  # hover color
+            "checkmark_color": "#00A6FF",  # checkmark color
+            "border_width": 2  # border width
         }
 
-        # Loop 체크박스
+        # loop checkbox
         self.loop_var = ctk.BooleanVar(value=False)
         self.loop_checkbox = ctk.CTkCheckBox(
             button_frame,
@@ -277,11 +276,11 @@ class TRCViewer(ctk.CTk):
         )
         self.loop_checkbox.pack(side='left', padx=5)
 
-        # 타임라인 메뉴 프레임
+        # timeline menu frame
         timeline_menu_frame = ctk.CTkFrame(self.control_frame, fg_color="transparent")
         timeline_menu_frame.pack(side='left', padx=(5, 10))
 
-        # 현재 프레임/시간 표시 레이블
+        # current frame/time display label
         self.current_info_label = ctk.CTkLabel(
             timeline_menu_frame,
             text="0.00s",
@@ -290,11 +289,11 @@ class TRCViewer(ctk.CTk):
         )
         self.current_info_label.pack(side='left', padx=5)
 
-        # 모드 선택 버튼 프레임
+        # mode selection button frame
         mode_frame = ctk.CTkFrame(timeline_menu_frame, fg_color="#222222", corner_radius=6)
         mode_frame.pack(side='left', padx=2)
 
-        # Time/Frame 모드 버튼
+        # time/frame mode button
         button_style = {
             "width": 60,
             "height": 24,
@@ -323,23 +322,23 @@ class TRCViewer(ctk.CTk):
         )
         self.frame_btn.pack(side='left', padx=2, pady=2)
 
-        # 타임라인 Figure 생성
+        # timeline figure
         self.timeline_fig = Figure(figsize=(5, 0.8), facecolor='black')
         self.timeline_ax = self.timeline_fig.add_subplot(111)
         self.timeline_ax.set_facecolor('black')
         
-        # 타임라인 캔버스
+        # timeline canvas
         self.timeline_canvas = FigureCanvasTkAgg(self.timeline_fig, master=self.control_frame)
         self.timeline_canvas.get_tk_widget().pack(fill='x', expand=True, padx=5, pady=5)
         
-        # 타임라인 이벤트 연결
+        # timeline event connection
         self.timeline_canvas.mpl_connect('button_press_event', self.mouse_handler.on_timeline_click)
         self.timeline_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_timeline_drag)
         self.timeline_canvas.mpl_connect('button_release_event', self.mouse_handler.on_timeline_release)
         
         self.timeline_dragging = False
 
-        # 초기 타임라인 모드 설정
+        # initial timeline mode
         self.change_timeline_mode("time")
 
         self.marker_label = ctk.CTkLabel(self, text="")
@@ -359,14 +358,14 @@ class TRCViewer(ctk.CTk):
         fps = float(self.fps_var.get())
         times = frames / fps
         
-        # 가로 기준선 추가 (y=0)
+        # add horizontal baseline (y=0)
         self.timeline_ax.axhline(y=0, color='white', alpha=0.3, linewidth=1)
         
         display_mode = self.timeline_display_var.get()
         light_yellow = '#FFEB3B'
         
         if display_mode == "time":
-            # 10초 단위 큰 눈금
+            # major ticks every 10 seconds
             major_time_ticks = np.arange(0, times[-1] + 10, 10)
             for time in major_time_ticks:
                 if time <= times[-1]:
@@ -377,10 +376,10 @@ class TRCViewer(ctk.CTk):
                                         horizontalalignment='center',
                                         verticalalignment='top')
             
-            # 1초 단위 작은 눈금
+            # minor ticks every 1 second
             minor_time_ticks = np.arange(0, times[-1] + 1, 1)
             for time in minor_time_ticks:
-                if time <= times[-1] and time % 10 != 0:  # 10초 단위와 겹치지 않게
+                if time <= times[-1] and time % 10 != 0:  # not overlap with 10-second ticks
                     frame = int(time * fps)
                     self.timeline_ax.axvline(frame, color='white', alpha=0.15, linewidth=0.5)
                     self.timeline_ax.text(frame, -0.7, f"{time:.0f}s", 
@@ -391,7 +390,7 @@ class TRCViewer(ctk.CTk):
             current_time = self.frame_idx / fps
             current_display = f"{current_time:.2f}s"
         else:  # frame mode
-            # 100프레임 단위 큰 눈금
+            # major ticks every 100 frames
             major_frame_ticks = np.arange(0, self.num_frames, 100)
             for frame in major_frame_ticks:
                 self.timeline_ax.axvline(frame, color='white', alpha=0.3, linewidth=1)
@@ -402,20 +401,20 @@ class TRCViewer(ctk.CTk):
             
             current_display = f"{self.frame_idx}"
         
-        # 현재 프레임 표시 (연한 노랑색 선)
+        # current frame display (light yellow line)
         self.timeline_ax.axvline(self.frame_idx, color=light_yellow, alpha=0.8, linewidth=1.5)
         
-        # 레이블 업데이트
+        # update label
         self.current_info_label.configure(text=current_display)
         
-        # 타임라인 설정
+        # timeline settings
         self.timeline_ax.set_xlim(0, self.num_frames - 1)
         self.timeline_ax.set_ylim(-1, 1)
         
-        # y축 숨기기
+        # hide y-axis
         self.timeline_ax.set_yticks([])
         
-        # 테두리 스타일 설정
+        # border style
         self.timeline_ax.spines['top'].set_visible(False)
         self.timeline_ax.spines['right'].set_visible(False)
         self.timeline_ax.spines['left'].set_visible(False)
@@ -424,9 +423,9 @@ class TRCViewer(ctk.CTk):
         self.timeline_ax.spines['bottom'].set_color('white')
         self.timeline_ax.spines['bottom'].set_alpha(0.3)
         
-        # x축 눈금 숨기기 (우리가 직접 그리므로)
+        # hide x-axis ticks (we draw them manually)
         self.timeline_ax.set_xticks([])
-        # Figure의 여백 조정 (텍스트가 잘리지 않도록)
+        # adjust figure margins (to avoid text clipping)
         self.timeline_fig.subplots_adjust(bottom=0.2)
         
         self.timeline_canvas.draw_idle()
@@ -482,7 +481,7 @@ class TRCViewer(ctk.CTk):
             traceback.print_exc()
 
     def update_skeleton_pairs(self):
-        """스켈레톤 페어 업데이트"""
+        """update skeleton pairs"""
         self.skeleton_pairs = []
         if self.current_model is not None:
             for node in self.current_model.descendants:
@@ -490,7 +489,7 @@ class TRCViewer(ctk.CTk):
                     parent_name = node.parent.name
                     node_name = node.name
                     
-                    # 마커 이름이 데이터에 있는지 확인
+                    # check if marker names are in the data
                     if (f"{parent_name}_X" in self.data.columns and 
                         f"{node_name}_X" in self.data.columns):
                         self.skeleton_pairs.append((parent_name, node_name))
@@ -523,7 +522,7 @@ class TRCViewer(ctk.CTk):
                 self.fps_var.set(str(int(frame_rate)))
                 self.update_fps_label()
 
-                # frame_slider 관련 코드 제거
+                # frame_slider related code
                 self.frame_idx = 0
                 self.update_timeline()
 
@@ -601,13 +600,13 @@ class TRCViewer(ctk.CTk):
                 'rect': None
             }
 
-            # frame_slider 관련 코드 제거
+            # frame_slider related code
             self.title_label.configure(text="")
             self.show_names = False
             self.show_skeleton = True
             self.current_file = None
 
-            # 타임라인 초기화
+            # timeline initialization
             if hasattr(self, 'timeline_ax'):
                 self.timeline_ax.clear()
                 self.timeline_canvas.draw_idle()
@@ -754,65 +753,65 @@ class TRCViewer(ctk.CTk):
                 label.remove()
         self.axis_labels = []
 
-        # 축 설정
+        # axis settings
         origin = np.zeros(3)
         axis_length = 0.4
         
-        # 축 색상 정의
+        # axis colors
         x_color = 'red'
         y_color = 'yellow'
         z_color = 'blue'
         
         if self.is_z_up:
-            # Z-up 좌표계 메인 축 그리기
-            # X축 (빨간색)
+            # draw main axes for Z-up coordinate system
+            # X-axis (red)
             line_x = self.ax.plot([origin[0], origin[0] + axis_length], 
                         [origin[1], origin[1]], 
                         [origin[2], origin[2]], 
                         color=x_color, alpha=0.8, linewidth=2)[0]
             
-            # Y축 (노란색)
+            # Y-axis (yellow)
             line_y = self.ax.plot([origin[0], origin[0]], 
                         [origin[1], origin[1] + axis_length], 
                         [origin[2], origin[2]], 
                         color=y_color, alpha=0.8, linewidth=2)[0]
             
-            # Z축 (파란색)
+            # Z-axis (blue)
             line_z = self.ax.plot([origin[0], origin[0]], 
                         [origin[1], origin[1]], 
                         [origin[2], origin[2] + axis_length], 
                         color=z_color, alpha=0.8, linewidth=2)[0]
 
-            # 레이블 위치 설정
+            # label position
             label_x = self.ax.text(axis_length + 0.1, 0, 0, 'X', color=x_color, fontsize=12)
             label_y = self.ax.text(0, axis_length + 0.1, 0, 'Y', color=y_color, fontsize=12)
             label_z = self.ax.text(0, 0, axis_length + 0.1, 'Z', color=z_color, fontsize=12)
         else:
-            # Y-up 좌표계 메인 축 그리기 (오른손 법칙 준수)
-            # X축 (빨간색)
+            # draw main axes for Y-up coordinate system (right-hand rule)
+            # X-axis (red)
             line_x = self.ax.plot([origin[0], origin[0] + axis_length], 
                         [origin[2], origin[2]], 
                         [origin[1], origin[1]], 
                         color=x_color, alpha=0.8, linewidth=2)[0]
             
-            # Z축 (파란색) - 반대 방향으로 변경
+            # Z-axis (blue) - change direction
             line_z = self.ax.plot([origin[0], origin[0]], 
                         [origin[2], origin[2] - axis_length], 
                         [origin[1], origin[1]], 
                         color=z_color, alpha=0.8, linewidth=2)[0]
             
-            # Y축 (노란색)
+            # Y-axis (yellow)
             line_y = self.ax.plot([origin[0], origin[0]], 
                         [origin[2], origin[2]], 
                         [origin[1], origin[1] + axis_length], 
                         color=y_color, alpha=0.8, linewidth=2)[0]
 
-            # 레이블 위치 설정
+            # label position
             label_x = self.ax.text(axis_length + 0.1, 0, 0, 'X', color=x_color, fontsize=12)
             label_z = self.ax.text(0, -axis_length - 0.1, 0, 'Z', color=z_color, fontsize=12)
             label_y = self.ax.text(0, 0, axis_length + 0.1, 'Y', color=y_color, fontsize=12)
 
-        # 축과 레이블 저장
+        # save axes and labels
         self.coordinate_axes = [line_x, line_y, line_z]
         self.axis_labels = [label_x, label_y, label_z]
 
@@ -824,9 +823,9 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'trajectory_handler'):
             self.trajectory_handler.update_trajectory(self.data, self.frame_idx, self.marker_names, self.ax)
 
-        # 데이터가 없는 경우에도 빈 3D 공간을 표시하도록 처리
+        # handle empty 3D space when data is None
         if self.data is None:
-            # 기존 마커 및 스켈레톤 초기화
+            # initialize markers and skeleton
             if hasattr(self, 'markers_scatter'):
                 self.markers_scatter._offsets3d = ([], [], [])
             if hasattr(self, 'selected_marker_scatter'):
@@ -836,7 +835,7 @@ class TRCViewer(ctk.CTk):
                 for line in self.skeleton_lines:
                     line.set_data_3d([], [], [])
 
-            # 축 범위를 설정
+            # set axis ranges
             self.ax.set_xlim([-1, 1])
             self.ax.set_ylim([-1, 1])
             self.ax.set_zlim([-1, 1])
@@ -844,7 +843,7 @@ class TRCViewer(ctk.CTk):
             self.canvas.draw()
             return
 
-        # 기존 궤적 라인 제거
+        # remove existing trajectory line
         if hasattr(self, 'trajectory_line') and self.trajectory_line is not None:
             self.trajectory_line.remove()
             self.trajectory_line = None
@@ -881,7 +880,7 @@ class TRCViewer(ctk.CTk):
         prev_ylim = self.ax.get_ylim()
         prev_zlim = self.ax.get_zlim()
 
-        # 마커 위치 데이터 수집
+        # collect marker position data
         positions = []
         colors = []
         alphas = []
@@ -889,18 +888,18 @@ class TRCViewer(ctk.CTk):
         marker_positions = {}
         valid_markers = []
 
-        # 현재 프레임의 유효한 마커만 수집
+        # collect valid markers for the current frame
         for marker in self.marker_names:
             try:
                 x = self.data.loc[self.frame_idx, f'{marker}_X']
                 y = self.data.loc[self.frame_idx, f'{marker}_Y']
                 z = self.data.loc[self.frame_idx, f'{marker}_Z']
                 
-                # NaN 값이나 삭제된 데이터는 건너뛰기
+                # skip NaN values or deleted data
                 if pd.isna(x) or pd.isna(y) or pd.isna(z):
                     continue
                     
-                # 유효한 데이터만 추가
+                # add valid data
                 if self.is_z_up:
                     marker_positions[marker] = np.array([x, y, z])
                     positions.append([x, y, z])
@@ -908,7 +907,7 @@ class TRCViewer(ctk.CTk):
                     marker_positions[marker] = np.array([x, -z, y])
                     positions.append([x, -z, y])
 
-                # 유효한 마커에 대해서만 색상과 알파값 추가
+                # add colors and alphas for valid markers
                 if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
                     if marker in self.pattern_markers:
                         colors.append('red')
@@ -932,30 +931,30 @@ class TRCViewer(ctk.CTk):
             except KeyError:
                 continue
 
-        # 배열 변환
+        # array conversion
         positions = np.array(positions) if positions else np.zeros((0, 3))
         selected_position = np.array(selected_position) if selected_position else np.zeros((0, 3))
 
-        # scatter plot 업데이트 - 유효한 데이터만 표시
+        # update scatter plot - display valid data
         if len(positions) > 0:
             try:
-                # 기존 scatter 제거
+                # remove existing scatter
                 if hasattr(self, 'markers_scatter'):
                     self.markers_scatter.remove()
                 
-                # 새로운 scatter plot 생성
+                # create new scatter plot
                 self.markers_scatter = self.ax.scatter(
                     positions[:, 0], 
                     positions[:, 1], 
                     positions[:, 2],
-                    c=colors[:len(positions)],  # 길이 맞춤
-                    alpha=alphas[:len(positions)],  # 길이 맞춤
+                    c=colors[:len(positions)],  # length match
+                    alpha=alphas[:len(positions)],  # length match
                     s=30,
                     picker=5
                 )
             except Exception as e:
                 print(f"Error updating scatter plot: {e}")
-                # 오류 발생 시 기본 scatter plot 생성
+                # create default scatter plot if error occurs
                 if hasattr(self, 'markers_scatter'):
                     self.markers_scatter.remove()
                 self.markers_scatter = self.ax.scatter(
@@ -967,12 +966,12 @@ class TRCViewer(ctk.CTk):
                     picker=5
                 )
         else:
-            # 데이터가 없는 경우 빈 scatter plot 생성
+            # create empty scatter plot if data is None
             if hasattr(self, 'markers_scatter'):
                 self.markers_scatter.remove()
             self.markers_scatter = self.ax.scatter([], [], [], c='white', s=30, picker=5)
 
-        # 선택된 마커 업데이트
+        # update selected marker
         if len(selected_position) > 0:
             self.selected_marker_scatter._offsets3d = (
                 selected_position[:, 0],
@@ -984,7 +983,7 @@ class TRCViewer(ctk.CTk):
             self.selected_marker_scatter._offsets3d = ([], [], [])
             self.selected_marker_scatter.set_visible(False)
 
-        # 스켈레톤 라인 업데이트
+        # update skeleton lines
         if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_lines'):
             for line, pair in zip(self.skeleton_lines, self.skeleton_pairs):
                 if pair[0] in marker_positions and pair[1] in marker_positions:
@@ -1007,8 +1006,8 @@ class TRCViewer(ctk.CTk):
                 else:
                     line.set_visible(False)
 
-        # 마커 이름 업데이트
-        # 기존 라벨 제거
+        # update marker names
+        # remove existing labels
         for label in self.marker_labels:
             label.remove()
         self.marker_labels.clear()
@@ -1018,22 +1017,22 @@ class TRCViewer(ctk.CTk):
             color = 'white'
             alpha = 1.0
             
-            # pattern-based로 선택된 마커는 항상 표시
+            # pattern-based selected markers are always displayed
             if hasattr(self, 'pattern_selection_mode') and marker in self.pattern_markers:
                 color = 'red'
                 alpha = 0.7
                 label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, alpha=alpha, fontsize=8)
                 self.marker_labels.append(label)
-            # 그 외 마커는 show_names가 True일 때만 표시
+            # display other markers if show_names is True
             elif self.show_names:
                 if marker == self.current_marker:
                     color = 'yellow'
                 label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, alpha=alpha, fontsize=8)
                 self.marker_labels.append(label)
 
-        # 마커 그래프가 표시되어 있을 때 현재 프레임 라인 업데이트
+        # update current frame line when marker graph is displayed
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
-            # 기존의 current_frame_line 관련 코드 제거
+            # remove existing current_frame_line code
             if hasattr(self, 'marker_lines') and self.marker_lines:
                 for line in self.marker_lines:
                     line.set_xdata([self.frame_idx, self.frame_idx])
@@ -1060,7 +1059,7 @@ class TRCViewer(ctk.CTk):
                 self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
             
     def disconnect_mouse_events(self):
-        """마우스 이벤트 연결 해제"""
+        """disconnect mouse events"""
         if hasattr(self, 'canvas'):
             for cid in self.canvas.callbacks.callbacks.copy():
                 self.canvas.mpl_disconnect(cid)
@@ -1071,7 +1070,7 @@ class TRCViewer(ctk.CTk):
             self.update_plot()
             self.update_timeline()
 
-            # 마커 그래프가 표시되어 있다면 수직선 업데이트
+            # update vertical line if marker graph is displayed
             if hasattr(self, 'marker_lines') and self.marker_lines:
                 for line in self.marker_lines:
                     line.set_xdata([self.frame_idx, self.frame_idx])
@@ -1147,8 +1146,8 @@ class TRCViewer(ctk.CTk):
                         loc='upper right',
                         bbox_to_anchor=(1.0, 1.0))
 
-        # 현재 프레임 표시 라인 초기화
-        self.marker_lines = []  # 기존 lines 초기화
+        # initialize current frame display line
+        self.marker_lines = []  # initialize existing lines
         for ax in self.marker_axes:
             line = ax.axvline(x=self.frame_idx, color='red', linestyle='--', alpha=0.8)
             self.marker_lines.append(line)
@@ -1235,33 +1234,33 @@ class TRCViewer(ctk.CTk):
         if was_editing:
             self.start_edit()
 
-        # 마커 캔버스 이벤트 연결
+        # connect marker canvas events
         self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
         self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
         self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
 
-        # selection_data 초기화
+        # initialize selection_data
         self.selection_data = {
             'start': None,
             'end': None,
             'rects': []
         }
 
-        # selection_in_progress 초기화
+        # initialize selection_in_progress
         self.selection_in_progress = False
 
-        # 마커 이름 표시 로직 수정
+        # update marker name display logic
         if self.show_names or (hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode):
             for marker in self.marker_names:
                 x = self.data.loc[self.frame_idx, f'{marker}_X']
                 y = self.data.loc[self.frame_idx, f'{marker}_Y']
                 z = self.data.loc[self.frame_idx, f'{marker}_Z']
                 
-                # 마커 이름의 색상 결정
+                # determine marker name color
                 if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode and marker in self.pattern_markers:
-                    name_color = 'red'  # 패턴으로 선택된 마커
+                    name_color = 'red'  # pattern-based selected marker
                 else:
-                    name_color = 'black'  # 일반 마커
+                    name_color = 'black'  # normal marker
                     
                 if not np.isnan(x) and not np.isnan(y) and not np.isnan(z):
                     if self.is_z_up:
@@ -1272,21 +1271,21 @@ class TRCViewer(ctk.CTk):
     def on_interp_method_change(self, choice):
         """보간 방법 변경 시 처리"""
         if choice != 'pattern-based':
-            # 패턴 마커 초기화
+            # initialize pattern markers
             self.pattern_markers.clear()
             self.pattern_selection_mode = False
             
-            # 화면 업데이트
+            # update screen
             self.update_plot()
             self.canvas.draw_idle()
         else:
-            # pattern-based가 선택되면 선택 모드 활성화
+            # activate pattern selection mode when pattern-based is selected
             self.pattern_selection_mode = True
             messagebox.showinfo("Pattern Selection", 
                 "Right-click markers to select/deselect them as reference patterns.\n"
                 "Selected markers will be shown in red.")
         
-        # EditWindow가 열려있을 때만 Order 입력 필드 상태 변경
+        # change Order input field state only if EditWindow is open
         if hasattr(self, 'edit_window') and self.edit_window:
             if choice in ['polynomial', 'spline']:
                 self.edit_window.order_entry.configure(state='normal')
@@ -1297,11 +1296,11 @@ class TRCViewer(ctk.CTk):
 
     def toggle_edit_window(self):
         try:
-            # 기존 edit_window가 있으면 포커스
+            # focus on existing edit_window if it exists
             if hasattr(self, 'edit_window') and self.edit_window:
                 self.edit_window.focus()
             else:
-                # 새로운 EditWindow 생성
+                # create new EditWindow
                 self.edit_window = EditWindow(self)
                 self.edit_window.focus()
                 
@@ -1343,7 +1342,7 @@ class TRCViewer(ctk.CTk):
 
     def filter_selected_data(self):
         try:
-            # 현재 선택 영역 저장
+            # save current selection area
             current_selection = None
             if hasattr(self, 'selection_data'):
                 current_selection = {
@@ -1432,10 +1431,9 @@ class TRCViewer(ctk.CTk):
 
             self.update_plot()
 
-            # edit_menu 대신 edit_window 사용
             if hasattr(self, 'edit_window') and self.edit_window:
                 self.edit_window.focus()
-                # edit_button 상태 업데이트
+                # update edit_button state
                 if hasattr(self, 'edit_button'):
                     self.edit_button.configure(fg_color="#555555")
 
@@ -1568,7 +1566,7 @@ class TRCViewer(ctk.CTk):
             end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
             print(f"Frame range for interpolation: {start_frame} to {end_frame}")
             
-            # 전체 데이터에서 유효한 프레임 찾기
+            # search for valid frames in entire dataset
             print("\nSearching for valid target marker data...")
             all_valid_frames = []
             for frame in range(len(self.data)):
@@ -1584,7 +1582,7 @@ class TRCViewer(ctk.CTk):
             print(f"Found {len(all_valid_frames)} valid frames for target marker")
             print(f"Valid frames range: {min(all_valid_frames)} to {max(all_valid_frames)}")
             
-            # 가장 가까운 유효한 프레임 찾기
+            # find the closest valid frame
             closest_frame = min(all_valid_frames, 
                               key=lambda x: min(abs(x - start_frame), abs(x - end_frame)))
             print(f"\nUsing frame {closest_frame} as reference frame")
@@ -1663,11 +1661,11 @@ class TRCViewer(ctk.CTk):
             print(f"\nInterpolation completed successfully")
             print(f"Total frames interpolated: {interpolated_count}")
             
-            # 패턴 기반 모드 종료 및 초기화
+            # end pattern-based mode and initialize
             self.pattern_selection_mode = False
             self.pattern_markers.clear()
             
-            # UI 업데이트
+            # update UI
             self.update_plot()
             self.show_marker_plot(self.current_marker)
             
@@ -1678,13 +1676,13 @@ class TRCViewer(ctk.CTk):
             traceback.print_exc()
             messagebox.showerror("Interpolation Error", f"Error during pattern-based interpolation: {str(e)}")
         finally:
-            # 마우스 이벤트 재설정
+            # reset mouse events and UI state
             print("\nResetting mouse events and UI state")
             self.disconnect_mouse_events()
             self.connect_mouse_events()
 
     def on_pattern_selection_confirm(self):
-        """패턴 선택 확인 시 처리"""
+        """Process pattern selection confirmation"""
         try:
             print("\nPattern selection confirmation:")
             print(f"Selected markers: {self.pattern_markers}")
@@ -1697,13 +1695,13 @@ class TRCViewer(ctk.CTk):
             print("Starting interpolation")
             self.interpolate_selected_data()
             
-            # 패턴 선택 창 닫기는 interpolate_with_pattern에서 처리됨
+            # pattern selection window is closed in interpolate_with_pattern
             
         except Exception as e:
             print(f"Error in pattern selection confirmation: {e}")
             traceback.print_exc()
             
-            # 에러 발생 시에도 상태 초기화
+            # initialize state even if error occurs
             self.pattern_selection_mode = False
             self.pattern_markers.clear()
             self.disconnect_mouse_events()
@@ -1933,7 +1931,7 @@ class TRCViewer(ctk.CTk):
             self.update_plot()
             self.update_timeline()
 
-            # Speed slider 관련 코드 제거하고 기본 FPS 사용
+            # remove speed slider related code and use default FPS
             base_fps = float(self.fps_var.get())
             delay = int(1000 / base_fps)
             delay = max(1, delay)
@@ -1979,10 +1977,10 @@ class TRCViewer(ctk.CTk):
             self.update_timeline()
 
     def change_timeline_mode(self, mode):
-        """타임라인 모드 변경 및 버튼 스타일 업데이트"""
+        """Change timeline mode and update button style"""
         self.timeline_display_var.set(mode)
         
-        # 선택된 버튼 강조
+        # highlight selected button
         if mode == "time":
             self.time_btn.configure(fg_color="#444444", text_color="white")
             self.frame_btn.configure(fg_color="transparent", text_color="#888888")
@@ -2054,9 +2052,9 @@ class TRCViewer(ctk.CTk):
             kernel_entry.pack(side='left', padx=2)
 
     def update_selected_markers_list(self):
-        """선택된 마커 목록 업데이트"""
+        """Update selected markers list"""
         try:
-            # 패턴 선택 창이 존재하고 유효한지 확인
+            # check if pattern selection window exists and is valid
             if (hasattr(self, 'pattern_window') and 
                 self.pattern_window.winfo_exists() and 
                 self._selected_markers_list and 
@@ -2069,13 +2067,13 @@ class TRCViewer(ctk.CTk):
                 self._selected_markers_list.configure(state='disabled')
         except Exception as e:
             print(f"Error updating markers list: {e}")
-            # 에러 발생 시 관련 변수들 초기화
+            # initialize related variables if error occurs
             if hasattr(self, 'pattern_window'):
                 delattr(self, 'pattern_window')
             self._selected_markers_list = None
 
     def clear_pattern_selection(self):
-        """패턴 마커 선택 초기화"""
+        """Initialize pattern markers"""
         self.pattern_markers.clear()
         self.update_selected_markers_list()
         self.update_plot()
