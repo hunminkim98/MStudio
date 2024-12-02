@@ -1,5 +1,5 @@
 # MarkerStudio
-A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies. Designed to be compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim), providing seamless integration for marker data processing and analysis.
+A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies. Designed to be compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim), and [Sports2D](https://github.com/davidpagnon/Sports2D), providing seamless integration for marker data processing and analysis.
 
 
 ## Features
@@ -8,7 +8,7 @@ A comprehensive toolkit for editing and managing 2D and 3D markers in motion cap
 
 - Interactive 3D viewport with real-time marker display
 
-- Customizable marker colors and sizes
+- Customizable marker colors and sizes (TODO)
 
 - Toggle marker labels visibility
 
@@ -37,11 +37,8 @@ A comprehensive toolkit for editing and managing 2D and 3D markers in motion cap
 - Outlier detection and highlighting
 ### 🔧 Data Processing
 - Multiple filtering options:
-  - Kalman filter
   - Butterworth filter
   - Butterworth on speed
-  - Gaussian filter
-  - LOESS smoothing
   - Median filter
 - Customizable filter parameters
 - Pattern-based marker interpolation
@@ -49,6 +46,5 @@ A comprehensive toolkit for editing and managing 2D and 3D markers in motion cap
 ### 💾 File Operations
 - Import TRC/C3D files
 - Export to TRC/C3D files
-- Data backup and restoration
 - Original data preservation
 
