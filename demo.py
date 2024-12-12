@@ -1,3 +1,4 @@
+from turtle import width
 import pandas as pd
 import numpy as np
 import customtkinter as ctk
@@ -25,7 +26,7 @@ class TRCViewer(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("TRC Viewer")
-        self.geometry("1200x1000")
+        self.geometry("1920x1080")
 
         # 기 변수 초기화
         self.marker_names = []
@@ -217,7 +218,9 @@ class TRCViewer(ctk.CTk):
         canvas_container.pack(fill='both', expand=True)
 
         self.canvas_frame = ctk.CTkFrame(canvas_container)
-        self.canvas_frame.pack(side='left', fill='both', expand=True)
+        self.canvas_frame.configure(width = 1600)
+        self.canvas_frame.pack(expand=True, fill='both')
+        self.canvas_frame.pack_propagate(False)
 
         self.control_frame = ctk.CTkFrame(
             self,
@@ -646,8 +649,9 @@ class TRCViewer(ctk.CTk):
             self.initial_limits = None
 
     def create_plot(self):
-        self.fig = plt.Figure(facecolor='black')
+        self.fig = plt.Figure(figsize=(16, 9), facecolor='black')
         self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax.set_position([0, 0, 1, 1])
 
         self._setup_plot_style()
         self._draw_static_elements()
@@ -677,6 +681,11 @@ class TRCViewer(ctk.CTk):
         self.ax.set_facecolor('black')
         self.fig.patch.set_facecolor('black')
 
+        # 3D 축의 여백 제거
+        # self.ax.dist = 11  # 카메라 거리 조절
+        # self.fig.tight_layout(pad=10)  # 여백 최소
+        self.fig.subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99)
+        
         for pane in [self.ax.xaxis.set_pane_color,
                      self.ax.yaxis.set_pane_color,
                      self.ax.zaxis.set_pane_color]:
