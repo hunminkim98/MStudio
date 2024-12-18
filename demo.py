@@ -218,7 +218,7 @@ class TRCViewer(ctk.CTk):
         canvas_container.pack(fill='both', expand=True)
 
         self.canvas_frame = ctk.CTkFrame(canvas_container)
-        self.canvas_frame.configure(width = 1600)
+        # self.canvas_frame.configure(width = 1600)
         self.canvas_frame.pack(expand=True, fill='both')
         self.canvas_frame.pack_propagate(False)
 
@@ -649,10 +649,10 @@ class TRCViewer(ctk.CTk):
             self.initial_limits = None
 
     def create_plot(self):
-        self.fig = plt.Figure(figsize=(16, 9), facecolor='black')
+        self.fig = plt.Figure(figsize=(10, 10), facecolor='black')  # Changed to square figure
         self.ax = self.fig.add_subplot(111, projection='3d')
-        self.ax.set_position([0, 0, 1, 1])
-
+        self.ax.set_position([0.1, 0.1, 0.8, 0.8])  # Add proper spacing around plot
+        
         self._setup_plot_style()
         self._draw_static_elements()
         self._initialize_dynamic_elements()
@@ -672,10 +672,12 @@ class TRCViewer(ctk.CTk):
         self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
 
         if self.data is None:
-            # 축 범위를 -1에서 1로 설정
+            # Set equal aspect ratio and limits
             self.ax.set_xlim([-1, 1])
             self.ax.set_ylim([-1, 1])
             self.ax.set_zlim([-1, 1])
+            self.ax.set_box_aspect([1,1,1])  # Force equal aspect ratio
+        self.canvas.draw()
 
     def _setup_plot_style(self):
         self.ax.set_facecolor('black')
@@ -684,7 +686,7 @@ class TRCViewer(ctk.CTk):
         # 3D 축의 여백 제거
         # self.ax.dist = 11  # 카메라 거리 조절
         # self.fig.tight_layout(pad=10)  # 여백 최소
-        self.fig.subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99)
+        self.fig.subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9)  # Adjusted margins for better aspect ratio
         
         for pane in [self.ax.xaxis.set_pane_color,
                      self.ax.yaxis.set_pane_color,
@@ -1234,7 +1236,9 @@ class TRCViewer(ctk.CTk):
         self.selection_data = {
             'start': None,
             'end': None,
-            'rects': []
+            'rects': [],
+            'current_ax': None,
+            'rect': None
         }
 
         self.connect_mouse_events()
@@ -1247,7 +1251,7 @@ class TRCViewer(ctk.CTk):
         self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
         self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
         self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
-
+        
         # initialize selection_data
         self.selection_data = {
             'start': None,
@@ -1837,33 +1841,12 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
 
     def reset_main_view(self):
-        if hasattr(self, 'data_limits'):
-            try:
-                self.ax.view_init(elev=20, azim=45)
-
-                if self.is_z_up:
-                    self.ax.set_xlim(self.data_limits['x'])
-                    self.ax.set_ylim(self.data_limits['y'])
-                    self.ax.set_zlim(self.data_limits['z'])
-                else:
-                    self.ax.set_xlim(self.data_limits['x'])
-                    self.ax.set_ylim(self.data_limits['z'])
-                    self.ax.set_zlim(self.data_limits['y'])
-
-                self.ax.grid(True)
-
-                self.ax.set_box_aspect([1.0, 1.0, 1.0])
-
-                self.canvas.draw()
-
-                self.view_limits = {
-                    'x': self.ax.get_xlim(),
-                    'y': self.ax.get_ylim(),
-                    'z': self.ax.get_zlim()
-                }
-
-            except Exception as e:
-                print(f"Error resetting camera view: {e}")
+        if self.data_limits:
+            self.ax.set_xlim(self.data_limits['x'])
+            self.ax.set_ylim(self.data_limits['y'])
+            self.ax.set_zlim(self.data_limits['z'])
+            self.ax.set_box_aspect([1,1,1])  # Force equal aspect ratio
+            self.canvas.draw()
 
     def reset_graph_view(self):
         if hasattr(self, 'marker_axes') and hasattr(self, 'initial_graph_limits'):

@@ -2,17 +2,14 @@ import os
 import pandas as pd
 import numpy as np
 from PySide6.QtWidgets import (QMainWindow, QApplication, QWidget, QVBoxLayout,
-                              QHBoxLayout, QFrame, QPushButton, QLabel, QCheckBox)
-from PySide6.QtCore import Qt, QEvent
+                              QHBoxLayout, QFrame, QPushButton, QLabel, QCheckBox, 
+                              QFileDialog, QMessageBox, QSizePolicy)
+from PySide6.QtCore import Qt, QEvent, QTimer
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Line3D
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 import matplotlib
-
-# Set matplotlib backend to Qt5Agg
-matplotlib.use('Qt5Agg')
-
 from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
 from utils.data_loader import read_data_from_c3d, read_data_from_trc
@@ -25,7 +22,7 @@ from utils.trajectory import MarkerTrajectory
 plt.ion()
 
 # Interactive mode on
-matplotlib.use('TkAgg')
+matplotlib.use('QtAgg')
 
 
 class TRCViewer(QMainWindow):
@@ -38,17 +35,23 @@ class TRCViewer(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
         # Create main frames
         self.button_frame = QFrame()
+        self.button_frame.setMaximumHeight(40)  # Limit button frame height
         self.button_frame.setStyleSheet("background-color: #2B2B2B;")
         self.button_layout = QHBoxLayout(self.button_frame)
+        self.button_layout.setContentsMargins(5, 0, 5, 0)  # Reduce vertical margins
         self.main_layout.addWidget(self.button_frame)
 
         self.content_frame = QFrame()
         self.content_frame.setStyleSheet("background-color: #1E1E1E;")
         self.content_layout = QVBoxLayout(self.content_frame)
-        self.main_layout.addWidget(self.content_frame, stretch=1)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(0)
+        self.main_layout.addWidget(self.content_frame, stretch=10)  # Increase content frame stretch
 
         # 기 변수 초기화
         self.marker_names = []
@@ -115,7 +118,9 @@ class TRCViewer(QMainWindow):
             'COCO_17': COCO_17
         }
 
-        self.current_model = None
+        # Initialize default skeleton model
+        self.model = 'No skeleton'
+        self.current_model = self.available_models[self.model]
         self.skeleton_pairs = []
 
         self.pan_enabled = False
@@ -123,8 +128,9 @@ class TRCViewer(QMainWindow):
 
         self.is_playing = False
         self.playback_speed = 1.0
-        self.animation_job = None
-        self.fps = "30"
+        self.animation_timer = None
+        self.fps = "60"  # Increase default FPS
+        self.marker_lines = []
 
         self.current_frame_line = None
 
@@ -249,7 +255,9 @@ class TRCViewer(QMainWindow):
         self.canvas_frame = QFrame(self.main_content)
         self.canvas_frame.setStyleSheet(frame_style)
         self.canvas_layout = QVBoxLayout(self.canvas_frame)
-        main_content_layout.addWidget(self.canvas_frame, stretch=1)
+        self.canvas_layout.setContentsMargins(0, 0, 0, 0)
+        self.canvas_layout.setSpacing(0)
+        main_content_layout.addWidget(self.canvas_frame, stretch=10)  # Increase stretch factor
 
         # Create viewer top frame
         viewer_top_frame = QFrame(self.main_content)
@@ -262,18 +270,9 @@ class TRCViewer(QMainWindow):
         self.title_label.setStyleSheet("color: white; font-size: 14px;")
         viewer_top_layout.addWidget(self.title_label, stretch=1)
 
-        canvas_container = QFrame(self.viewer_frame)
-        canvas_container.setStyleSheet(frame_style)
-        canvas_container_layout = QVBoxLayout(canvas_container)
-        self.viewer_layout.addWidget(canvas_container, stretch=1)
-
-        self.canvas_frame = QFrame(canvas_container)
-        self.canvas_frame.setStyleSheet(frame_style)
-        self.canvas_layout = QVBoxLayout(self.canvas_frame)
-        canvas_container_layout.addWidget(self.canvas_frame, stretch=1)
-
-        # Create control frame
+        # Create control frame with reduced height
         self.control_frame = QFrame(self.central_widget)
+        self.control_frame.setMaximumHeight(60)  # Limit control frame height
         self.control_frame.setStyleSheet("""
             QFrame {
                 background-color: #1A1A1A;
@@ -281,6 +280,7 @@ class TRCViewer(QMainWindow):
             }
         """)
         control_layout = QHBoxLayout(self.control_frame)
+        control_layout.setContentsMargins(5, 0, 5, 0)  # Reduce vertical margins
         self.content_layout.addWidget(self.control_frame)
 
         # Create button frame for play controls
@@ -574,8 +574,11 @@ class TRCViewer(QMainWindow):
                         self.skeleton_pairs.append((parent_name, node_name))
 
     def open_file(self):
-        file_path = filedialog.askopenfilename(
-            filetypes=[("Motion files", "*.trc;*.c3d"), ("TRC files", "*.trc"), ("C3D files", "*.c3d"), ("All files", "*.*")]
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,                   # parent widget
+            "Open Motion File",     # dialog title
+            "",                     # starting directory
+            "Motion files (*.trc *.c3d);;TRC files (*.trc);;C3D files (*.c3d);;All files (*)"  # file filter
         )
 
         if file_path:
@@ -618,16 +621,19 @@ class TRCViewer(QMainWindow):
                     self.canvas.draw()
                     self.canvas.flush_events()
 
-                self.play_pause_button.configure(state='normal')
-                # self.speed_slider.configure(state='normal')
-                self.loop_checkbox.configure(state='normal')
+                self.play_pause_button.setEnabled(True)
+                self.loop_checkbox.setEnabled(True)
 
                 self.is_playing = False
-                self.play_pause_button.configure(text="▶")
-                self.stop_button.configure(state='disabled')
+                self.play_pause_button.setText("▶")
+                self.stop_button.setEnabled(False)
 
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load file: {str(e)}")
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to load file: {str(e)}"
+                )
 
     def clear_current_state(self):
         try:
@@ -725,10 +731,22 @@ class TRCViewer(QMainWindow):
             self.initial_limits = None
 
     def create_plot(self):
-        # DPI를 조정하여 figure 크기를 상대적으로 설정
-        self.fig = plt.Figure(dpi=100, facecolor='black')
+        plt.close('all')  # Close any existing figures
+        
+        # Create figure without margins
+        self.fig = plt.Figure(figsize=(12, 8), facecolor='black')
         self.ax = self.fig.add_subplot(111, projection='3d')
-        self.ax.set_position([0.05, 0.05, 0.9, 0.9])  # 여백 추가
+        
+        # Remove margins completely
+        self.fig.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=0, hspace=0)
+        
+        # Disable auto-scaling
+        self.ax.autoscale(enable=False)
+        
+        # Set initial limits
+        self.ax.set_xlim3d(-1, 1)
+        self.ax.set_ylim3d(-1, 1)
+        self.ax.set_zlim3d(-1, 1)
 
         self._setup_plot_style()
         self._draw_static_elements()
@@ -738,40 +756,53 @@ class TRCViewer(QMainWindow):
             self.canvas.deleteLater()
             self.canvas = None
 
+        # Create canvas with specific settings
         self.canvas = FigureCanvasQTAgg(self.fig)
         self.canvas.setParent(self.canvas_frame)
-        self.canvas_layout.addWidget(self.canvas)
+        
+        # Set size policy to expand
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(1)
+        self.canvas.setSizePolicy(sizePolicy)
+        
+        # Set minimum size for canvas
+        self.canvas.setMinimumSize(800, 600)
+        
+        # Clear existing widgets from layout
+        while self.canvas_layout.count():
+            item = self.canvas_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Add canvas to layout with stretch
+        self.canvas_layout.addWidget(self.canvas, stretch=1)
         
         # Add navigation toolbar
+        if hasattr(self, 'toolbar'):
+            self.toolbar.deleteLater()
         self.toolbar = NavigationToolbar2QT(self.canvas, self.canvas_frame)
         self.canvas_layout.addWidget(self.toolbar)
 
-        self.canvas.draw()
-        self.canvas.show()
-
-        # 창 크기 변경 이벤트 바인딩
-        self.canvas_frame.layout().addWidget(self.canvas)
-
+        # Connect mouse events
         self.canvas.mpl_connect('scroll_event', self.mouse_handler.on_scroll)
         self.canvas.mpl_connect('pick_event', self.mouse_handler.on_pick)
         self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
         self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
         self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
 
-        if self.data is None:
-            # 축 범위를 -1에서 1로 설정
-            self.ax.set_xlim([-1, 1])
-            self.ax.set_ylim([-1, 1])
-            self.ax.set_zlim([-1, 1])
+        # Initial view angle
+        self.ax.view_init(elev=20, azim=45)
+        
+        # Force draw
+        self.canvas.draw()
 
     def _setup_plot_style(self):
         self.ax.set_facecolor('black')
         self.fig.patch.set_facecolor('black')
-
-        # 3D 축의 여백 제거
-        # self.ax.dist = 11  # 카메라 거리 조절
-        # self.fig.tight_layout(pad=10)  # 여백 최소
-        self.fig.subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99)
+        
+        # Set the axes position directly
+        self.ax.set_position([0, 0, 1, 1])
         
         for pane in [self.ax.xaxis.set_pane_color,
                      self.ax.yaxis.set_pane_color,
@@ -932,9 +963,9 @@ class TRCViewer(QMainWindow):
                     line.set_data_3d([], [], [])
 
             # set axis ranges
-            self.ax.set_xlim([-1, 1])
-            self.ax.set_ylim([-1, 1])
-            self.ax.set_zlim([-1, 1])
+            self.ax.set_xlim3d(-1, 1)
+            self.ax.set_ylim3d(-1, 1)
+            self.ax.set_zlim3d(-1, 1)
 
             self.canvas.draw()
             return
@@ -1144,6 +1175,7 @@ class TRCViewer(QMainWindow):
     def connect_mouse_events(self):
         if self.canvas:
             self.canvas.mpl_connect('scroll_event', self.mouse_handler.on_scroll)
+            self.canvas.mpl_connect('pick_event', self.mouse_handler.on_pick)
             self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
             self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
             self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
@@ -1162,16 +1194,53 @@ class TRCViewer(QMainWindow):
 
     def update_frame(self, value):
         if self.data is not None:
-            self.frame_idx = int(float(value))
-            self.update_plot()
+            self.frame_idx = value
+            
+            # Update marker positions using scatter's offset
+            x_coords = []
+            y_coords = []
+            z_coords = []
+            
+            for marker_name in self.marker_names:
+                x = self.data[f"{marker_name}_X"].iloc[value]
+                y = self.data[f"{marker_name}_Y"].iloc[value]
+                z = self.data[f"{marker_name}_Z"].iloc[value]
+                
+                if self.is_z_up:
+                    x_coords.append(x)
+                    y_coords.append(y)
+                    z_coords.append(z)
+                else:
+                    x_coords.append(x)
+                    y_coords.append(-z)
+                    z_coords.append(y)
+            
+            # Fast update of scatter plot
+            if hasattr(self, 'markers_scatter'):
+                self.markers_scatter._offsets3d = (x_coords, y_coords, z_coords)
+            
+            # Update skeleton lines if they exist
+            if hasattr(self, 'skeleton_lines') and self.skeleton_lines:
+                for (marker1, marker2), line in zip(self.skeleton_pairs, self.skeleton_lines):
+                    x = [self.data[f"{marker1}_X"].iloc[value], self.data[f"{marker2}_X"].iloc[value]]
+                    y = [self.data[f"{marker1}_Y"].iloc[value], self.data[f"{marker2}_Y"].iloc[value]]
+                    z = [self.data[f"{marker1}_Z"].iloc[value], self.data[f"{marker2}_Z"].iloc[value]]
+                    if not self.is_z_up:
+                        y, z = [-z[i] for i in range(2)], [y[i] for i in range(2)]
+                    line.set_data_3d(x, y, z)
+            
+            # Fast refresh of 3D canvas
+            if hasattr(self, 'canvas'):
+                self.canvas.draw_idle()
+            
             self.update_timeline()
-
-            # update vertical line if marker graph is displayed
+            
+            # Update marker graph vertical line if it exists
             if hasattr(self, 'marker_lines') and self.marker_lines:
                 for line in self.marker_lines:
                     line.set_xdata([self.frame_idx, self.frame_idx])
                 if hasattr(self, 'marker_canvas'):
-                    self.marker_canvas.draw()
+                    self.marker_canvas.draw_idle()
 
     def show_marker_plot(self, marker_name):
         # Save current states
@@ -1378,11 +1447,11 @@ class TRCViewer(QMainWindow):
         # change Order input field state only if EditWindow is open
         if hasattr(self, 'edit_window') and self.edit_window:
             if choice in ['polynomial', 'spline']:
-                self.edit_window.order_entry.configure(state='normal')
-                self.edit_window.order_label.configure(state='normal')
+                self.edit_window.order_entry.setEnabled(True)
+                self.edit_window.order_label.setEnabled(True)
             else:
-                self.edit_window.order_entry.configure(state='disabled')
-                self.edit_window.order_label.configure(state='disabled')
+                self.edit_window.order_entry.setEnabled(False)
+                self.edit_window.order_label.setEnabled(False)
 
     def toggle_edit_window(self):
         try:
@@ -1981,53 +2050,49 @@ class TRCViewer(QMainWindow):
             self.play_animation()
 
     def play_animation(self):
-        self.is_playing = True
-        self.play_pause_button.setText("⏸")
-        self.stop_button.setEnabled(True)
-        self.animate()
+        if not self.is_playing:
+            self.is_playing = True
+            self.play_pause_button.setText("⏸")
+            self.stop_button.setEnabled(True)
+            
+            base_fps = float(self.fps)
+            delay = int(1000 / base_fps)  # Convert to milliseconds
+            delay = max(1, delay)
+
+            if self.animation_timer is not None:
+                self.animation_timer.stop()
+            self.animation_timer = QTimer()
+            self.animation_timer.timeout.connect(self.animate)
+            self.animation_timer.start(delay)
 
     def pause_animation(self):
         self.is_playing = False
         self.play_pause_button.setText("▶")
-        if self.animation_job:
-            self.after_cancel(self.animation_job)
-            self.animation_job = None
+        if self.animation_timer is not None:
+            self.animation_timer.stop()
 
     def stop_animation(self):
-        # 재생 중이었다면 멈춤
-        if self.is_playing:
-            self.is_playing = False
-            self.play_pause_button.setText("▶")
-            if self.animation_job:
-                self.after_cancel(self.animation_job)
-                self.animation_job = None
-        
-        # 첫 프레임으로 되돌아감
-        self.frame_idx = 0
-        self.update_plot()
-        self.update_timeline()
+        self.is_playing = False
+        self.play_pause_button.setText("▶")
         self.stop_button.setEnabled(False)
+        if self.animation_timer is not None:
+            self.animation_timer.stop()
+        self.frame_idx = 0
+        self.update_frame(self.frame_idx)
 
     def animate(self):
-        if self.is_playing:
-            if self.frame_idx < self.num_frames - 1:
-                self.frame_idx += 1
-            else:
-                if self.loop:
+        """Animation function that updates frame without full plot refresh"""
+        if self.is_playing and self.data is not None:
+            self.frame_idx += 1
+            if self.frame_idx >= self.num_frames:
+                if self.loop_checkbox.isChecked():
                     self.frame_idx = 0
                 else:
-                    self.stop_animation()
+                    self.pause_animation()
                     return
-
-            self.update_plot()
-            self.update_timeline()
-
-            # remove speed slider related code and use default FPS
-            base_fps = float(self.fps)
-            delay = int(1000 / base_fps)
-            delay = max(1, delay)
-
-            self.animation_job = self.after(delay, self.animate)
+            
+            # Update frame without full plot refresh
+            self.update_frame(self.frame_idx)
 
     def update_fps_label(self):
         fps = self.fps
