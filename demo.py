@@ -21,7 +21,6 @@ from utils.trajectory import MarkerTrajectory
 plt.ion()
 matplotlib.use('TkAgg')
 
-
 class TRCViewer(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -102,7 +101,7 @@ class TRCViewer(ctk.CTk):
         self.is_playing = False
         self.playback_speed = 1.0
         self.animation_job = None
-        self.fps_var = ctk.StringVar(value="30")
+        self.fps_var = ctk.StringVar(value="60")
 
         self.current_frame_line = None
 
@@ -200,25 +199,27 @@ class TRCViewer(ctk.CTk):
         self.model_combo.pack(side='left', padx=5)
 
         self.main_content = ctk.CTkFrame(self)
-        self.main_content.pack(fill='both', expand=True, padx=10)
+        self.main_content.pack(fill='both', expand=True, padx=10, pady=(0, 10))
 
-        self.viewer_frame = ctk.CTkFrame(self.main_content)
-        self.viewer_frame.pack(side='left', fill='both', expand=True)
+        self.view_frame = ctk.CTkFrame(self.main_content, fg_color="black")
+        self.view_frame.pack(side='left', fill='both', expand=True)
 
-        self.graph_frame = ctk.CTkFrame(self.main_content)
-        self.graph_frame.pack_forget()
+        self.right_panel = ctk.CTkFrame(self.main_content, fg_color="black")
+        self.right_panel.pack_forget()  # 처음에는 숨김
+        self.right_panel.pack_propagate(False)  # 크기 고정
 
-        viewer_top_frame = ctk.CTkFrame(self.viewer_frame)
+        self.graph_frame = ctk.CTkFrame(self.right_panel, fg_color="black")
+        
+        viewer_top_frame = ctk.CTkFrame(self.view_frame)
         viewer_top_frame.pack(fill='x', pady=(5, 0))
 
         self.title_label = ctk.CTkLabel(viewer_top_frame, text="", font=("Arial", 14))
         self.title_label.pack(side='left', expand=True)
 
-        canvas_container = ctk.CTkFrame(self.viewer_frame)
+        canvas_container = ctk.CTkFrame(self.view_frame)
         canvas_container.pack(fill='both', expand=True)
 
         self.canvas_frame = ctk.CTkFrame(canvas_container)
-        # self.canvas_frame.configure(width = 1600)
         self.canvas_frame.pack(expand=True, fill='both')
         self.canvas_frame.pack_propagate(False)
 
@@ -567,7 +568,7 @@ class TRCViewer(ctk.CTk):
                 plt.close(self.marker_plot_fig)
                 del self.marker_plot_fig
 
-            if hasattr(self, 'canvas') and self.canvas and hasattr(self.canvas, 'get_tk_widget'):
+            if hasattr(self, 'canvas') and self.canvas:
                 self.canvas.get_tk_widget().destroy()
                 self.canvas = None
 
@@ -1029,8 +1030,8 @@ class TRCViewer(ctk.CTk):
             alpha = 1.0
             
             # pattern-based selected markers are always displayed
-            if hasattr(self, 'pattern_selection_mode') and marker in self.pattern_markers:
-                color = 'red'
+            if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode and marker in self.pattern_markers:
+                color = 'red'  # pattern-based selected marker
                 alpha = 0.7
                 label = self.ax.text(pos[0], pos[1], pos[2], marker, color=color, alpha=alpha, fontsize=8)
                 self.marker_labels.append(label)
@@ -1105,7 +1106,31 @@ class TRCViewer(ctk.CTk):
             prev_filter_type = prev_filter_type.get()
 
         if not self.graph_frame.winfo_ismapped():
-            self.graph_frame.pack(side='right', fill='both', expand=True)
+            # Right panel 표시
+            self.right_panel.pack(side='right', fill='both')
+            
+            # 초기 너비 설정 (전체 창의 1/3)
+            initial_width = self.winfo_width() // 3
+            self.right_panel.configure(width=initial_width)
+            
+            # Sizer 생성 및 설정
+            if not hasattr(self, 'sizer') or self.sizer is None:
+                self.sizer = ctk.CTkFrame(self.main_content, width=5, height=self.main_content.winfo_height(),
+                                        fg_color="#666666", bg_color="black")
+                self.sizer.pack(side='left', fill='y')
+                self.sizer.pack_propagate(False)
+                
+                # Sizer bindings
+                self.sizer.bind('<Enter>', lambda e: (
+                    self.sizer.configure(fg_color="#888888"),
+                    self.sizer.configure(cursor="sb_h_double_arrow")
+                ))
+                self.sizer.bind('<Leave>', lambda e: self.sizer.configure(fg_color="#666666"))
+                self.sizer.bind('<Button-1>', self.start_resize)
+                self.sizer.bind('<B1-Motion>', self.do_resize)
+                self.sizer.bind('<ButtonRelease-1>', self.stop_resize)
+        
+            self.graph_frame.pack(fill='both', expand=True)
 
         for widget in self.graph_frame.winfo_children():
             widget.destroy()
@@ -1714,12 +1739,10 @@ class TRCViewer(ctk.CTk):
             print(f"Error in pattern selection confirmation: {e}")
             traceback.print_exc()
             
-            # initialize state even if error occurs
-            self.pattern_selection_mode = False
-            self.pattern_markers.clear()
-            self.disconnect_mouse_events()
-            self.connect_mouse_events()
-
+            # initialize related variables if error occurs
+            if hasattr(self, 'pattern_window'):
+                delattr(self, 'pattern_window')
+            self._selected_markers_list = None
 
     def restore_original_data(self):
         if self.original_data is not None:
@@ -1859,7 +1882,9 @@ class TRCViewer(ctk.CTk):
         self.selection_data = {
             'start': event.xdata,
             'end': event.xdata,
-            'rects': []
+            'rects': [],
+            'current_ax': None,
+            'rect': None
         }
         self.selection_in_progress = True
 
@@ -1907,7 +1932,6 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
         self.update_timeline()
         self.stop_button.configure(state='disabled')
-
 
     def animate(self):
         if self.is_playing:
@@ -2076,6 +2100,20 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'trajectory_handler'):
             self.trajectory_handler.set_current_marker(marker_name)
         self.update_plot()
+
+    def start_resize(self, event):
+        self.sizer_dragging = True
+        self.initial_sizer_x = event.x_root
+        self.initial_panel_width = self.right_panel.winfo_width()
+
+    def do_resize(self, event):
+        if self.sizer_dragging:
+            dx = event.x_root - self.initial_sizer_x
+            new_width = max(200, min(self.initial_panel_width - dx, self.winfo_width() - 200))
+            self.right_panel.configure(width=new_width)
+
+    def stop_resize(self, event):
+        self.sizer_dragging = False
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("System")
