@@ -1207,24 +1207,26 @@ class TRCViewer(ctk.CTk):
         self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
 
         button_frame = ctk.CTkFrame(self.graph_frame)
-        button_frame.pack(fill='x', padx=5, pady=5)
+        button_frame.pack(fill='x', padx=5, pady=(5, 10))
 
         reset_button = ctk.CTkButton(button_frame,
                                     text="Reset View",
                                     command=self.reset_graph_view,
                                     width=80,
+                                    height=28,
                                     fg_color="#333333",
                                     hover_color="#444444")
-        reset_button.pack(side='right', padx=5)
+        reset_button.pack(side='right', padx=5, pady=5)
 
         # Edit button to open the new window
         self.edit_button = ctk.CTkButton(button_frame,
                                         text="Edit",
-                                        command=self.toggle_edit_window,  # window rather than menu
+                                        command=self.toggle_edit_window,
                                         width=80,
+                                        height=28,
                                         fg_color="#333333",
                                         hover_color="#444444")
-        self.edit_button.pack(side='right', padx=5)
+        self.edit_button.pack(side='right', padx=5, pady=5)
 
         # Initialize filter parameters if not already present
         if not hasattr(self, 'filter_params'):
