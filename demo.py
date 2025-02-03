@@ -1206,26 +1206,37 @@ class TRCViewer(ctk.CTk):
         self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
         self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
 
-        button_frame = ctk.CTkFrame(self.graph_frame)
+        # Create button frame with explicit background color
+        button_frame = ctk.CTkFrame(self.graph_frame, fg_color="#1A1A1A")
         button_frame.pack(fill='x', padx=5, pady=(5, 10))
 
-        reset_button = ctk.CTkButton(button_frame,
-                                    text="Reset View",
-                                    command=self.reset_graph_view,
-                                    width=80,
-                                    height=28,
-                                    fg_color="#333333",
-                                    hover_color="#444444")
+        # Update button style with brighter colors
+        button_style = {
+            "width": 80,
+            "height": 28,
+            "fg_color": "#3B3B3B",
+            "hover_color": "#4B4B4B",
+            "text_color": "#FFFFFF",
+            "corner_radius": 6,     
+            "border_width": 1,
+            "border_color": "#555555"
+        }
+
+        reset_button = ctk.CTkButton(
+            button_frame,
+            text="Reset View",
+            command=self.reset_graph_view,
+            **button_style
+        )
         reset_button.pack(side='right', padx=5, pady=5)
 
-        # Edit button to open the new window
-        self.edit_button = ctk.CTkButton(button_frame,
-                                        text="Edit",
-                                        command=self.toggle_edit_window,
-                                        width=80,
-                                        height=28,
-                                        fg_color="#333333",
-                                        hover_color="#444444")
+        # Edit button with the same style
+        self.edit_button = ctk.CTkButton(
+            button_frame,
+            text="Edit",
+            command=self.toggle_edit_window,
+            **button_style
+        )
         self.edit_button.pack(side='right', padx=5, pady=5)
 
         # Initialize filter parameters if not already present
