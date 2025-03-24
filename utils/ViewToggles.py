@@ -3,7 +3,7 @@ This module contains toggle functions for various UI elements in the TRCViewer a
 These functions were extracted from the main class to improve code organization.
 """
 
-from gui.EditWindow import EditWindow
+from gui.editWindow import EditWindow
 
 def toggle_marker_names(self):
     """

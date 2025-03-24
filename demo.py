@@ -9,19 +9,19 @@ from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
 import matplotlib
 
-from gui.TRCViewerWidgets import create_widgets
-from gui.MarkerPlot import show_marker_plot
-from gui.PlotCreator import create_plot, _setup_plot_style, _draw_static_elements, _initialize_dynamic_elements, _update_coordinate_axes
-from gui.PlotUpdater import update_plot
-from gui.FilterUI import on_filter_type_change
+from gui.TRCviewerWidgets import create_widgets
+from gui.markerPlot import show_marker_plot
+from gui.plotCreator import create_plot, _setup_plot_style, _draw_static_elements, _initialize_dynamic_elements, _update_coordinate_axes
+from gui.plotUpdater import update_plot
+from gui.filterUI import on_filter_type_change
 
-from utils.data_loader import read_data_from_c3d, read_data_from_trc
-from utils.data_saver import save_to_trc, save_to_c3d
-from utils.ViewToggles import toggle_marker_names, toggle_coordinates, toggle_trajectory, toggle_edit_window, toggle_animation
-from utils.ViewReset import reset_main_view, reset_graph_view
-from utils.DataFiltering import filter_selected_data
-from utils.DataInterpolation import interpolate_selected_data, interpolate_with_pattern, on_interp_method_change, on_pattern_selection_confirm
-from utils.mouse_handler import MouseHandler
+from utils.dataLoader import read_data_from_c3d, read_data_from_trc
+from utils.dataSaver import save_to_trc, save_to_c3d
+from utils.viewToggles import toggle_marker_names, toggle_coordinates, toggle_trajectory, toggle_edit_window, toggle_animation
+from utils.viewReset import reset_main_view, reset_graph_view
+from utils.dataFiltering import filter_selected_data
+from utils.dataInterpolation import interpolate_selected_data, interpolate_with_pattern, on_interp_method_change, on_pattern_selection_confirm
+from utils.mouseHandler import MouseHandler
 from utils.trajectory import MarkerTrajectory
 
 # Interactive mode on
