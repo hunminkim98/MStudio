@@ -82,3 +82,74 @@ def read_data_from_trc(trc_file_path):
     data = pd.read_csv(trc_file_path, sep='\t', skiprows=6, names=column_names)
 
     return header_lines, data, marker_names, frame_rate
+
+def open_file(viewer):
+    """
+    Opens a motion file (TRC or C3D) and loads it into the viewer
+    
+    Args:
+        viewer: The TRCViewer instance that will display the loaded data
+    
+    Returns:
+        bool: True if file was successfully loaded, False otherwise
+    """
+    from tkinter import filedialog, messagebox
+    import os
+    
+    file_path = filedialog.askopenfilename(
+        filetypes=[("Motion files", "*.trc;*.c3d"), ("TRC files", "*.trc"), ("C3D files", "*.c3d"), ("All files", "*.*")]
+    )
+
+    if file_path:
+        try:
+            viewer.clear_current_state()
+
+            viewer.current_file = file_path
+            file_name = os.path.basename(file_path)
+            file_extension = os.path.splitext(file_path)[1].lower()
+            viewer.title_label.configure(text=file_name)
+
+            if file_extension == '.trc':
+                header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_trc(file_path)
+            elif file_extension == '.c3d':
+                header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_c3d(file_path)
+            else:
+                raise Exception("Unsupported file format")
+
+            viewer.num_frames = viewer.data.shape[0]
+            viewer.original_data = viewer.data.copy(deep=True)
+            viewer.calculate_data_limits()
+
+            viewer.fps_var.set(str(int(frame_rate)))
+            viewer.update_fps_label()
+
+            # frame_slider related code
+            viewer.frame_idx = 0
+            viewer.update_timeline()
+
+            viewer.current_model = viewer.available_models[viewer.model_var.get()]
+            viewer.update_skeleton_pairs()
+            viewer.detect_outliers()
+            
+            # 추가된 UI 업데이트 코드
+            viewer.create_plot()
+            viewer.reset_main_view()
+            viewer.update_plot()
+
+            if hasattr(viewer, 'canvas'):
+                viewer.canvas.draw()
+                viewer.canvas.flush_events()
+
+            viewer.play_pause_button.configure(state='normal')
+            viewer.loop_checkbox.configure(state='normal')
+
+            viewer.is_playing = False
+            viewer.play_pause_button.configure(text="▶")
+            viewer.stop_button.configure(state='disabled')
+            
+            return True
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open file: {str(e)}")
+            return False
+    
+    return False

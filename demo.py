@@ -15,12 +15,11 @@ from gui.plotCreator import create_plot, _setup_plot_style, _draw_static_element
 from gui.plotUpdater import update_plot
 from gui.filterUI import on_filter_type_change
 
-from utils.dataLoader import read_data_from_c3d, read_data_from_trc
-from utils.dataSaver import save_to_trc, save_to_c3d
+from utils.dataLoader import read_data_from_c3d, read_data_from_trc, open_file
+from utils.dataSaver import save_as, save_to_trc, save_to_c3d
 from utils.viewToggles import toggle_marker_names, toggle_coordinates, toggle_trajectory, toggle_edit_window, toggle_animation
 from utils.viewReset import reset_main_view, reset_graph_view
-from utils.dataFiltering import filter_selected_data
-from utils.dataInterpolation import interpolate_selected_data, interpolate_with_pattern, on_interp_method_change, on_pattern_selection_confirm
+from utils.dataProcessor import *
 from utils.mouseHandler import MouseHandler
 from utils.trajectory import MarkerTrajectory
 
@@ -284,60 +283,7 @@ class TRCViewer(ctk.CTk):
                         self.skeleton_pairs.append((parent_name, node_name))
 
     def open_file(self):
-        file_path = filedialog.askopenfilename(
-            filetypes=[("Motion files", "*.trc;*.c3d"), ("TRC files", "*.trc"), ("C3D files", "*.c3d"), ("All files", "*.*")]
-        )
-
-        if file_path:
-            try:
-                self.clear_current_state()
-
-                self.current_file = file_path
-                file_name = os.path.basename(file_path)
-                file_extension = os.path.splitext(file_path)[1].lower()
-                self.title_label.configure(text=file_name)
-
-                if file_extension == '.trc':
-                    header_lines, self.data, self.marker_names, frame_rate = read_data_from_trc(file_path)
-                elif file_extension == '.c3d':
-                    header_lines, self.data, self.marker_names, frame_rate = read_data_from_c3d(file_path)
-                else:
-                    raise Exception("Unsupported file format")
-
-                self.num_frames = self.data.shape[0]
-                self.original_data = self.data.copy(deep=True)
-                self.calculate_data_limits()
-
-                self.fps_var.set(str(int(frame_rate)))
-                self.update_fps_label()
-
-                # frame_slider related code
-                self.frame_idx = 0
-                self.update_timeline()
-
-                self.current_model = self.available_models[self.model_var.get()]
-                self.update_skeleton_pairs()
-                self.detect_outliers()
-
-                self.create_plot()
-                self.reset_main_view()
-                self.update_plot()
-                # self.update_frame_counter()
-
-                if hasattr(self, 'canvas'):
-                    self.canvas.draw()
-                    self.canvas.flush_events()
-
-                self.play_pause_button.configure(state='normal')
-                # self.speed_slider.configure(state='normal')
-                self.loop_checkbox.configure(state='normal')
-
-                self.is_playing = False
-                self.play_pause_button.configure(text="▶")
-                self.stop_button.configure(state='disabled')
-
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to load file: {str(e)}")
+        open_file(self)
 
     def clear_current_state(self):
         try:
@@ -765,29 +711,7 @@ class TRCViewer(ctk.CTk):
             self.fps_label.configure(text=f"FPS: {fps}")
 
     def save_as(self):
-        if self.data is None:
-            messagebox.showinfo("No Data", "There is no data to save.")
-            return
-
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".trc",
-            filetypes=[("TRC files", "*.trc"), ("C3D files", "*.c3d"), ("All files", "*.*")]
-        )
-
-        if not file_path:
-            return
-
-        file_extension = os.path.splitext(file_path)[1].lower()
-
-        try:
-            if file_extension == '.trc':
-                save_to_trc(file_path, self.data, self.fps_var.get(), self.marker_names, self.num_frames)
-            elif file_extension == '.c3d':
-                save_to_c3d(file_path, self.data, self.fps_var.get(), self.marker_names, self.num_frames)
-            else:
-                messagebox.showerror("Unsupported Format", "Unsupported file format.")
-        except Exception as e:
-            messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
+        save_as(self)
 
     def update_frame_from_timeline(self, x_pos):
         if x_pos is not None and self.data is not None:
@@ -863,6 +787,7 @@ class TRCViewer(ctk.CTk):
         self.sizer_dragging = False
 
 if __name__ == "__main__":
+    # 이 파일을 직접 실행했을 때만 앱이 실행됩니다
     ctk.set_appearance_mode("System")
     ctk.set_default_color_theme("blue")
     app = TRCViewer()

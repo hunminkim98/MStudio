@@ -91,3 +91,43 @@ def save_to_c3d(file_path, data, fps, marker_names, num_frames):
     except Exception as e:
         messagebox.showerror("Save Error", f"An error occurred while saving: {str(e)}\n\nPlease check the console for more details.")
         print(f"Detailed error: {e}")
+
+def save_as(viewer):
+    """
+    Shows a save dialog and saves the current data to a TRC or C3D file
+    
+    Args:
+        viewer: The TRCViewer instance containing the data to save
+    
+    Returns:
+        bool: True if file was successfully saved, False otherwise
+    """
+    from tkinter import messagebox, filedialog
+    import os
+    
+    if viewer.data is None:
+        messagebox.showinfo("No Data", "There is no data to save.")
+        return False
+
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".trc",
+        filetypes=[("TRC files", "*.trc"), ("C3D files", "*.c3d"), ("All files", "*.*")]
+    )
+
+    if not file_path:
+        return False
+
+    file_extension = os.path.splitext(file_path)[1].lower()
+
+    try:
+        if file_extension == '.trc':
+            save_to_trc(file_path, viewer.data, viewer.fps_var.get(), viewer.marker_names, viewer.num_frames)
+        elif file_extension == '.c3d':
+            save_to_c3d(file_path, viewer.data, viewer.fps_var.get(), viewer.marker_names, viewer.num_frames)
+        else:
+            messagebox.showerror("Unsupported Format", "Unsupported file format.")
+            return False
+        return True
+    except Exception as e:
+        messagebox.showerror("Save Error", f"An error occurred while saving: {e}")
+        return False
