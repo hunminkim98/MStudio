@@ -201,14 +201,20 @@ class MouseHandler:
             if event.mouseevent.button != 3:
                 return
             
+            # OpenGL 모드일 경우는 별도의 pick 로직을 가지므로 스킵
+            if hasattr(self.parent, 'use_opengl') and self.parent.use_opengl:
+                print("OpenGL mode: pick event is handled differently")
+                return
+            
             # 현재 뷰 상태 저장
-            current_view = {
-                'elev': self.parent.ax.elev,
-                'azim': self.parent.ax.azim,
-                'xlim': self.parent.ax.get_xlim(),
-                'ylim': self.parent.ax.get_ylim(),
-                'zlim': self.parent.ax.get_zlim()
-            }
+            if hasattr(self.parent, 'ax'):
+                current_view = {
+                    'elev': self.parent.ax.elev,
+                    'azim': self.parent.ax.azim,
+                    'xlim': self.parent.ax.get_xlim(),
+                    'ylim': self.parent.ax.get_ylim(),
+                    'zlim': self.parent.ax.get_zlim()
+                }
 
             # 마우스 이벤트 연결 해제
             self.disconnect_mouse_events()
@@ -216,11 +222,14 @@ class MouseHandler:
             # 유효한 마커 찾기
             valid_markers = []
             for marker in self.parent.marker_names:
-                x = self.parent.data.loc[self.parent.frame_idx, f'{marker}_X']
-                y = self.parent.data.loc[self.parent.frame_idx, f'{marker}_Y']
-                z = self.parent.data.loc[self.parent.frame_idx, f'{marker}_Z']
-                if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
-                    valid_markers.append(marker)
+                try:
+                    x = self.parent.data.loc[self.parent.frame_idx, f'{marker}_X']
+                    y = self.parent.data.loc[self.parent.frame_idx, f'{marker}_Y']
+                    z = self.parent.data.loc[self.parent.frame_idx, f'{marker}_Z']
+                    if not (np.isnan(x) or np.isnan(y) or np.isnan(z)):
+                        valid_markers.append(marker)
+                except (KeyError, TypeError, ValueError):
+                    continue
 
             if not valid_markers:
                 print("No valid markers in current frame")
@@ -248,28 +257,51 @@ class MouseHandler:
                 else:
                     self.parent.pattern_markers.add(selected_marker)
                 
+                # 패턴 마커 선택 UI 업데이트
+                self.parent.update_selected_markers_list()
+                
                 # 화면 업데이트
                 self.parent.update_plot()
-            else:
-                # 일반적인 edit을 위한 마커 선택
-                self.parent.current_marker = selected_marker
-                if self.parent.current_marker in self.parent.marker_names:
-                    self.parent.show_marker_plot(self.parent.current_marker)
+                
+                # 마우스 이벤트 다시 연결
+                self.connect_mouse_events()
+                return
             
-            # 즉시 마커 색상 업데이트
+            # 일반 케이스: 마커 선택 및 상세 그래프 표시
+            print(f"Selected marker: {selected_marker}")
+            
+            # 현재 마커 설정
+            self.parent.current_marker = selected_marker
+            
+            # Trajectory handler에도 알림
+            if hasattr(self.parent, 'trajectory_handler'):
+                self.parent.trajectory_handler.set_current_marker(selected_marker)
+            
+            # 마커 그래프 표시
+            try:
+                self.parent.show_marker_plot(selected_marker)
+            except Exception as e:
+                print(f"Error showing marker plot: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # 메인 뷰 업데이트
             self.parent.update_plot()
-            self.parent.canvas.draw_idle()
-
-            # Restore view state
-            self.parent.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
-            self.parent.ax.set_xlim(current_view['xlim'])
-            self.parent.ax.set_ylim(current_view['ylim'])
-            self.parent.ax.set_zlim(current_view['zlim'])
-
+            
+            # 이벤트 다시 연결
+            self.connect_mouse_events()
+            
+            # 뷰 상태 복원
+            if hasattr(self.parent, 'ax') and 'elev' in current_view:
+                self.parent.ax.view_init(elev=current_view['elev'], azim=current_view['azim'])
+                self.parent.ax.set_xlim(current_view['xlim'])
+                self.parent.ax.set_ylim(current_view['ylim'])
+                self.parent.ax.set_zlim(current_view['zlim'])
+                self.parent.canvas.draw()
+        
         except Exception as e:
             print(f"Error in on_pick: {e}")
             import traceback
             traceback.print_exc()
-        finally:
-            # 마우스 이벤트 다시 연결
+            # Try to reconnect events for safety
             self.connect_mouse_events()

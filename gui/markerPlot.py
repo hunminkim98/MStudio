@@ -7,6 +7,8 @@ def show_marker_plot(self, marker_name):
     """
     Creates and displays a detailed plot for a specific marker.
     This function was extracted from the main class to improve code organization.
+    
+    Note: 이 함수는 OpenGL 렌더링 모드에서도 matplotlib을 사용하여 그래프를 표시합니다.
     """
     # Save current states
     was_editing = getattr(self, 'editing', False)

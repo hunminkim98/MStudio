@@ -8,6 +8,8 @@ from mpl_toolkits.mplot3d.art3d import Line3D
 from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
 import matplotlib
+import argparse
+import sys
 
 from gui.TRCviewerWidgets import create_widgets
 from gui.markerPlot import show_marker_plot
@@ -23,15 +25,49 @@ from utils.dataProcessor import *
 from utils.mouseHandler import MouseHandler
 from utils.trajectory import MarkerTrajectory
 
+# OpenGL 렌더러 사용 가능 여부 확인 함수
+def check_opengl_available():
+    """
+    OpenGL 렌더링에 필요한 라이브러리가 설치되어 있는지 확인합니다.
+    
+    Returns:
+        bool: 필요한 라이브러리가 모두 설치되어 있으면 True, 아니면 False
+    """
+    try:
+        import pyopengltk
+        from OpenGL import GL
+        from OpenGL import GLU
+        return True
+    except ImportError as e:
+        print(f"OpenGL 렌더링에 필요한 라이브러리 임포트 오류: {e}")
+        print("이 기능을 사용하려면 다음을 설치하세요: pip install pyopengltk pyopengl pyopengl-accelerate")
+        return False
+
+# OpenGL 렌더러 모듈 조건부 임포트
+opengl_available = check_opengl_available()
+if opengl_available:
+    try:
+        # OpenGL 기반 렌더러 모듈 임포트 시도
+        from gui.opengl.GLMarkerRenderer import MarkerGLRenderer
+        print("OpenGL 렌더러 모듈 임포트 성공")
+    except ImportError as e:
+        print(f"OpenGL 렌더러 모듈 임포트 오류: {e}")
+        opengl_available = False
+
 # Interactive mode on
 plt.ion()
 matplotlib.use('TkAgg')
 
 class TRCViewer(ctk.CTk):
-    def __init__(self):
+    def __init__(self, use_opengl=False):
         super().__init__()
         self.title("TRC Viewer")
         self.geometry("1920x1080")
+
+        # 렌더링 모드 설정
+        self.use_opengl = use_opengl
+        # OpenGL 좌표계 설정 변수
+        self.coordinate_system = "y-up"  # 기본값은 y-up
 
         # initialize variables
         self.marker_names = []
@@ -54,7 +90,10 @@ class TRCViewer(ctk.CTk):
         self.trajectory_line = None 
 
         self.view_limits = None
-        self.is_z_up = True
+        self.is_z_up = False   # 좌표계 상태 (True = Z-up, False = Y-up)
+        
+        # OpenGL 렌더러 관련 속성
+        self.gl_renderer = None
 
         # filter type variable initialization
         self.filter_type_var = ctk.StringVar(value='butterworth')
@@ -299,13 +338,34 @@ class TRCViewer(ctk.CTk):
                 plt.close(self.marker_plot_fig)
                 del self.marker_plot_fig
 
+            # canvas 관련 처리를 더 안전하게 수정
             if hasattr(self, 'canvas') and self.canvas:
-                self.canvas.get_tk_widget().destroy()
+                try:
+                    # OpenGL 렌더러인 경우
+                    if self.use_opengl and hasattr(self, 'gl_renderer'):
+                        if self.canvas == self.gl_renderer:
+                            if hasattr(self.gl_renderer, 'pack_forget'):
+                                self.gl_renderer.pack_forget()
+                            if hasattr(self, 'gl_renderer'):
+                                del self.gl_renderer
+                    # Matplotlib 캔버스인 경우
+                    elif hasattr(self.canvas, 'get_tk_widget'):
+                        self.canvas.get_tk_widget().destroy()
+                except Exception as e:
+                    print(f"Canvas 정리 중 오류: {e}")
+                
                 self.canvas = None
 
-            if hasattr(self, 'marker_canvas') and self.marker_canvas and hasattr(self.marker_canvas, 'get_tk_widget'):
-                self.marker_canvas.get_tk_widget().destroy()
-                del self.marker_canvas
+            if hasattr(self, 'marker_canvas') and self.marker_canvas:
+                try:
+                    if hasattr(self.marker_canvas, 'get_tk_widget'):
+                        self.marker_canvas.get_tk_widget().destroy()
+                except Exception as e:
+                    print(f"Marker canvas 정리 중 오류: {e}")
+                
+                if hasattr(self, 'marker_canvas'):
+                    del self.marker_canvas
+                
                 self.marker_canvas = None
 
             if hasattr(self, 'ax'):
@@ -315,7 +375,7 @@ class TRCViewer(ctk.CTk):
 
             self.data = None
             self.original_data = None
-            self.marker_names = None
+            self.marker_names = []
             self.num_frames = 0
             self.frame_idx = 0
             self.outliers = {}
@@ -348,6 +408,8 @@ class TRCViewer(ctk.CTk):
 
         except Exception as e:
             print(f"Error clearing state: {e}")
+            import traceback
+            traceback.print_exc()
 
     def calculate_data_limits(self):
         try:
@@ -545,8 +607,69 @@ class TRCViewer(ctk.CTk):
             messagebox.showinfo("Restore Data", "No original data to restore.")
 
     def toggle_coordinates(self):
-        """Toggle between Z-up and Y-up coordinate systems."""
-        toggle_coordinates(self)
+        """Toggle between Z-up and Y-up coordinate systems"""
+        # 이전 상태 저장
+        previous_state = self.is_z_up
+        
+        # 좌표계 상태 전환
+        self.is_z_up = not self.is_z_up
+        
+        # 버튼 텍스트 업데이트
+        button_text = "Switch to Y-up" if self.is_z_up else "Switch to Z-up"
+        if hasattr(self, 'coord_button'):
+            self.coord_button.configure(text=button_text)
+            self.update_idletasks()  # UI 즉시 갱신
+        
+        # OpenGL 렌더러를 사용 중인 경우
+        if hasattr(self, 'use_opengl') and self.use_opengl and hasattr(self, 'gl_renderer'):
+            # 좌표계 설정 변경만 먼저 수행 (나머지는 set_coordinate_system 내부에서 처리)
+            self.coordinate_system = "z-up" if self.is_z_up else "y-up"
+            if hasattr(self.gl_renderer, 'set_coordinate_system'):
+                self.gl_renderer.set_coordinate_system(self.is_z_up)
+            
+            # 화면 강제 갱신 요청 - 약간의 지연 후 실행
+            self.after(50, self._force_update_opengl)
+            
+        # Matplotlib 렌더러를 사용 중인 경우
+        else:
+            if self.data is not None:
+                # 좌표계 변경
+                self.coordinate_system = "z-up" if self.is_z_up else "y-up"
+                
+                # 좌표축 및 그리드 업데이트
+                _draw_static_elements(self)
+                _update_coordinate_axes(self)
+                
+                # 전체 시각화 업데이트 - 마커 좌표는 변환하지 않음
+                self.update_plot()
+
+    def _force_update_opengl(self):
+        """OpenGL 렌더러의 화면을 강제로 갱신합니다."""
+        if not (hasattr(self, 'use_opengl') and self.use_opengl and hasattr(self, 'gl_renderer')):
+            return
+            
+        try:
+            # 현재 프레임을 다시 설정하여 강제 갱신
+            if self.data is not None:
+                self.gl_renderer.set_frame_data(
+                    data=self.data,
+                    frame_idx=self.frame_idx,
+                    marker_names=self.marker_names,
+                    current_marker=self.current_marker,
+                    show_marker_names=self.show_names,
+                    show_trajectory=self.show_trajectory,
+                    coordinate_system="z-up" if self.is_z_up else "y-up",
+                    skeleton_pairs=self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
+                )
+                
+                # 화면 갱신 명령
+                self.gl_renderer._force_redraw()
+                
+                # 한 번 더 갱신 요청 (보험)
+                self.after(100, lambda: self.gl_renderer.redraw())
+                
+        except Exception:
+            pass
 
     def toggle_trajectory(self):
         """Toggle the visibility of marker trajectories"""
@@ -786,9 +909,3 @@ class TRCViewer(ctk.CTk):
     def stop_resize(self, event):
         self.sizer_dragging = False
 
-if __name__ == "__main__":
-    # 이 파일을 직접 실행했을 때만 앱이 실행됩니다
-    ctk.set_appearance_mode("System")
-    ctk.set_default_color_theme("blue")
-    app = TRCViewer()
-    app.mainloop()

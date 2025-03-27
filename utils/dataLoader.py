@@ -102,13 +102,16 @@ def open_file(viewer):
 
     if file_path:
         try:
+            # 현재 상태 초기화
             viewer.clear_current_state()
 
+            # 파일 정보 설정
             viewer.current_file = file_path
             file_name = os.path.basename(file_path)
             file_extension = os.path.splitext(file_path)[1].lower()
             viewer.title_label.configure(text=file_name)
 
+            # 파일 확장자에 따라 데이터 로드
             if file_extension == '.trc':
                 header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_trc(file_path)
             elif file_extension == '.c3d':
@@ -116,40 +119,74 @@ def open_file(viewer):
             else:
                 raise Exception("Unsupported file format")
 
+            # 데이터 초기화
             viewer.num_frames = viewer.data.shape[0]
             viewer.original_data = viewer.data.copy(deep=True)
             viewer.calculate_data_limits()
-
             viewer.fps_var.set(str(int(frame_rate)))
             viewer.update_fps_label()
-
-            # frame_slider related code
             viewer.frame_idx = 0
             viewer.update_timeline()
 
+            # 스켈레톤 모델 설정
             viewer.current_model = viewer.available_models[viewer.model_var.get()]
             viewer.update_skeleton_pairs()
             viewer.detect_outliers()
             
-            # 추가된 UI 업데이트 코드
+            # 렌더링 모드 확인 및 설정
+            # 중요: OpenGL 모드를 사용하기 전에 모든 데이터가 로드되었는지 확인
+            use_opengl = getattr(viewer, 'use_opengl', False)
+            if use_opengl:
+                try:
+                    import pyopengltk
+                    from OpenGL import GL
+                except ImportError:
+                    print("OpenGL이 사용 불가능하여 matplotlib 모드로 전환합니다.")
+                    viewer.use_opengl = False
+            
+            # 먼저 플롯 생성 (OpenGL 또는 Matplotlib)
             viewer.create_plot()
-            viewer.reset_main_view()
-            viewer.update_plot()
+            
+            # 1초 지연을 주어 렌더러가 완전히 초기화되도록 함
+            viewer.update_idletasks()
+            
+            # 안전하게 뷰 리셋 및 업데이트
+            try:
+                viewer.reset_main_view()
+            except Exception as e:
+                print(f"뷰 리셋 중 오류: {e}. 계속 진행합니다.")
+                
+            try:
+                viewer.update_plot()
+            except Exception as e:
+                print(f"플롯 업데이트 중 오류: {e}. matplotlib 모드로 폴백합니다.")
+                # OpenGL 모드에서 오류가 발생하면 matplotlib 모드로 폴백
+                if getattr(viewer, 'use_opengl', False):
+                    viewer.use_opengl = False
+                    viewer.create_plot()  # matplotlib 모드로 다시 생성
+                    viewer.reset_main_view()
+                    viewer.update_plot()
 
+            # Matplotlib 캔버스인 경우 draw 호출
             if hasattr(viewer, 'canvas'):
-                viewer.canvas.draw()
-                viewer.canvas.flush_events()
-
+                if not getattr(viewer, 'use_opengl', False) and hasattr(viewer.canvas, 'draw'):
+                    viewer.canvas.draw()
+                    if hasattr(viewer.canvas, 'flush_events'):
+                        viewer.canvas.flush_events()
+            
+            # UI 컨트롤 상태 업데이트
             viewer.play_pause_button.configure(state='normal')
             viewer.loop_checkbox.configure(state='normal')
-
             viewer.is_playing = False
             viewer.play_pause_button.configure(text="▶")
             viewer.stop_button.configure(state='disabled')
             
             return True
+                
         except Exception as e:
+            import traceback
+            print(f"Error loading file: {e}")
+            traceback.print_exc()
             messagebox.showerror("Error", f"Failed to open file: {str(e)}")
             return False
-    
     return False

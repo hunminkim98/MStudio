@@ -5,12 +5,61 @@ def update_plot(self):
     """
     Updates the 3D plot with the current frame's marker positions and other visual elements.
     This function was extracted from the main class to improve code organization.
+    
+    Now supports both matplotlib and OpenGL rendering modes based on self.use_opengl flag.
     """
+    # OpenGL 렌더링 모드 사용 시 gl_renderer의 update_plot 호출
+    if hasattr(self, 'use_opengl') and self.use_opengl and hasattr(self, 'gl_renderer'):
+        # OpenGL 렌더러에 데이터 전달
+        if self.data is not None:
+            # 좌표계 설정 확인
+            if not hasattr(self, 'coordinate_system'):
+                coordinate_system = "z-up" if getattr(self, 'is_z_up', True) else "y-up"
+            else:
+                coordinate_system = self.coordinate_system
+                
+            # 현재 프레임 데이터 전달
+            try:
+                self.gl_renderer.set_frame_data(
+                    self.data, 
+                    self.frame_idx, 
+                    self.marker_names,
+                    getattr(self, 'current_marker', None),
+                    getattr(self, 'show_marker_names', False),
+                    getattr(self, 'show_trajectory', False),
+                    coordinate_system,
+                    self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
+                )
+            except Exception as e:
+                print(f"OpenGL 데이터 설정 중 오류: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # OpenGL 렌더러 업데이트
+        try:
+            self.gl_renderer.update_plot()
+        except Exception as e:
+            print(f"OpenGL 렌더링 중 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # 오류 발생 시 matplotlib 모드로 전환
+            self.use_opengl = False
+            self.create_plot()
+            self.update_plot()
+        return
+    
+    # 이하는 기존 matplotlib 렌더링 코드
     if self.data is None:
         return
 
+    # Ensure ax attribute exists
+    if not hasattr(self, 'ax'):
+        print("Warning: 'ax' attribute is missing, cannot update plot")
+        return
+
     # Update trajectories using the handler
-    if hasattr(self, 'trajectory_handler'):
+    if hasattr(self, 'trajectory_handler') and hasattr(self, 'ax'):
         self.trajectory_handler.update_trajectory(self.data, self.frame_idx, self.marker_names, self.ax)
 
     # handle empty 3D space when data is None
@@ -49,14 +98,11 @@ def update_plot(self):
                 z = self.data.loc[i, f'{self.current_marker}_Z']
                 if np.isnan(x) or np.isnan(y) or np.isnan(z):
                     continue
-                if self.is_z_up:
-                    x_vals.append(x)
-                    y_vals.append(y)
-                    z_vals.append(z)
-                else:
-                    x_vals.append(x)
-                    y_vals.append(-z)
-                    z_vals.append(y)
+                
+                # 마커 좌표는 원본 그대로 사용 (변환 없음)
+                x_vals.append(x)
+                y_vals.append(y)
+                z_vals.append(z)
             except KeyError:
                 continue
         if len(x_vals) > 0:
@@ -89,13 +135,9 @@ def update_plot(self):
             if pd.isna(x) or pd.isna(y) or pd.isna(z):
                 continue
                 
-            # add valid data
-            if self.is_z_up:
-                marker_positions[marker] = np.array([x, y, z])
-                positions.append([x, y, z])
-            else:
-                marker_positions[marker] = np.array([x, -z, y])
-                positions.append([x, -z, y])
+            # 마커 좌표는 원본 그대로 사용 (좌표 변환 없음)
+            marker_positions[marker] = np.array([x, y, z])
+            positions.append([x, y, z])
 
             # add colors and alphas for valid markers
             if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
@@ -113,10 +155,7 @@ def update_plot(self):
                 alphas.append(1.0)
 
             if marker == self.current_marker:
-                if self.is_z_up:
-                    selected_position.append([x, y, z])
-                else:
-                    selected_position.append([x, -z, y])
+                selected_position.append([x, y, z])
             valid_markers.append(marker)
         except KeyError:
             continue

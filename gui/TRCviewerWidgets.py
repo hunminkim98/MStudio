@@ -37,7 +37,7 @@ def create_widgets(self):
 
     self.coord_button = ctk.CTkButton(
         button_frame,
-        text="Switch to Y-up",
+        text="Switch to Y-up" if self.is_z_up else "Switch to Z-up",
         command=self.toggle_coordinates,
         **button_style
     )
