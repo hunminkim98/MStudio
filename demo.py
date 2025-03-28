@@ -13,7 +13,6 @@ import sys
 from gui.TRCviewerWidgets import create_widgets
 from gui.markerPlot import show_marker_plot
 from gui.plotCreator import create_plot, _setup_plot_style, _draw_static_elements, _initialize_dynamic_elements, _update_coordinate_axes
-from gui.plotUpdater import update_plot
 from gui.filterUI import on_filter_type_change
 
 from utils.dataLoader import read_data_from_c3d, read_data_from_trc, open_file
@@ -22,7 +21,6 @@ from utils.viewToggles import toggle_marker_names, toggle_coordinates, toggle_tr
 from utils.viewReset import reset_main_view, reset_graph_view
 from utils.dataProcessor import *
 from utils.mouseHandler import MouseHandler
-from utils.trajectory import MarkerTrajectory
 
 # OpenGL 렌더러 사용 가능 여부 확인 함수
 def check_opengl_available():
@@ -58,13 +56,13 @@ plt.ion()
 matplotlib.use('TkAgg')
 
 class TRCViewer(ctk.CTk):
-    def __init__(self, use_opengl=False):
+    def __init__(self, use_opengl=True):
         super().__init__()
         self.title("TRC Viewer")
         self.geometry("1920x1080")
 
-        # 렌더링 모드 설정
-        self.use_opengl = use_opengl
+        # 렌더링 모드 설정 - 항상 OpenGL 사용
+        self.use_opengl = True
         # OpenGL 좌표계 설정 변수
         self.coordinate_system = "y-up"  # 기본값은 y-up
 
@@ -162,9 +160,6 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
 
         self.edit_window = None
-        
-        # Initialize trajectory handler
-        self.trajectory_handler = MarkerTrajectory()
         
         # Keep these for compatibility with existing code
         self.show_trajectory = False
@@ -279,6 +274,10 @@ class TRCViewer(ctk.CTk):
 
             # Re-detect outliers with new skeleton pairs
             self.detect_outliers()
+            
+            # OpenGL 렌더러에 이상치 정보 전달
+            if hasattr(self, 'gl_renderer') and hasattr(self, 'outliers'):
+                self.gl_renderer.set_outliers(self.outliers)
 
             # Update the plot with the current frame data
             self.update_plot()
@@ -451,27 +450,66 @@ class TRCViewer(ctk.CTk):
         _update_coordinate_axes(self)
 
     def update_plot(self):
-        update_plot(self)
+        """
+        3D 마커 시각화 업데이트 메서드
+        이전에는 외부 plotUpdater.py 모듈을 사용했지만 
+        이제는 OpenGL 렌더러를 직접 호출합니다.
+        """
+        if hasattr(self, 'gl_renderer'):
+            # 데이터 전달
+            if self.data is not None:
+                # 좌표계 설정 확인
+                coordinate_system = "z-up" if self.is_z_up else "y-up"
+                
+                # 이상치(outliers) 데이터 전달
+                if hasattr(self, 'outliers') and self.outliers:
+                    self.gl_renderer.set_outliers(self.outliers)
+                
+                # 현재 프레임 데이터 전달
+                try:
+                    self.gl_renderer.set_frame_data(
+                        self.data, 
+                        self.frame_idx, 
+                        self.marker_names,
+                        getattr(self, 'current_marker', None),
+                        getattr(self, 'show_names', False),
+                        getattr(self, 'show_trajectory', False),
+                        coordinate_system,
+                        self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
+                    )
+                except Exception as e:
+                    print(f"OpenGL 데이터 설정 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # OpenGL 렌더러 화면 갱신
+            self.gl_renderer.update_plot()
+        else:
+            print("OpenGL 렌더러가 초기화되지 않았습니다.")
 
     def connect_mouse_events(self):
-        if self.canvas:
-            self.canvas.mpl_connect('scroll_event', self.mouse_handler.on_scroll)
-            self.canvas.mpl_connect('pick_event', self.mouse_handler.on_pick)
-            self.canvas.mpl_connect('button_press_event', self.mouse_handler.on_mouse_press)
-            self.canvas.mpl_connect('button_release_event', self.mouse_handler.on_mouse_release)
-            self.canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_mouse_move)
-            
-            if self.marker_canvas:
-                self.marker_canvas.mpl_connect('scroll_event', self.mouse_handler.on_marker_scroll)
-                self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
-                self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
-                self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
+        # OpenGL 렌더러에서는 마우스 이벤트가 이미 내부적으로 처리됨
+        # OpenGL 렌더러의 경우 (canvas == gl_renderer)
+        if hasattr(self, 'canvas') and hasattr(self, 'use_opengl') and self.use_opengl:
+            print("마우스 이벤트는 OpenGL 렌더러에서 자동으로 처리됩니다")
+        
+        # 마커 캔버스(matplotlib)는 여전히 연결 필요
+        if hasattr(self, 'marker_canvas') and self.marker_canvas:
+            self.marker_canvas.mpl_connect('scroll_event', self.mouse_handler.on_marker_scroll)
+            self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
+            self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
+            self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
             
     def disconnect_mouse_events(self):
         """disconnect mouse events"""
-        if hasattr(self, 'canvas'):
-            for cid in self.canvas.callbacks.callbacks.copy():
-                self.canvas.mpl_disconnect(cid)
+        # OpenGL 렌더러에서는 특별한 처리가 필요 없음
+        if hasattr(self, 'use_opengl') and self.use_opengl:
+            print("OpenGL 렌더러의 마우스 이벤트는 자동으로 관리됩니다")
+        
+        # 마커 캔버스(matplotlib) 이벤트 연결 해제
+        if hasattr(self, 'marker_canvas') and self.marker_canvas:
+            for cid in self.marker_canvas.callbacks.callbacks.copy():
+                self.marker_canvas.mpl_disconnect(cid)
 
     def update_frame(self, value):
         if self.data is not None:
@@ -611,28 +649,16 @@ class TRCViewer(ctk.CTk):
             self.coord_button.configure(text=button_text)
             self.update_idletasks()  # UI 즉시 갱신
         
-        # OpenGL 렌더러를 사용 중인 경우
-        if hasattr(self, 'use_opengl') and self.use_opengl and hasattr(self, 'gl_renderer'):
-            # 좌표계 설정 변경만 먼저 수행 (나머지는 set_coordinate_system 내부에서 처리)
-            self.coordinate_system = "z-up" if self.is_z_up else "y-up"
+        # 좌표계 설정 변경
+        self.coordinate_system = "z-up" if self.is_z_up else "y-up"
+        
+        # OpenGL 렌더러에 좌표계 변경 전달
+        if hasattr(self, 'gl_renderer'):
             if hasattr(self.gl_renderer, 'set_coordinate_system'):
                 self.gl_renderer.set_coordinate_system(self.is_z_up)
             
             # 화면 강제 갱신 요청 - 약간의 지연 후 실행
             self.after(50, self._force_update_opengl)
-            
-        # Matplotlib 렌더러를 사용 중인 경우
-        else:
-            if self.data is not None:
-                # 좌표계 변경
-                self.coordinate_system = "z-up" if self.is_z_up else "y-up"
-                
-                # 좌표축 및 그리드 업데이트
-                _draw_static_elements(self)
-                _update_coordinate_axes(self)
-                
-                # 전체 시각화 업데이트 - 마커 좌표는 변환하지 않음
-                self.update_plot()
 
     def _force_update_opengl(self):
         """OpenGL 렌더러의 화면을 강제로 갱신합니다."""
@@ -707,6 +733,10 @@ class TRCViewer(ctk.CTk):
 
                 except KeyError:
                     continue
+                    
+        # OpenGL 렌더러에 이상치 정보 전달
+        if hasattr(self, 'use_opengl') and self.use_opengl and hasattr(self, 'gl_renderer'):
+            self.gl_renderer.set_outliers(self.outliers)
 
     def toggle_marker_names(self):
         toggle_marker_names(self)
@@ -881,10 +911,40 @@ class TRCViewer(ctk.CTk):
 
     def on_marker_selected(self, marker_name):
         """Handle marker selection event"""
+        print(f"TRCViewer: 마커 선택 이벤트 수신 - {marker_name}")
         self.current_marker = marker_name
-        if hasattr(self, 'trajectory_handler'):
-            self.trajectory_handler.set_current_marker(marker_name)
+        
+        # 마커 목록에서 선택 상태 업데이트
+        if hasattr(self, 'markers_list') and self.markers_list:
+            try:
+                # 마커 리스트에서 선택 항목 모두 해제
+                self.markers_list.selection_clear(0, "end")
+                
+                # 마커가 선택된 경우에만 목록에서 선택
+                if marker_name is not None:
+                    # 선택된 마커의 인덱스 찾기
+                    for i, item in enumerate(self.markers_list.get(0, "end")):
+                        if item == marker_name:
+                            self.markers_list.selection_set(i)  # 선택 항목 설정
+                            self.markers_list.see(i)  # 스크롤하여 보이게
+                            break
+            except Exception as e:
+                print(f"마커 목록 업데이트 오류: {e}")
+        
+        # 마커 그래프 표시 (마커가 선택된 경우에만)
+        if marker_name is not None and hasattr(self, 'show_marker_plot'):
+            try:
+                self.show_marker_plot(marker_name)
+            except Exception as e:
+                print(f"마커 그래프 표시 오류: {e}")
+        
+        # OpenGL 렌더러에게 선택된 마커 정보 전달
+        if hasattr(self, 'gl_renderer'):
+            self.gl_renderer.set_current_marker(marker_name)
+        
+        # 화면 업데이트
         self.update_plot()
+        print(f"TRCViewer: 마커 선택 처리 완료 - {marker_name}")
 
     def start_resize(self, event):
         self.sizer_dragging = True

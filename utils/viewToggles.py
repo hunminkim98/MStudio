@@ -11,6 +11,11 @@ def toggle_marker_names(self):
     """
     self.show_names = not self.show_names
     self.names_button.configure(text="Show Names" if not self.show_names else "Hide Names")
+    
+    # OpenGL 렌더러에게 표시 설정 전달
+    if hasattr(self, 'gl_renderer'):
+        self.gl_renderer.set_show_marker_names(self.show_names)
+        
     self.update_plot()
 
 def toggle_coordinates(self):
@@ -36,12 +41,23 @@ def toggle_coordinates(self):
     self.update_plot()
 
 def toggle_trajectory(self):
-    """
-    Toggles the visibility of marker trajectories.
-    """
-    self.show_trajectory = self.trajectory_handler.toggle_trajectory()
-    self.trajectory_button.configure(text="Hide Trajectory" if self.show_trajectory else "Show Trajectory")
+    """Toggle the visibility of marker trajectories"""
+    # 이전 trajectory_handler를 사용하지 않고 직접 상태 전환
+    self.show_trajectory = not self.show_trajectory
+    
+    # OpenGL 렌더러를 사용할 경우 해당 렌더러에 상태 전달
+    if hasattr(self, 'gl_renderer') and self.gl_renderer:
+        self.gl_renderer.set_show_trajectory(self.show_trajectory)
+    
+    # 화면 업데이트
     self.update_plot()
+    
+    # 토글 버튼 텍스트 업데이트
+    if hasattr(self, 'trajectory_button'):
+        text = "Hide Trajectory" if self.show_trajectory else "Show Trajectory"
+        self.trajectory_button.configure(text=text)
+    
+    return self.show_trajectory
 
 def toggle_edit_window(self):
     """
