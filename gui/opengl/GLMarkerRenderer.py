@@ -257,7 +257,12 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.redraw()
     
     def set_show_skeleton(self, show):
-        """스켈레톤 표시 설정"""
+        """
+        스켈레톤 표시 여부 설정
+        
+        Args:
+            show: 스켈레톤을 표시하려면 True, 아니면 False
+        """
         self.show_skeleton = show
         self.redraw()
     

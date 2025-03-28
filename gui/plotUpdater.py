@@ -201,29 +201,6 @@ def update_plot(self):
         self.selected_marker_scatter._offsets3d = ([], [], [])
         self.selected_marker_scatter.set_visible(False)
 
-    # update skeleton lines
-    if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_lines'):
-        for line, pair in zip(self.skeleton_lines, self.skeleton_pairs):
-            if pair[0] in marker_positions and pair[1] in marker_positions:
-                p1 = marker_positions[pair[0]]
-                p2 = marker_positions[pair[1]]
-
-                outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
-                outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
-                is_outlier = outlier_status1 or outlier_status2
-
-                line.set_data_3d(
-                    [p1[0], p2[0]],
-                    [p1[1], p2[1]],
-                    [p1[2], p2[2]]
-                )
-                line.set_visible(True)
-                line.set_color('red' if is_outlier else 'gray')
-                line.set_alpha(1 if is_outlier else 0.8)
-                line.set_linewidth(3 if is_outlier else 2)
-            else:
-                line.set_visible(False)
-
     # update marker names
     # remove existing labels
     for label in self.marker_labels:

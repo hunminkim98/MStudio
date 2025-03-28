@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from mpl_toolkits.mplot3d.art3d import Line3D
 import traceback
 import pandas as pd
 
@@ -76,6 +75,16 @@ def create_plot(self):
             # 렌더러 초기화 및 그리기
             self.gl_renderer.initialize()
             
+            # 스켈레톤 관련 정보 설정
+            if hasattr(self, 'skeleton_pairs'):
+                self.gl_renderer.set_skeleton_pairs(self.skeleton_pairs)
+            if hasattr(self, 'show_skeleton'):
+                self.gl_renderer.set_show_skeleton(self.show_skeleton)
+            
+            # 좌표계 설정 (Y-up 또는 Z-up)
+            if hasattr(self, 'is_z_up'):
+                self.gl_renderer.set_coordinate_system(self.is_z_up)
+            
             # 캔버스 참조 저장 (기존 코드와의 호환성 유지)
             self.canvas = self.gl_renderer
             
@@ -142,17 +151,6 @@ def _initialize_dynamic_elements(self):
 
         self.markers_scatter = self.ax.scatter([], [], [], c='white', s=5, picker=5)
         self.selected_marker_scatter = self.ax.scatter([], [], [], c='yellow', s=15)
-
-        if hasattr(self, 'skeleton_lines'):
-            for line in self.skeleton_lines:
-                line.remove()
-        self.skeleton_lines = []
-
-        if hasattr(self, 'skeleton_pairs') and self.skeleton_pairs:
-            for _ in self.skeleton_pairs:
-                line = Line3D([], [], [], color='gray', alpha=0.9)
-                self.ax.add_line(line)
-                self.skeleton_lines.append(line)
 
         if hasattr(self, 'marker_labels'):
             for label in self.marker_labels:

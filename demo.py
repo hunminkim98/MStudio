@@ -4,7 +4,6 @@ import numpy as np
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Line3D
 from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
 import matplotlib
@@ -273,18 +272,10 @@ class TRCViewer(ctk.CTk):
                 self.show_skeleton = True
                 self.update_skeleton_pairs()
 
-            # Remove existing skeleton lines
-            if hasattr(self, 'skeleton_lines'):
-                for line in self.skeleton_lines:
-                    line.remove()
-                self.skeleton_lines = []
-
-            # Initialize new skeleton lines
-            if self.show_skeleton:
-                for _ in self.skeleton_pairs:
-                    line = Line3D([], [], [], color='gray', alpha=0.9)
-                    self.ax.add_line(line)
-                    self.skeleton_lines.append(line)
+            # OpenGL 렌더러에 스켈레톤 쌍 정보 전달
+            if hasattr(self, 'gl_renderer'):
+                self.gl_renderer.set_skeleton_pairs(self.skeleton_pairs)
+                self.gl_renderer.set_show_skeleton(self.show_skeleton)
 
             # Re-detect outliers with new skeleton pairs
             self.detect_outliers()
@@ -297,8 +288,8 @@ class TRCViewer(ctk.CTk):
             if hasattr(self, 'current_marker') and self.current_marker:
                 self.show_marker_plot(self.current_marker)
 
-            # Refresh the canvas
-            if hasattr(self, 'canvas'):
+            # Refresh the canvas if needed
+            if hasattr(self, 'canvas') and not self.use_opengl:
                 self.canvas.draw()
                 self.canvas.flush_events()
 
