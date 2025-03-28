@@ -2,13 +2,37 @@ from gui.opengl.GLPlotCreator import MarkerGLFrame
 from gui.opengl.GLPlotUpdater import update_plot
 from OpenGL import GL
 from OpenGL import GLU
+from OpenGL import GLUT
 import numpy as np
+import pandas as pd
+from .GridUtils import create_opengl_grid
+
+# 좌표계 회전 상수
+COORDINATE_X_ROTATION_Y_UP = -270.0  # Y-up 좌표계에서 X축 회전 각도 (-270도)
+COORDINATE_X_ROTATION_Z_UP = -90.0   # Z-up 좌표계에서 X축 회전 각도 (-90도)
+
+# 좌표계 문자열 상수
+COORDINATE_SYSTEM_Y_UP = "y-up"
+COORDINATE_SYSTEM_Z_UP = "z-up"
 
 class MarkerGLRenderer(MarkerGLFrame):
     """완전한 마커 시각화 OpenGL 렌더러"""
     
     def __init__(self, parent, **kwargs):
+        """
+        마커 데이터를 OpenGL로 렌더링하는 프레임 초기화
+        
+        좌표계:
+        - Y-up: 기본 좌표계, Y축이 상단을 향함
+        - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
+        """
         super().__init__(parent, **kwargs)
+        
+        # 기본 좌표계 설정 (Y-up)
+        self.is_z_up = False
+        self.coordinate_system = COORDINATE_SYSTEM_Y_UP
+        
+        # 내부 상태 및 데이터 저장용 변수
         self.frame_idx = 0
         self.outliers = {}
         self.num_frames = 0
@@ -18,11 +42,9 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.marker_names = []
         self.current_marker = None
         self.show_marker_names = False
-        self.coordinate_system = "z-up"  # 기본값
         self.skeleton_pairs = None
         self.show_skeleton = False
-        self.is_z_up = True
-        self.rot_x = 30.0
+        self.rot_x = 90  # X축 기준으로 -270도 회전
         self.rot_y = 45.0
         self.zoom = -4.0
         
@@ -88,38 +110,14 @@ class MarkerGLRenderer(MarkerGLFrame):
         if hasattr(self, 'grid_list') and self.grid_list is not None:
             GL.glDeleteLists(self.grid_list, 1)
             
-        self.grid_list = GL.glGenLists(1)
-        GL.glNewList(self.grid_list, GL.GL_COMPILE)
-        
-        # 양면 렌더링 및 조명 비활성화로 모든 각도에서 보이게 함
-        GL.glDisable(GL.GL_CULL_FACE)  # 후면 컬링 비활성화
-        
-        # 그리드 굵기 설정
-        GL.glLineWidth(1.0)
-        
-        # 그리드 그리기
-        GL.glColor3f(0.3, 0.3, 0.3)  # 조금 더 어두운 회색으로 변경
-        GL.glBegin(GL.GL_LINES)
-        
-        grid_size = 2.0
-        grid_divisions = 20
-        step = (grid_size * 2) / grid_divisions
-        
-        for i in range(grid_divisions + 1):
-            x = -grid_size + i * step
-            # 수평선
-            GL.glVertex3f(-grid_size, 0, x)
-            GL.glVertex3f(grid_size, 0, x)
-            # 수직선
-            GL.glVertex3f(x, 0, -grid_size)
-            GL.glVertex3f(x, 0, grid_size)
-            
-        GL.glEnd()
-        
-        # 원래 설정 복원
-        GL.glEnable(GL.GL_CULL_FACE)
-        
-        GL.glEndList()
+        # 중앙화된 유틸리티 함수 사용
+        is_z_up = getattr(self, 'is_z_up', True)
+        self.grid_list = create_opengl_grid(
+            grid_size=2.0, 
+            grid_divisions=20, 
+            color=(0.3, 0.3, 0.3),
+            is_z_up=is_z_up
+        )
         
     def _create_axes_display_list(self):
         """좌표축 표시를 위한 디스플레이 리스트 생성"""
@@ -142,108 +140,55 @@ class MarkerGLRenderer(MarkerGLFrame):
         original_line_width = GL.glGetFloatv(GL.GL_LINE_WIDTH)
         GL.glLineWidth(3.0)
         
-        if self.is_z_up:
-            # Z-up 좌표계 (Z축이 위로)
-            # X축 (빨강)
-            GL.glBegin(GL.GL_LINES)
-            GL.glColor3f(1.0, 0.0, 0.0)
-            GL.glVertex3f(0, offset_y, 0)
-            GL.glVertex3f(axis_length, offset_y, 0)
-            
-            # Y축 (노랑)
-            GL.glColor3f(1.0, 1.0, 0.0)
-            GL.glVertex3f(0, offset_y, 0)
-            GL.glVertex3f(0, axis_length + offset_y, 0)
-            
-            # Z축 (파랑)
-            GL.glColor3f(0.0, 0.0, 1.0)
-            GL.glVertex3f(0, offset_y, 0)
-            GL.glVertex3f(0, offset_y, axis_length)
-            GL.glEnd()
-            
-            # 축 라벨 텍스트 그리기 (GLUT 사용 - 원래 스타일 유지)
-            text_offset = 0.06  # 축 끝에서 텍스트를 띄울 거리
-            
-            # 조명 비활성화 (텍스트 색상이 제대로 나오도록)
-            lighting_enabled = GL.glIsEnabled(GL.GL_LIGHTING)
-            if lighting_enabled:
-                GL.glDisable(GL.GL_LIGHTING)
-            
-            # X 라벨
-            GL.glColor3f(1.0, 0.0, 0.0)  # 빨강
-            GL.glRasterPos3f(axis_length + text_offset, offset_y, 0)
-            try:
-                from OpenGL import GLUT
-                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('X'))
-            except:
-                pass  # GLUT을 사용할 수 없는 경우 라벨 표시 생략
-            
-            # Y 라벨
-            GL.glColor3f(1.0, 1.0, 0.0)  # 노랑
-            GL.glRasterPos3f(0, axis_length + text_offset + offset_y, 0)
-            try:
-                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Y'))
-            except:
-                pass
-            
-            # Z 라벨
-            GL.glColor3f(0.0, 0.0, 1.0)  # 파랑
-            GL.glRasterPos3f(0, offset_y, axis_length + text_offset)
-            try:
-                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Z'))
-            except:
-                pass
-        else:
-            # Y-up 좌표계 (Y축이 위로, Z축이 뒤로)
-            # X축 (빨강)
-            GL.glBegin(GL.GL_LINES)
-            GL.glColor3f(1.0, 0.0, 0.0)
-            GL.glVertex3f(0, offset_y, 0)
-            GL.glVertex3f(axis_length, offset_y, 0)
-            
-            # Z축 (파랑) - 방향 바꿈 (이 경우 Z가 Y의 역할을 함)
-            GL.glColor3f(0.0, 0.0, 1.0)
-            GL.glVertex3f(0, offset_y, 0)
-            GL.glVertex3f(0, axis_length + offset_y, 0)
-            
-            # Y축 (노랑) - 방향 바꿈 (이 경우 Y가 Z의 역할을 함)
-            GL.glColor3f(1.0, 1.0, 0.0)
-            GL.glVertex3f(0, offset_y, 0)
-            GL.glVertex3f(0, offset_y, axis_length)
-            GL.glEnd()
-            
-            # 축 라벨 텍스트 그리기 (GLUT 사용 - 원래 스타일 유지)
-            text_offset = 0.06  # 축 끝에서 텍스트를 띄울 거리
-            
-            # 조명 비활성화 (텍스트 색상이 제대로 나오도록)
-            lighting_enabled = GL.glIsEnabled(GL.GL_LIGHTING)
-            if lighting_enabled:
-                GL.glDisable(GL.GL_LIGHTING)
-            
-            # X 라벨
-            GL.glColor3f(1.0, 0.0, 0.0)  # 빨강
-            GL.glRasterPos3f(axis_length + text_offset, offset_y, 0)
-            try:
-                from OpenGL import GLUT
-                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('X'))
-            except:
-                pass
-            
-            # Z 라벨 (Y-up에서는 Z가 Y 위치에 표시)
-            GL.glColor3f(0.0, 0.0, 1.0)  # 파랑
-            GL.glRasterPos3f(0, axis_length + text_offset + offset_y, 0)
-            try:
-                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Z'))
-            except:
-                pass
-            
-            # Y 라벨 (Y-up에서는 Y가 Z 위치에 표시)
-            GL.glColor3f(1.0, 1.0, 0.0)  # 노랑
-            GL.glRasterPos3f(0, offset_y, axis_length + text_offset)
-            try:
-                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Y'))
-            except:
-                pass
+        # Z-up 좌표계에 맞게 축 그리기 (회전 매트릭스가 적용됨)
+        # X축 (빨강)
+        GL.glBegin(GL.GL_LINES)
+        GL.glColor3f(1.0, 0.0, 0.0)
+        GL.glVertex3f(0, offset_y, 0)
+        GL.glVertex3f(axis_length, offset_y, 0)
+        
+        # Y축 (노랑)
+        GL.glColor3f(1.0, 1.0, 0.0)
+        GL.glVertex3f(0, offset_y, 0)
+        GL.glVertex3f(0, axis_length + offset_y, 0)
+        
+        # Z축 (파랑)
+        GL.glColor3f(0.0, 0.0, 1.0)
+        GL.glVertex3f(0, offset_y, 0)
+        GL.glVertex3f(0, offset_y, axis_length)
+        GL.glEnd()
+        
+        # 축 라벨 텍스트 그리기 (GLUT 사용 - 원래 스타일 유지)
+        text_offset = 0.06  # 축 끝에서 텍스트를 띄울 거리
+        
+        # 조명 비활성화 (텍스트 색상이 제대로 나오도록)
+        lighting_enabled = GL.glIsEnabled(GL.GL_LIGHTING)
+        if lighting_enabled:
+            GL.glDisable(GL.GL_LIGHTING)
+        
+        # X 라벨
+        GL.glColor3f(1.0, 0.0, 0.0)  # 빨강
+        GL.glRasterPos3f(axis_length + text_offset, offset_y, 0)
+        try:
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('X'))
+        except:
+            pass  # GLUT을 사용할 수 없는 경우 라벨 표시 생략
+        
+        # Y 라벨
+        GL.glColor3f(1.0, 1.0, 0.0)  # 노랑
+        GL.glRasterPos3f(0, axis_length + text_offset + offset_y, 0)
+        try:
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Y'))
+        except:
+            pass
+        
+        # Z 라벨
+        GL.glColor3f(0.0, 0.0, 1.0)  # 파랑
+        GL.glRasterPos3f(0, offset_y, axis_length + text_offset)
+        try:
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Z'))
+        except:
+            pass
         
         # 원래 상태 복원
         GL.glLineWidth(original_line_width)
@@ -338,18 +283,24 @@ class MarkerGLRenderer(MarkerGLFrame):
     
     def set_coordinate_system(self, is_z_up):
         """
-        좌표계 시스템을 설정합니다. (Y-up 또는 Z-up)
+        좌표계 설정 변경
         
         Args:
             is_z_up: Z-up 좌표계를 사용하려면 True, Y-up 좌표계를 사용하려면 False
+        
+        주의:
+        좌표계 변경은 마커의 실제 좌표를 변경하지 않고 표시 방법만 변경합니다.
+        데이터는 항상 원래 좌표계를 유지합니다.
         """
-        if self.is_z_up == is_z_up:  # 변화가 없으면 처리하지 않음
+        # 변화가 없으면 불필요한 처리를 하지 않음
+        if self.is_z_up == is_z_up:
             return
-            
-        # 클래스 변수 업데이트
+        
+        # 좌표계 상태 업데이트
         self.is_z_up = is_z_up
-        # 안전을 위해 좌표계 문자열도 업데이트
-        self.coordinate_system = "z-up" if is_z_up else "y-up"
+        
+        # 좌표계 문자열 업데이트
+        self.coordinate_system = COORDINATE_SYSTEM_Z_UP if is_z_up else COORDINATE_SYSTEM_Y_UP
         
         # 좌표계에 따라 축 디스플레이 리스트 재생성
         if self.gl_initialized:
@@ -357,20 +308,22 @@ class MarkerGLRenderer(MarkerGLFrame):
                 # OpenGL 컨텍스트 활성화 - 필수
                 self.tkMakeCurrent()
                 
-                # 기존 축 디스플레이 리스트 삭제
+                # 기존 축과 그리드 디스플레이 리스트 삭제
                 if hasattr(self, 'axes_list') and self.axes_list is not None:
                     GL.glDeleteLists(self.axes_list, 1)
+                if hasattr(self, 'grid_list') and self.grid_list is not None:
+                    GL.glDeleteLists(self.grid_list, 1)
                 
-                # 새 좌표계에 맞는 축 생성
+                # 새 좌표계에 맞는 축과 그리드 생성
                 self._create_axes_display_list()
+                self._create_grid_display_list()
                 
-                # 화면 강제 갱신 (여러 메서드 조합)
+                # 화면 강제 갱신
                 self.redraw()
                 # 메인 이벤트 루프에서 좀 더 여유있게 갱신 요청
                 self.after(20, self._force_redraw)
-                
             except Exception as e:
-                pass
+                print(f"좌표계 변경 중 오류 발생: {e}")
     
     def _force_redraw(self):
         """강제로 화면을 다시 그립니다"""
@@ -411,8 +364,11 @@ class MarkerGLRenderer(MarkerGLFrame):
             pass
     
     def reset_view(self):
-        """뷰 초기화"""
-        self.rot_x = 30.0
+        """
+        뷰 초기화 - 기본 카메라 위치와 각도로 재설정
+        """
+        # 현재 좌표계에 맞는 X축 회전 각도 사용
+        self.rot_x = COORDINATE_X_ROTATION_Y_UP  # Y-up이 기본 설정
         self.rot_y = 45.0
         self.zoom = -4.0
         self.redraw()

@@ -3,17 +3,25 @@ from OpenGL import GLU
 import numpy as np
 import pandas as pd
 
+# 좌표계 회전 상수
+COORDINATE_X_ROTATION_Y_UP = -270.0  # Y-up 좌표계에서 X축 회전 각도 (-270도)
+COORDINATE_X_ROTATION_Z_UP = -90.0   # Z-up 좌표계에서 X축 회전 각도 (-90도)
+
 def update_plot(self):
     """
     OpenGL로 3D 마커 시각화 업데이트
     plotUpdater.py의 update_plot 기능을 대체
+    
+    좌표계:
+    - Y-up: 기본 좌표계, Y축이 상단을 향함
+    - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
     """
     # OpenGL 초기화 확인
     if not hasattr(self, 'gl_initialized') or not self.gl_initialized:
         return
     
-    # 현재 좌표계 상태
-    coordinate_status = getattr(self, 'is_z_up', True)
+    # 현재 좌표계 상태 확인 (기본값: Y-up)
+    is_z_up_local = getattr(self, 'is_z_up', False)
     
     try:
         # OpenGL 컨텍스트 활성화 (안전을 위해)
@@ -26,20 +34,25 @@ def update_plot(self):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         GL.glLoadIdentity()
         
-        # 카메라 위치 설정
+        # 카메라 위치 설정 (줌, 회전)
         GL.glTranslatef(0.0, 0.0, self.zoom)
         GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
         GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
         
-        # 그리드와 축 표시는 디스플레이 리스트가 있는 경우에만
+        # 좌표계에 따른 추가 회전 적용
+        # - Y-up: 기본 카메라 설정이 이미 Y-up (-270도)에 맞춰져 있으므로 추가 회전 불필요
+        # - Z-up: Y-up 평면의 반대 방향을 보기 위해 X축 기준 -90도 추가 회전
+        if is_z_up_local:
+            GL.glRotatef(COORDINATE_X_ROTATION_Z_UP, 1.0, 0.0, 0.0)
+        
+        # 그리드와 축 표시 (디스플레이 리스트가 있는 경우에만)
         if hasattr(self, 'grid_list') and self.grid_list is not None:
             GL.glCallList(self.grid_list)
         if hasattr(self, 'axes_list') and self.axes_list is not None:
             GL.glCallList(self.axes_list)
         
-        # 데이터가 없는 경우 기본 뷰만 표시
+        # 데이터가 없는 경우 기본 뷰만 표시하고 종료
         if self.data is None:
-            # 버퍼 교체
             self.tkSwapBuffers()
             return
         
@@ -62,15 +75,7 @@ def update_plot(self):
                     continue
                 
                 # 좌표계에 맞게 위치 조정
-                is_z_up_local = coordinate_status
-                
-                # 좌표계가 Z-up인 경우와 Y-up인 경우를 구분
-                if is_z_up_local:
-                    # Z-up: 원본 데이터 그대로 사용
-                    pos = [x, y, z]
-                else:
-                    # Y-up: Z와 Y 축을 교환하고 Z 방향 반전
-                    pos = [x, -z, y]
+                pos = [x, y, z]
                     
                 marker_positions[marker] = pos
                 
@@ -149,15 +154,8 @@ def update_plot(self):
                     if np.isnan(x) or np.isnan(y) or np.isnan(z):
                         continue
                     
-                    # 좌표계에 맞게 위치 조정
-                    is_z_up_local = coordinate_status
-                    
-                    if is_z_up_local:
-                        # Z-up: 원본 데이터 그대로 사용
-                        trajectory_points.append([x, y, z])
-                    else:
-                        # Y-up: Z와 Y 축을 교환하고 Z 방향 반전
-                        trajectory_points.append([x, -z, y])
+                    # 원본 데이터 그대로 사용 (Y-up/Z-up에 관계없이)
+                    trajectory_points.append([x, y, z])
                         
                 except KeyError:
                     continue

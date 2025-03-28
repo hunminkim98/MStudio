@@ -5,17 +5,29 @@ from OpenGL import GLU
 from OpenGL import GLUT
 import numpy as np
 import sys
+from .GridUtils import create_opengl_grid
+
+# 좌표계 회전 상수
+COORDINATE_X_ROTATION_Y_UP = -270.0  # Y-up 좌표계에서 X축 회전 각도 (-270도)
+COORDINATE_X_ROTATION_Z_UP = -90.0   # Z-up 좌표계에서 X축 회전 각도 (-90도)
 
 class MarkerGLFrame(OpenGLFrame):
     """OpenGL 기반 3D 마커 시각화 프레임"""
     
     def __init__(self, parent, **kwargs):
+        """
+        OpenGL 기반 3D 마커 시각화 프레임 초기화
+        
+        좌표계:
+        - Y-up: 기본 좌표계, Y축이 상단을 향함
+        - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
+        """
         super().__init__(parent, **kwargs)
         
         # 기존 plotCreator.py에서 필요한 속성들 가져오기
         self.data = None
         self.marker_names = []
-        self.is_z_up = True
+        self.is_z_up = False  # Y-up을 기본 좌표계로 설정
         self.show_skeleton = True
         self.skeleton_pairs = []
         self.skeleton_lines = []
@@ -26,9 +38,9 @@ class MarkerGLFrame(OpenGLFrame):
         self.grid_lines = []
         
         # 마우스 제어 관련
-        self.rot_x = 30.0  # 기본 회전 각도 (X축)
-        self.rot_y = 45.0  # 기본 회전 각도 (Y축)
-        self.zoom = -4.0   # 기본 줌 레벨
+        self.rot_x = COORDINATE_X_ROTATION_Y_UP  # Y-up 좌표계에 맞는 기본 회전 각도
+        self.rot_y = 45.0   # 기본 회전 각도 (Y축)
+        self.zoom = -4.0    # 기본 줌 레벨
         self.last_x = 0
         self.last_y = 0
         
@@ -121,28 +133,18 @@ class MarkerGLFrame(OpenGLFrame):
             print(f"창 크기 변경 오류: {str(e)}")
     
     def create_grid(self):
-        """바닥 그리드 생성"""
-        grid_size = 2
-        grid_divisions = 20
+        """
+        바닥 그리드 생성
         
-        # 그리드 리스트 생성
-        self.grid_list = GL.glGenLists(1)
-        GL.glNewList(self.grid_list, GL.GL_COMPILE)
-        
-        GL.glColor3f(0.3, 0.3, 0.3)  # 회색
-        GL.glBegin(GL.GL_LINES)
-        
-        for i in range(-grid_divisions, grid_divisions + 1):
-            x = i * (grid_size / grid_divisions)
-            GL.glVertex3f(x, 0, -grid_size)
-            GL.glVertex3f(x, 0, grid_size)
-            
-            z = i * (grid_size / grid_divisions)
-            GL.glVertex3f(-grid_size, 0, z)
-            GL.glVertex3f(grid_size, 0, z)
-        
-        GL.glEnd()
-        GL.glEndList()
+        현재 좌표계(Y-up 또는 Z-up)에 따라 적절한 그리드를 생성합니다.
+        """
+        # 중앙화된 유틸리티 함수 사용
+        self.grid_list = create_opengl_grid(
+            grid_size=2.0,
+            grid_divisions=20,
+            color=(0.3, 0.3, 0.3),
+            is_z_up=getattr(self, 'is_z_up', False)  # 기본값 Y-up
+        )
     
     def create_axes(self):
         """좌표축 생성"""

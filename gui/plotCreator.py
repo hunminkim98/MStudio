@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d.art3d import Line3D
 import traceback
+import pandas as pd
 
 def create_plot(self):
     """
@@ -122,33 +123,10 @@ def _draw_static_elements(self):
     """
     Draw static elements like the ground grid based on the coordinate system.
     마커 좌표는 변환하지 않고 그리드와 축만 좌표계에 맞게 조정합니다.
+    MatPlotLib 그리드는 삭제되었습니다.
     """
-    if not self.use_opengl:
-        grid_size = 2
-        grid_divisions = 20
-        x = np.linspace(-grid_size, grid_size, grid_divisions)
-        y = np.linspace(-grid_size, grid_size, grid_divisions)
-        z = np.linspace(-grid_size, grid_size, grid_divisions)
-
-        # Clear existing grid lines (if any)
-        if hasattr(self, 'grid_lines'):
-            for line in self.grid_lines:
-                line.remove()
-        self.grid_lines = []
-
-        # Draw grid based on coordinate system
-        if self.is_z_up:
-            # Z-up: Grid on X-Y plane at Z=0
-            for i in range(grid_divisions):
-                line1, = self.ax.plot(x, [y[i]] * grid_divisions, [0] * grid_divisions, 'gray', alpha=0.2)
-                line2, = self.ax.plot([x[i]] * grid_divisions, y, [0] * grid_divisions, 'gray', alpha=0.2)
-                self.grid_lines.extend([line1, line2])
-        else:
-            # Y-up: Grid on X-Z plane at Y=0
-            for i in range(grid_divisions):
-                line1, = self.ax.plot(x, [0] * grid_divisions, [z[i]] * grid_divisions, 'gray', alpha=0.2)
-                line2, = self.ax.plot([x[i]] * grid_divisions, [0] * grid_divisions, z, 'gray', alpha=0.2)
-                self.grid_lines.extend([line1, line2])
+    # MatPlotLib 그리드 생성이 제거되었습니다
+    pass
 
 def _initialize_dynamic_elements(self):
     """
