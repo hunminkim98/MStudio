@@ -104,11 +104,10 @@ def filter_selected_data(self):
 
         self.update_plot()
 
-        if hasattr(self, 'edit_window') and self.edit_window:
-            self.edit_window.focus()
-            # update edit_button state
-            if hasattr(self, 'edit_button'):
-                self.edit_button.configure(fg_color="#555555")
+        # No need to focus on edit_window as it's integrated now
+        # Just update the edit button if needed when not in edit mode
+        if not self.is_editing and hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
+            self.edit_button.configure(fg_color="#555555")
 
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred during filtering: {str(e)}")
@@ -181,10 +180,6 @@ def interpolate_selected_data(self):
     self.selection_data['start'] = current_selection['start']
     self.selection_data['end'] = current_selection['end']
     self.highlight_selection()
-
-    # Update edit button state if it exists
-    if hasattr(self, 'edit_button'):
-        self.edit_button.configure(fg_color="#555555")
 
 def interpolate_with_pattern(self):
     """
@@ -320,32 +315,6 @@ def interpolate_with_pattern(self):
         print("\nResetting mouse events and UI state")
         self.disconnect_mouse_events()
         self.connect_mouse_events()
-
-def on_interp_method_change(self, choice):
-    """Interpolation method change processing"""
-    if choice != 'pattern-based':
-        # initialize pattern markers
-        self.pattern_markers.clear()
-        self.pattern_selection_mode = False
-        
-        # update screen
-        self.update_plot()
-        self.canvas.draw_idle()
-    else:
-        # activate pattern selection mode when pattern-based is selected
-        self.pattern_selection_mode = True
-        messagebox.showinfo("Pattern Selection", 
-            "Right-click markers to select/deselect them as reference patterns.\n"
-            "Selected markers will be shown in red.")
-    
-    # change Order input field state only if EditWindow is open
-    if hasattr(self, 'edit_window') and self.edit_window:
-        if choice in ['polynomial', 'spline']:
-            self.edit_window.order_entry.configure(state='normal')
-            self.edit_window.order_label.configure(state='normal')
-        else:
-            self.edit_window.order_entry.configure(state='disabled')
-            self.edit_window.order_label.configure(state='disabled')
 
 def on_pattern_selection_confirm(self):
     """Process pattern selection confirmation"""

@@ -3,7 +3,8 @@ This module contains toggle functions for various UI elements in the TRCViewer a
 These functions were extracted from the main class to improve code organization.
 """
 
-from gui.editWindow import EditWindow
+# Remove EditWindow import since we're no longer using it
+# from gui.editWindow import EditWindow
 
 def toggle_marker_names(self):
     """
@@ -61,17 +62,12 @@ def toggle_trajectory(self):
 
 def toggle_edit_window(self):
     """
-    Toggles the visibility of the edit window.
+    Toggles the edit mode for the marker plot.
+    This now uses the integrated edit UI rather than a separate window.
     """
     try:
-        # focus on existing edit_window if it exists
-        if hasattr(self, 'edit_window') and self.edit_window:
-            self.edit_window.focus()
-        else:
-            # create new EditWindow
-            self.edit_window = EditWindow(self)
-            self.edit_window.focus()
-            
+        # Use the new toggle_edit_mode method
+        self.toggle_edit_mode()
     except Exception as e:
         print(f"Error in toggle_edit_window: {e}")
         import traceback

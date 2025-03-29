@@ -133,22 +133,11 @@ def open_file(viewer):
             viewer.update_skeleton_pairs()
             viewer.detect_outliers()
             
-            # 렌더링 모드 확인 및 설정
-            # 중요: OpenGL 모드를 사용하기 전에 모든 데이터가 로드되었는지 확인
-            use_opengl = getattr(viewer, 'use_opengl', False)
-            if use_opengl:
-                try:
-                    import pyopengltk
-                    from OpenGL import GL
-                except ImportError:
-                    print("OpenGL이 사용 불가능하여 matplotlib 모드로 전환합니다.")
-                    viewer.use_opengl = False
-            
-            # 먼저 플롯 생성 (OpenGL 또는 Matplotlib)
+            # 플롯 생성 (이제 항상 OpenGL)
             viewer.create_plot()
             
-            # 1초 지연을 주어 렌더러가 완전히 초기화되도록 함
-            viewer.update_idletasks()
+            # 렌더러 초기화 대기 (필요 시)
+            viewer.update_idletasks() 
             
             # 안전하게 뷰 리셋 및 업데이트
             try:
@@ -156,24 +145,12 @@ def open_file(viewer):
             except Exception as e:
                 print(f"뷰 리셋 중 오류: {e}. 계속 진행합니다.")
                 
+            # 플롯 업데이트 (오류 발생 시 폴백 로직 제거)
             try:
                 viewer.update_plot()
             except Exception as e:
-                print(f"플롯 업데이트 중 오류: {e}. matplotlib 모드로 폴백합니다.")
-                # OpenGL 모드에서 오류가 발생하면 matplotlib 모드로 폴백
-                if getattr(viewer, 'use_opengl', False):
-                    viewer.use_opengl = False
-                    viewer.create_plot()  # matplotlib 모드로 다시 생성
-                    viewer.reset_main_view()
-                    viewer.update_plot()
+                print(f"초기 플롯 업데이트 중 오류: {e}")
 
-            # Matplotlib 캔버스인 경우 draw 호출
-            if hasattr(viewer, 'canvas'):
-                if not getattr(viewer, 'use_opengl', False) and hasattr(viewer.canvas, 'draw'):
-                    viewer.canvas.draw()
-                    if hasattr(viewer.canvas, 'flush_events'):
-                        viewer.canvas.flush_events()
-            
             # UI 컨트롤 상태 업데이트
             viewer.play_pause_button.configure(state='normal')
             viewer.loop_checkbox.configure(state='normal')
