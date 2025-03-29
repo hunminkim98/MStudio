@@ -12,8 +12,8 @@ import sys
 
 from gui.TRCviewerWidgets import create_widgets
 from gui.markerPlot import show_marker_plot
-from gui.plotCreator import create_plot, _setup_plot_style, _draw_static_elements, _initialize_dynamic_elements, _update_coordinate_axes
-from gui.filterUI import on_filter_type_change
+from gui.plotCreator import create_plot
+from gui.filterUI import on_filter_type_change, build_filter_parameter_widgets
 
 from utils.dataLoader import read_data_from_c3d, read_data_from_trc, open_file
 from utils.dataSaver import save_as, save_to_trc, save_to_c3d
@@ -46,7 +46,6 @@ if opengl_available:
     try:
         # OpenGL 기반 렌더러 모듈 임포트 시도
         from gui.opengl.GLMarkerRenderer import MarkerGLRenderer
-        print("OpenGL 렌더러 모듈 임포트 성공")
     except ImportError as e:
         print(f"OpenGL 렌더러 모듈 임포트 오류: {e}")
         opengl_available = False
@@ -166,6 +165,9 @@ class TRCViewer(ctk.CTk):
         self.trajectory_length = 10
         self.trajectory_line = None
         self.marker_lines = []
+
+        self.is_editing = False # Add editing state flag
+        self.edit_controls_frame = None # Placeholder for edit controls frame
 
     def create_widgets(self):
         create_widgets(self)
@@ -435,20 +437,6 @@ class TRCViewer(ctk.CTk):
     def create_plot(self):
         create_plot(self)
 
-    def _setup_plot_style(self):
-        _setup_plot_style(self)
-
-    def _draw_static_elements(self):
-        """Draw static elements like the ground grid based on the coordinate system."""
-        _draw_static_elements(self)
-
-    def _initialize_dynamic_elements(self):
-        _initialize_dynamic_elements(self)
-
-    def _update_coordinate_axes(self):
-        """Update coordinate axes and labels based on the coordinate system."""
-        _update_coordinate_axes(self)
-
     def update_plot(self):
         """
         3D 마커 시각화 업데이트 메서드
@@ -489,47 +477,61 @@ class TRCViewer(ctk.CTk):
 
     def connect_mouse_events(self):
         # OpenGL 렌더러에서는 마우스 이벤트가 이미 내부적으로 처리됨
-        # OpenGL 렌더러의 경우 (canvas == gl_renderer)
-        if hasattr(self, 'canvas') and hasattr(self, 'use_opengl') and self.use_opengl:
-            print("마우스 이벤트는 OpenGL 렌더러에서 자동으로 처리됩니다")
-        
+
         # 마커 캔버스(matplotlib)는 여전히 연결 필요
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
             self.marker_canvas.mpl_connect('scroll_event', self.mouse_handler.on_marker_scroll)
             self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
             self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
             self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
-            
+
     def disconnect_mouse_events(self):
         """disconnect mouse events"""
-        # OpenGL 렌더러에서는 특별한 처리가 필요 없음
-        if hasattr(self, 'use_opengl') and self.use_opengl:
-            print("OpenGL 렌더러의 마우스 이벤트는 자동으로 관리됩니다")
-        
         # 마커 캔버스(matplotlib) 이벤트 연결 해제
-        if hasattr(self, 'marker_canvas') and self.marker_canvas:
-            for cid in self.marker_canvas.callbacks.callbacks.copy():
-                self.marker_canvas.mpl_disconnect(cid)
+        if hasattr(self, 'marker_canvas') and self.marker_canvas and hasattr(self.marker_canvas, 'callbacks') and self.marker_canvas.callbacks:
+             # Iterate through all event types and their registered callback IDs
+             all_cids = []
+             for event_type in list(self.marker_canvas.callbacks.callbacks.keys()): # Use list() for safe iteration
+                 all_cids.extend(list(self.marker_canvas.callbacks.callbacks[event_type].keys()))
+
+             # Disconnect each callback ID
+             for cid in all_cids:
+                 try:
+                     self.marker_canvas.mpl_disconnect(cid)
+                 except Exception as e:
+                     # Log potential issues if a cid is invalid
+                     print(f"Could not disconnect cid {cid}: {e}")
+
+    def _update_marker_plot_vertical_line_data(self):
+        """Helper function to update the x-data of the vertical lines on the marker plot."""
+        if hasattr(self, 'marker_lines') and self.marker_lines:
+            for line in self.marker_lines:
+                line.set_xdata([self.frame_idx, self.frame_idx])
+
+    def _update_display_after_frame_change(self):
+        """Helper function to update the main plot and the timeline after a frame change."""
+        self.update_plot()
+        self.update_timeline()
 
     def update_frame(self, value):
         if self.data is not None:
             self.frame_idx = int(float(value))
-            self.update_plot()
-            self.update_timeline()
+            self._update_display_after_frame_change()
 
             # update vertical line if marker graph is displayed
-            if hasattr(self, 'marker_lines') and self.marker_lines:
-                for line in self.marker_lines:
-                    line.set_xdata([self.frame_idx, self.frame_idx])
-                if hasattr(self, 'marker_canvas'):
-                    self.marker_canvas.draw()
+            self._update_marker_plot_vertical_line_data()
+            if hasattr(self, 'marker_canvas'):
+                self.marker_canvas.draw()
 
     def show_marker_plot(self, marker_name):
         show_marker_plot(self, marker_name)
-
-    def on_interp_method_change(self, choice):
-        """Interpolation method change processing"""
-        on_interp_method_change(self, choice)
+        self.update_timeline()
+        
+        # Update marker graph vertical line if it exists
+        self._update_marker_plot_vertical_line_data()
+        if hasattr(self, 'marker_canvas'):
+            self.marker_canvas.draw()
+        # self.update_frame_counter()
 
     def on_pattern_selection_confirm(self):
         """Process pattern selection confirmation"""
@@ -570,8 +572,9 @@ class TRCViewer(ctk.CTk):
         self.selection_data['end'] = current_selection['end']
         self.highlight_selection()
 
-        # Update edit button state if it exists
-        if hasattr(self, 'edit_button'):
+        # Update button state *only if* the edit button exists (i.e., not in edit mode)
+        # and the widget itself hasn't been destroyed
+        if not self.is_editing and hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
             self.edit_button.configure(fg_color="#555555")
 
     def interpolate_selected_data(self):
@@ -583,8 +586,38 @@ class TRCViewer(ctk.CTk):
         """
         interpolate_with_pattern(self)
 
-    def toggle_edit_window(self):
-        toggle_edit_window(self)
+    def toggle_edit_mode(self):
+        """Toggles the editing mode for the marker plot."""
+        if not self.current_marker: # Ensure a marker plot is shown
+            return
+
+        self.is_editing = not self.is_editing
+        # Re-render plot area with different controls based on edit state
+        if hasattr(self, 'graph_frame') and self.graph_frame and self.graph_frame.winfo_ismapped():
+            # Get the button frame (bottom frame of graph area)
+            button_frame = None
+            for widget in self.graph_frame.winfo_children():
+                if isinstance(widget, ctk.CTkFrame) and not widget.winfo_ismapped():
+                    continue
+                if widget != self.marker_canvas.get_tk_widget() and isinstance(widget, ctk.CTkFrame):
+                    button_frame = widget
+                    break
+            
+            if button_frame:
+                # Call our helper to rebuild the buttons with the new mode
+                self._build_marker_plot_buttons(button_frame)
+                
+                # Update pattern selection mode based on interpolation method
+                if self.is_editing and self.interp_method_var.get() == 'pattern-based':
+                    self.pattern_selection_mode = True
+                else:
+                    self.pattern_selection_mode = False
+                    
+                # Force update of the UI
+                self.graph_frame.update_idletasks()
+        
+        # Update the plot to reflect any changes in selection mode
+        self.update_plot()
 
     def clear_selection(self):
         if 'rects' in self.selection_data and self.selection_data['rects']:
@@ -624,13 +657,19 @@ class TRCViewer(ctk.CTk):
         if self.original_data is not None:
             self.data = self.original_data.copy(deep=True)
             self.detect_outliers()
-            self.show_marker_plot(self.current_marker)
+            # Check if a marker plot is currently displayed before trying to update it
+            if hasattr(self, 'current_marker') and self.current_marker:
+                self.show_marker_plot(self.current_marker)
             self.update_plot()
-            
-            # Update edit button state if it exists
-            if hasattr(self, 'edit_button'):
-                self.edit_button.configure(fg_color="#555555")
-                
+
+            # Update button state *only if* the edit button exists (i.e., not in edit mode)
+            if hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
+                 self.edit_button.configure(fg_color="#3B3B3B") # Reset to default color, not gray
+
+            # Consider exiting edit mode upon restoring?
+            # if self.is_editing:
+            #     self.toggle_edit_mode()
+
             print("Data has been restored to the original state.")
         else:
             messagebox.showinfo("Restore Data", "No original data to restore.")
@@ -748,30 +787,24 @@ class TRCViewer(ctk.CTk):
         """Move to the previous frame when left arrow key is pressed."""
         if self.data is not None and self.frame_idx > 0:
             self.frame_idx -= 1
-            self.update_plot()
-            self.update_timeline()
+            self._update_display_after_frame_change()
             
             # Update marker graph vertical line if it exists
-            if hasattr(self, 'marker_lines') and self.marker_lines:
-                for line in self.marker_lines:
-                    line.set_xdata([self.frame_idx, self.frame_idx])
-                if hasattr(self, 'marker_canvas'):
-                    self.marker_canvas.draw()
+            self._update_marker_plot_vertical_line_data()
+            if hasattr(self, 'marker_canvas'):
+                self.marker_canvas.draw()
             # self.update_frame_counter()
 
     def next_frame(self):
         """Move to the next frame when right arrow key is pressed."""
         if self.data is not None and self.frame_idx < self.num_frames - 1:
             self.frame_idx += 1
-            self.update_plot()
-            self.update_timeline()
+            self._update_display_after_frame_change()
             
             # Update marker graph vertical line if it exists
-            if hasattr(self, 'marker_lines') and self.marker_lines:
-                for line in self.marker_lines:
-                    line.set_xdata([self.frame_idx, self.frame_idx])
-                if hasattr(self, 'marker_canvas'):
-                    self.marker_canvas.draw()
+            self._update_marker_plot_vertical_line_data()
+            if hasattr(self, 'marker_canvas'):
+                self.marker_canvas.draw()
             # self.update_frame_counter()
 
     def reset_main_view(self):
@@ -824,8 +857,11 @@ class TRCViewer(ctk.CTk):
         
         # go back to first frame
         self.frame_idx = 0
-        self.update_plot()
-        self.update_timeline()
+        self._update_display_after_frame_change()
+        # Update marker graph vertical line if it exists (Added)
+        self._update_marker_plot_vertical_line_data()
+        if hasattr(self, 'marker_canvas'):
+            self.marker_canvas.draw() # Use draw() here as it's a single event
         self.stop_button.configure(state='disabled')
 
     def animate(self):
@@ -839,8 +875,12 @@ class TRCViewer(ctk.CTk):
                     self.stop_animation()
                     return
 
-            self.update_plot()
-            self.update_timeline()
+            self._update_display_after_frame_change()
+
+            # Update marker graph vertical line if it exists (Added)
+            self._update_marker_plot_vertical_line_data()
+            if hasattr(self, 'marker_canvas'):
+                self.marker_canvas.draw_idle() # Use draw_idle for potentially better performance in animation loop
 
             # remove speed slider related code and use default FPS
             base_fps = float(self.fps_var.get())
@@ -861,9 +901,12 @@ class TRCViewer(ctk.CTk):
         if x_pos is not None and self.data is not None:
             frame = int(max(0, min(x_pos, self.num_frames - 1)))
             self.frame_idx = frame
-            self.update_plot()
-            # self.update_frame_counter()
-            self.update_timeline()
+            self._update_display_after_frame_change()
+
+            # update vertical line if marker graph is displayed
+            self._update_marker_plot_vertical_line_data()
+            if hasattr(self, 'marker_canvas'):
+                self.marker_canvas.draw()
 
     def change_timeline_mode(self, mode):
         """Change timeline mode and update button style"""
@@ -911,7 +954,6 @@ class TRCViewer(ctk.CTk):
 
     def on_marker_selected(self, marker_name):
         """Handle marker selection event"""
-        print(f"TRCViewer: 마커 선택 이벤트 수신 - {marker_name}")
         self.current_marker = marker_name
         
         # 마커 목록에서 선택 상태 업데이트
@@ -936,7 +978,9 @@ class TRCViewer(ctk.CTk):
             try:
                 self.show_marker_plot(marker_name)
             except Exception as e:
-                print(f"마커 그래프 표시 오류: {e}")
+                import traceback
+                print(f"Error displaying marker plot: {e}")
+                traceback.print_exc()
         
         # OpenGL 렌더러에게 선택된 마커 정보 전달
         if hasattr(self, 'gl_renderer'):
@@ -944,7 +988,6 @@ class TRCViewer(ctk.CTk):
         
         # 화면 업데이트
         self.update_plot()
-        print(f"TRCViewer: 마커 선택 처리 완료 - {marker_name}")
 
     def start_resize(self, event):
         self.sizer_dragging = True
@@ -959,4 +1002,172 @@ class TRCViewer(ctk.CTk):
 
     def stop_resize(self, event):
         self.sizer_dragging = False
+
+    def _build_marker_plot_buttons(self, parent_frame):
+        """Helper method to build buttons for the marker plot, adjusting height for edit mode."""
+        # Destroy existing button frame contents if they exist
+        for widget in parent_frame.winfo_children():
+            widget.destroy()
+
+        button_style = {
+            "width": 80, "height": 28, "fg_color": "#3B3B3B", "hover_color": "#4B4B4B",
+            "text_color": "#FFFFFF", "corner_radius": 6, "border_width": 1, "border_color": "#555555"
+        }
+
+        if self.is_editing:
+            # --- Build Edit Controls (Multi-row) ---
+            parent_frame.configure(height=90) # Increase height for edit mode with interpolation
+
+            # Main container for edit controls
+            self.edit_controls_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
+            self.edit_controls_frame.pack(fill='both', expand=True, padx=5, pady=2)
+
+            # Top Row Frame
+            top_row_frame = ctk.CTkFrame(self.edit_controls_frame, fg_color="transparent")
+            top_row_frame.pack(side='top', fill='x', pady=(0, 5)) # Add padding below
+
+            # 1. Filter Type Frame (in top row)
+            filter_type_frame = ctk.CTkFrame(top_row_frame, fg_color="transparent")
+            filter_type_frame.pack(side='left', padx=(0, 10)) # Add padding to the right
+            ctk.CTkLabel(filter_type_frame, text="Filter:").pack(side='left', padx=2)
+            self.filter_type_combo = ctk.CTkComboBox(
+                filter_type_frame,
+                width=150, # Adjust width if needed
+                values=['kalman', 'butterworth', 'butterworth_on_speed', 'gaussian', 'LOESS', 'median'],
+                variable=self.filter_type_var,
+                command=self._on_filter_type_change_in_panel
+            )
+            self.filter_type_combo.pack(side='left')
+
+            # 2. Dynamic Filter Parameters Container (in top row)
+            self.filter_params_container = ctk.CTkFrame(top_row_frame, fg_color="transparent")
+            self.filter_params_container.pack(side='left', fill='x', expand=True)
+            # Initial population of parameters based on current filter type
+            self._build_filter_param_widgets(self.filter_type_var.get())
+
+            # Middle Row Frame for Interpolation
+            middle_row_frame = ctk.CTkFrame(self.edit_controls_frame, fg_color="transparent")
+            middle_row_frame.pack(side='top', fill='x', pady=(0, 5))
+            
+            # Interpolation Method Frame
+            interp_frame = ctk.CTkFrame(middle_row_frame, fg_color="transparent")
+            interp_frame.pack(side='left', padx=(0, 10))
+            ctk.CTkLabel(interp_frame, text="Interpolation:").pack(side='left', padx=2)
+            
+            # Interpolation ComboBox
+            self.interp_method_combo = ctk.CTkComboBox(
+                interp_frame,
+                width=150,
+                values=self.interp_methods,
+                variable=self.interp_method_var,
+                command=self._on_interp_method_change_in_panel
+            )
+            self.interp_method_combo.pack(side='left')
+            
+            # Interpolation Order Frame
+            interp_order_frame = ctk.CTkFrame(middle_row_frame, fg_color="transparent")
+            interp_order_frame.pack(side='left')
+            
+            # Order Label and Entry - disable by default if not polynomial/spline
+            self.interp_order_label = ctk.CTkLabel(interp_order_frame, text="Order:", width=80, anchor='w')
+            self.interp_order_label.pack(side='left', padx=(5, 2))
+            
+            self.interp_order_entry = ctk.CTkEntry(interp_order_frame, textvariable=self.order_var, width=60)
+            self.interp_order_entry.pack(side='left', padx=(0, 5))
+            
+            # Set initial state based on current method
+            current_method = self.interp_method_var.get()
+            if current_method not in ['polynomial', 'spline']:
+                self.interp_order_label.configure(state='disabled')
+                self.interp_order_entry.configure(state='disabled')
+
+            # Bottom Row Frame
+            bottom_row_frame = ctk.CTkFrame(self.edit_controls_frame, fg_color="transparent")
+            bottom_row_frame.pack(side='top', fill='x')
+
+            # 3. Action Buttons Frame (in bottom row)
+            action_buttons_frame = ctk.CTkFrame(bottom_row_frame, fg_color="transparent")
+            action_buttons_frame.pack(side='left')
+            action_buttons = [
+                ("Filter", self.filter_selected_data),
+                ("Delete", self.delete_selected_data),
+                ("Interpolate", self.interpolate_selected_data),
+                ("Restore", self.restore_original_data)
+            ]
+            # Use smaller width for action buttons if needed
+            action_button_style = {**button_style, "width": 80, "height": 26}
+            for text, command in action_buttons:
+                btn = ctk.CTkButton(action_buttons_frame, text=text, command=command, **action_button_style)
+                btn.pack(side='left', padx=3)
+
+            # 4. Done Button (in bottom row, packed to the right)
+            done_button = ctk.CTkButton(
+                bottom_row_frame, text="Done", command=self.toggle_edit_mode, **button_style
+            )
+            # Pack Done button to the far right of the bottom row
+            done_button.pack(side='right', padx=(10, 0)) # Add padding to the left
+
+        else:
+            # --- Build View Controls (Single Row) ---
+            parent_frame.configure(height=40) # Set default height for view mode
+
+            reset_button = ctk.CTkButton(
+                parent_frame, text="Reset View", command=self.reset_graph_view, **button_style
+            )
+            reset_button.pack(side='right', padx=5, pady=5)
+
+            self.edit_button = ctk.CTkButton(
+                parent_frame, text="Edit", command=self.toggle_edit_mode, **button_style
+            )
+            self.edit_button.pack(side='right', padx=5, pady=5)
+
+    def _on_filter_type_change_in_panel(self, choice):
+        """Updates filter parameter widgets directly in the panel."""
+        self._build_filter_param_widgets(choice) # Just call the builder
+
+    def _on_interp_method_change_in_panel(self, choice):
+        """Updates interpolation UI elements based on selected method."""
+        # Enable/disable Order field based on method type
+        if choice in ['polynomial', 'spline']:
+            self.interp_order_label.configure(state='normal')
+            self.interp_order_entry.configure(state='normal')
+        else:
+            self.interp_order_label.configure(state='disabled')
+            self.interp_order_entry.configure(state='disabled')
+            
+        # Special handling for pattern-based interpolation
+        if choice == 'pattern-based':
+            # Clear any existing pattern markers
+            self.pattern_markers.clear()
+            # Set pattern selection mode
+            self.pattern_selection_mode = True
+            messagebox.showinfo("Pattern Selection", 
+                "Right-click markers to select/deselect them as reference patterns.\n"
+                "Selected markers will be shown in red.")
+        else:
+            # Disable pattern selection mode for other methods
+            self.pattern_selection_mode = False
+            
+        # Update main 3D view if needed
+        self.update_plot()
+        if hasattr(self, 'marker_canvas') and self.marker_canvas:
+            self.marker_canvas.draw_idle()
+
+    def _build_filter_param_widgets(self, filter_type):
+        """Builds the specific parameter entry widgets for the selected filter type."""
+        # Clear previous widgets first
+        widgets_to_destroy = list(self.filter_params_container.winfo_children())
+        for widget in widgets_to_destroy:
+             widget.destroy()
+
+        # Force Tkinter to process the destruction events immediately
+        self.filter_params_container.update_idletasks()
+
+        params_frame = self.filter_params_container # Use the container directly
+
+        # Call the reusable function from filterUI
+        if hasattr(self, 'filter_params'):
+            build_filter_parameter_widgets(params_frame, filter_type, self.filter_params)
+        else:
+            print("Error: filter_params attribute not found on TRCViewer.")
 
