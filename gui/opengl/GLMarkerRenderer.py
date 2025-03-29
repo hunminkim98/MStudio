@@ -213,6 +213,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.bind("<ButtonRelease-3>", self.on_right_mouse_release)
         self.bind("<B3-Motion>", self.on_right_mouse_move)
         self.bind("<MouseWheel>", self.on_scroll)
+        self.bind("<Configure>", self.on_configure) # Add binding for Configure event
         
         # 마커 픽킹 관련 변수
         self.picking_texture = PickingTexture()
@@ -224,12 +225,9 @@ class MarkerGLRenderer(MarkerGLFrame):
         pyopengltk는 initgl 메서드를 통해 OpenGL을 초기화하므로,
         여기서는 초기화 플래그만 설정합니다.
         """
-        print("OpenGL 렌더러 초기화 시작")
         
         # 초기화 완료 표시 - 실제 OpenGL 초기화는 initgl에서 수행됨
         self.initialized = True
-        
-        print("OpenGL 렌더러 초기화 완료")
         
         # 화면 갱신
         self.update()  # 자동으로 initgl과 redraw를 호출함
@@ -271,7 +269,6 @@ class MarkerGLRenderer(MarkerGLFrame):
             
             # OpenGL 초기화 완료 플래그 설정
             self.gl_initialized = True
-            print("OpenGL 컨텍스트 초기화 완료")
         except Exception as e:
             print(f"OpenGL 초기화 오류: {e}")
             self.gl_initialized = False
@@ -370,8 +367,11 @@ class MarkerGLRenderer(MarkerGLFrame):
         
         GL.glEndList()
     
-    def redraw(self, *args):
-        """프레임 업데이트 (pyopengltk에서 자동 호출)"""
+    def redraw(self):
+        """
+        OpenGL 화면을 다시 그립니다.
+        This is the main drawing method.
+        """
         if not self.gl_initialized:
             return
             
@@ -398,12 +398,35 @@ class MarkerGLRenderer(MarkerGLFrame):
             # OpenGL 컨텍스트 활성화 (안전을 위해)
             try:
                 self.tkMakeCurrent()
-            except Exception:
-                pass
+            except Exception as context_error:
+                print(f"Error setting OpenGL context: {context_error}")
+                return # Cannot proceed without context
             
-            # 프레임 초기화
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            # --- Viewport and Projection Setup --- START
+            width = self.winfo_width()
+            height = self.winfo_height()
+            if width <= 0 or height <= 0:
+                 # Avoid division by zero or invalid viewport
+                 return 
+
+            # 1. Set the viewport to the entire widget area
+            GL.glViewport(0, 0, width, height)
+
+            # 2. Set up the projection matrix
+            GL.glMatrixMode(GL.GL_PROJECTION)
             GL.glLoadIdentity()
+            aspect = float(width) / float(height)
+            # Use perspective projection (like in pick_marker)
+            GLU.gluPerspective(45, aspect, 0.1, 100.0) # fov, aspect, near, far
+
+            # 3. Switch back to the modelview matrix for camera/object transformations
+            GL.glMatrixMode(GL.GL_MODELVIEW)
+            # --- Viewport and Projection Setup --- END
+            
+            # 프레임 초기화 (Clear after setting viewport/projection)
+            GL.glClearColor(0.0, 0.0, 0.0, 0.0) # Ensure clear color is set
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            GL.glLoadIdentity() # Reset modelview matrix before camera setup
             
             # 카메라 위치 설정 (줌, 회전, 이동)
             GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
@@ -608,11 +631,8 @@ class MarkerGLRenderer(MarkerGLFrame):
                     
                 except Exception as e:
                     print(f"텍스트 렌더링 오류: {e}")
-                    try:
-                        GL.glPopAttrib()  # 오류 발생해도 상태 복원 시도
-                        GL.glPopMatrix()
-                    except:
-                        pass
+                    import traceback
+                    traceback.print_exc()
             
             # 버퍼 교체 (화면 갱신)
             self.tkSwapBuffers()
@@ -831,17 +851,6 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.show_marker_names = show
         self.redraw()
         
-    # matplotlib 호환 메서드
-    def get_figure(self):
-        """matplotlib 호환 메서드"""
-        # 호환성을 위한 더미 반환
-        return self
-    
-    def get_axes(self):
-        """matplotlib 호환 메서드"""
-        # 호환성을 위한 더미 반환
-        return self
-
     def set_data_limits(self, x_range, y_range, z_range):
         """
         데이터의 범위를 설정합니다.
@@ -1052,6 +1061,8 @@ class MarkerGLRenderer(MarkerGLFrame):
         
         except Exception as e:
             print(f"마커 선택 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     def read_pixel_at(self, x, y):
         """
@@ -1100,20 +1111,32 @@ class MarkerGLRenderer(MarkerGLFrame):
         Args:
             marker_name: 선택된 마커 이름 또는 None(선택 취소 시)
         """
+        # print(f"_notify_marker_selected: Called with marker_name = {marker_name}") # Removed print
+        # print(f"_notify_marker_selected: self.master is {self.master}") # Removed print
+        
         # 부모 창 메서드 호출
         if hasattr(self.master, 'on_marker_selected'):
+            # print("_notify_marker_selected: Found 'on_marker_selected' method on master.") # Removed print
             try:
+                # print("_notify_marker_selected: Attempting to call self.master.on_marker_selected...") # Removed print
                 self.master.on_marker_selected(marker_name)
+                # print("_notify_marker_selected: Successfully called self.master.on_marker_selected.") # Removed print
             except Exception as e:
-                print(f"마커 선택 알림 오류: {e}")
-        # 이벤트 기반 알림 시도
-        elif hasattr(self.master, 'event_generate'):
-            try:
-                # None인 경우 빈 문자열로 전달
-                data = "" if marker_name is None else marker_name
-                self.master.event_generate("<<MarkerSelected>>", when="tail", data=data)
-            except Exception:
-                pass
-        
-        # 화면 갱신
-        self.redraw()
+                # print(f"_notify_marker_selected: Error calling self.master.on_marker_selected: {e}") # Removed print
+                import traceback
+                print(f"Error notifying master of marker selection: {e}") # Keep user-friendly error
+                traceback.print_exc() # Keep detailed traceback
+        else:
+            # print("_notify_marker_selected: Did NOT find 'on_marker_selected' method on master.") # Removed print
+            print(f"Warning: Master {self.master} does not have 'on_marker_selected' method.") # Keep warning
+            
+        # 이벤트 기반 알림 시도 (Fallback)
+        # ... (rest of the function)
+
+    def on_configure(self, event):
+        """Handle widget resize/move/visibility changes."""
+        # Check if GL is initialized before attempting to redraw
+        if self.gl_initialized:
+             self.redraw()
+        # Optionally, you could call self.update() if initgl needs to run on configure
+        # self.update()

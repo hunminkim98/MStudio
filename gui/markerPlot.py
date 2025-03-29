@@ -11,7 +11,7 @@ def show_marker_plot(self, marker_name):
     Note: 이 함수는 OpenGL 렌더링 모드에서도 matplotlib을 사용하여 그래프를 표시합니다.
     """
     # Save current states
-    was_editing = getattr(self, 'editing', False)
+    was_editing = getattr(self, 'is_editing', False)
     
     # Save previous filter parameters if they exist
     prev_filter_params = None
@@ -24,6 +24,14 @@ def show_marker_plot(self, marker_name):
     prev_filter_type = getattr(self, 'filter_type_var', None)
     if prev_filter_type:
         prev_filter_type = prev_filter_type.get()
+    
+    # Save previous interpolation parameters
+    prev_interp_method = getattr(self, 'interp_method_var', None)
+    if prev_interp_method:
+        prev_interp_method = prev_interp_method.get()
+    prev_order = getattr(self, 'order_var', None)
+    if prev_order:
+        prev_order = prev_order.get()
 
     if not self.graph_frame.winfo_ismapped():
         # display right panel
@@ -112,7 +120,9 @@ def show_marker_plot(self, marker_name):
 
     self.marker_canvas = FigureCanvasTkAgg(self.marker_plot_fig, master=self.graph_frame)
     self.marker_canvas.draw()
-    self.marker_canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    # Force layout update *after* canvas is drawn, *before* button frame
+    self.graph_frame.update_idletasks()
 
     self.initial_graph_limits = []
     for ax in self.marker_axes:
@@ -126,38 +136,18 @@ def show_marker_plot(self, marker_name):
     self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
     self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
 
-    # Create button frame with explicit background color
+    # Create and pack the button frame first at the bottom
+    # Height will be set dynamically by _build_marker_plot_buttons
     button_frame = ctk.CTkFrame(self.graph_frame, fg_color="#1A1A1A")
-    button_frame.pack(fill='x', padx=5, pady=(5, 10))
+    button_frame.pack_propagate(False) # Prevent frame from shrinking
+    button_frame.pack(fill='x', padx=5, pady=(5, 10), side='bottom')
 
-    # Update button style with brighter colors
-    button_style = {
-        "width": 80,
-        "height": 28,
-        "fg_color": "#3B3B3B",
-        "hover_color": "#4B4B4B",
-        "text_color": "#FFFFFF",
-        "corner_radius": 6,     
-        "border_width": 1,
-        "border_color": "#555555"
-    }
+    # --- Delegate button building to the main class method ---
+    # This will now also set the height of button_frame
+    self._build_marker_plot_buttons(button_frame)
 
-    reset_button = ctk.CTkButton(
-        button_frame,
-        text="Reset View",
-        command=self.reset_graph_view,
-        **button_style
-    )
-    reset_button.pack(side='right', padx=5, pady=5)
-
-    # Edit button with the same style
-    self.edit_button = ctk.CTkButton(
-        button_frame,
-        text="Edit",
-        command=self.toggle_edit_window,
-        **button_style
-    )
-    self.edit_button.pack(side='right', padx=5, pady=5)
+    # Pack the canvas LAST, filling the remaining space at the top
+    self.marker_canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
     # Initialize filter parameters if not already present
     if not hasattr(self, 'filter_params'):
@@ -191,6 +181,12 @@ def show_marker_plot(self, marker_name):
     self.hz_var = self.filter_params['butterworth']['cut_off_frequency']
     self.filter_order_var = self.filter_params['butterworth']['order']
 
+    # Restore interpolation parameters
+    if prev_interp_method:
+        self.interp_method_var.set(prev_interp_method)
+    if prev_order:
+        self.order_var.set(prev_order)
+
     self.selection_data = {
         'start': None,
         'end': None,
@@ -202,39 +198,9 @@ def show_marker_plot(self, marker_name):
     self.connect_mouse_events()
 
     # Restore edit state if it was active
-    if was_editing:
-        self.start_edit()
-
-    # connect marker canvas events
-    self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
-    self.marker_canvas.mpl_connect('button_release_event', self.mouse_handler.on_marker_mouse_release)
-    self.marker_canvas.mpl_connect('motion_notify_event', self.mouse_handler.on_marker_mouse_move)
-    
-    # initialize selection_data
-    self.selection_data = {
-        'start': None,
-        'end': None,
-        'rects': []
-    }
-
-    # initialize selection_in_progress
-    self.selection_in_progress = False
-
-    # update marker name display logic
-    if self.show_names or (hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode):
-        for marker in self.marker_names:
-            x = self.data.loc[self.frame_idx, f'{marker}_X']
-            y = self.data.loc[self.frame_idx, f'{marker}_Y']
-            z = self.data.loc[self.frame_idx, f'{marker}_Z']
-            
-            # determine marker name color
-            if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode and marker in self.pattern_markers:
-                name_color = 'red'  # pattern-based selected marker
-            else:
-                name_color = 'black'  # normal marker
-                
-            if not np.isnan(x) and not np.isnan(y) and not np.isnan(z):
-                if self.is_z_up:
-                    self.ax.text(x, y, z, marker, color=name_color)
-                else:
-                    self.ax.text(x, z, y, marker, color=name_color)
+    if was_editing and not self.is_editing:
+        # Schedule with a small delay to avoid UI glitches
+        self.after(10, self.toggle_edit_mode)
+        
+    # Force update of the layout to help ensure widgets are drawn
+    self.graph_frame.update_idletasks()

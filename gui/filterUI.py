@@ -5,66 +5,61 @@ These functions were extracted from the main class to improve code organization.
 
 import customtkinter as ctk
 
+def build_filter_parameter_widgets(parent_frame: ctk.CTkFrame, filter_type: str, filter_params_vars: dict):
+    """
+    Builds the specific parameter entry widgets for the selected filter type
+    into the provided parent frame.
+
+    Args:
+        parent_frame: The CTkFrame to build the widgets into.
+        filter_type: The name of the selected filter (e.g., 'butterworth').
+        filter_params_vars: The dictionary containing the StringVars for filter parameters.
+                            Expected structure: {'filter_name': {'param_name': ctk.StringVar(), ...}, ...}
+    """
+    label_width = 80 # Consistent label width
+    entry_width = 60 # Consistent entry width
+
+    if filter_type == 'butterworth':
+        ctk.CTkLabel(parent_frame, text="Order:", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['butterworth']['order'], width=entry_width).pack(side='left', padx=(0,5))
+        ctk.CTkLabel(parent_frame, text="Cutoff (Hz):", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['butterworth']['cut_off_frequency'], width=entry_width).pack(side='left', padx=(0,5))
+    elif filter_type == 'kalman':
+        ctk.CTkLabel(parent_frame, text="Trust Ratio:", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['kalman']['trust_ratio'], width=entry_width).pack(side='left', padx=(0,5))
+        ctk.CTkLabel(parent_frame, text="Smooth:", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['kalman']['smooth'], width=entry_width).pack(side='left', padx=(0,5))
+    elif filter_type == 'gaussian':
+        ctk.CTkLabel(parent_frame, text="Sigma Kernel:", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['gaussian']['sigma_kernel'], width=entry_width).pack(side='left', padx=(0,5))
+    elif filter_type == 'LOESS':
+        ctk.CTkLabel(parent_frame, text="Values Used:", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['LOESS']['nb_values_used'], width=entry_width).pack(side='left', padx=(0,5))
+    elif filter_type == 'median':
+        ctk.CTkLabel(parent_frame, text="Kernel Size:", width=label_width, anchor='w').pack(side='left', padx=(5,2))
+        ctk.CTkEntry(parent_frame, textvariable=filter_params_vars['median']['kernel_size'], width=entry_width).pack(side='left', padx=(0,5))
+    # Add other filter types if needed following the pattern
+
 def on_filter_type_change(self, choice):
     """
     Updates the filter parameters UI based on the selected filter type.
+    This function likely belongs to a class like EditWindow.
     """
-    if self.current_params_frame:
-        self.current_params_frame.destroy()
-    
-    self.current_params_frame = ctk.CTkFrame(self.filter_params_frame)
-    self.current_params_frame.pack(side='left', padx=5)
-    
-    if choice == 'butterworth':
-        order_label = ctk.CTkLabel(self.current_params_frame, text="Order:")
-        order_label.pack(side='left', padx=2)
-        order_entry = ctk.CTkEntry(self.current_params_frame, 
-                                 textvariable=self.parent.filter_params['butterworth']['order'],
-                                 width=50)
-        order_entry.pack(side='left', padx=2)
+    # Destroy the old parameter frame if it exists
+    if hasattr(self, 'current_params_frame') and self.current_params_frame:
+        widgets_to_destroy = list(self.current_params_frame.winfo_children())
+        for widget in widgets_to_destroy:
+             widget.destroy()
+        self.current_params_frame.destroy() # Destroy the frame itself
 
-        cutoff_label = ctk.CTkLabel(self.current_params_frame, text="Cutoff (Hz):")
-        cutoff_label.pack(side='left', padx=2)
-        cutoff_entry = ctk.CTkEntry(self.current_params_frame,
-                                  textvariable=self.parent.filter_params['butterworth']['cut_off_frequency'],
-                                  width=50)
-        cutoff_entry.pack(side='left', padx=2)
+    # Create a new frame for the parameters
+    # Assumes self.filter_params_frame exists on the parent object (e.g., EditWindow)
+    self.current_params_frame = ctk.CTkFrame(self.filter_params_frame, fg_color="transparent") # Make frame transparent
+    self.current_params_frame.pack(side='left', fill='x', expand=True, padx=5) # Allow expansion
 
-    elif choice == 'kalman':
-        trust_label = ctk.CTkLabel(self.current_params_frame, text="Trust Ratio:")
-        trust_label.pack(side='left', padx=2)
-        trust_entry = ctk.CTkEntry(self.current_params_frame,
-                                 textvariable=self.parent.filter_params['kalman']['trust_ratio'],
-                                 width=50)
-        trust_entry.pack(side='left', padx=2)
-
-        smooth_label = ctk.CTkLabel(self.current_params_frame, text="Smooth:")
-        smooth_label.pack(side='left', padx=2)
-        smooth_entry = ctk.CTkEntry(self.current_params_frame,
-                                  textvariable=self.parent.filter_params['kalman']['smooth'],
-                                  width=50)
-        smooth_entry.pack(side='left', padx=2)
-
-    elif choice == 'gaussian':
-        kernel_label = ctk.CTkLabel(self.current_params_frame, text="Sigma Kernel:")
-        kernel_label.pack(side='left', padx=2)
-        kernel_entry = ctk.CTkEntry(self.current_params_frame,
-                                  textvariable=self.parent.filter_params['gaussian']['sigma_kernel'],
-                                  width=50)
-        kernel_entry.pack(side='left', padx=2)
-
-    elif choice == 'LOESS':
-        values_label = ctk.CTkLabel(self.current_params_frame, text="Values Used:")
-        values_label.pack(side='left', padx=2)
-        values_entry = ctk.CTkEntry(self.current_params_frame,
-                                  textvariable=self.parent.filter_params['LOESS']['nb_values_used'],
-                                  width=50)
-        values_entry.pack(side='left', padx=2)
-
-    elif choice == 'median':
-        kernel_label = ctk.CTkLabel(self.current_params_frame, text="Kernel Size:")
-        kernel_label.pack(side='left', padx=2)
-        kernel_entry = ctk.CTkEntry(self.current_params_frame,
-                                  textvariable=self.parent.filter_params['median']['kernel_size'],
-                                  width=50)
-        kernel_entry.pack(side='left', padx=2)
+    # Build the widgets using the reusable function
+    # Assumes filter parameters are stored in self.parent.filter_params
+    if hasattr(self, 'parent') and hasattr(self.parent, 'filter_params'):
+        build_filter_parameter_widgets(self.current_params_frame, choice, self.parent.filter_params)
+    else:
+        print("Error: Could not find filter parameters (self.parent.filter_params).")
