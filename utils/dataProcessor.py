@@ -42,10 +42,10 @@ def filter_selected_data(self):
         # Get filter parameters
         filter_type = self.filter_type_var.get()
 
-        if filter_type == 'butterworth':
+        if filter_type == 'butterworth' or filter_type == 'butterworth_on_speed':
             try:
-                cutoff_freq = float(self.filter_params['butterworth']['cut_off_frequency'].get())
-                filter_order = int(self.filter_params['butterworth']['order'].get())
+                cutoff_freq = float(self.filter_params[filter_type]['cut_off_frequency'].get())
+                filter_order = int(self.filter_params[filter_type]['order'].get())
                 
                 if cutoff_freq <= 0:
                     messagebox.showerror("Input Error", "Hz must be greater than 0")
@@ -61,7 +61,7 @@ def filter_selected_data(self):
             # Create config dict for Pose2Sim
             config_dict = {
                 'filtering': {
-                    'butterworth': {
+                    filter_type: {
                         'order': filter_order,
                         'cut_off_frequency': cutoff_freq
                     }
