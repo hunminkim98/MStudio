@@ -156,6 +156,10 @@ def show_marker_plot(self, marker_name):
                 'order': ctk.StringVar(value="4"),
                 'cut_off_frequency': ctk.StringVar(value="10")
             },
+            'butterworth_on_speed': {
+                'order': ctk.StringVar(value="4"),
+                'cut_off_frequency': ctk.StringVar(value="10")
+            },
             'kalman': {
                 'trust_ratio': ctk.StringVar(value="20"),
                 'smooth': ctk.StringVar(value="1")

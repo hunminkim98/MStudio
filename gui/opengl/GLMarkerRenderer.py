@@ -174,6 +174,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
         """
         super().__init__(parent, **kwargs)
+        self.parent = parent # Store the parent reference
         
         # 기본 좌표계 설정 (Y-up)
         self.is_z_up = False
@@ -496,18 +497,34 @@ class MarkerGLRenderer(MarkerGLFrame):
                 except KeyError:
                     continue
             
-            # 마커 렌더링
+            # 마커 렌더링 - 2단계로 분리: 일반 마커 -> 패턴 마커
             if positions:
-                GL.glPointSize(4.0)
+                # 1단계: 일반 마커 (선택되지 않은 마커 또는 패턴 모드가 아닐 때)
+                GL.glPointSize(5.0) # 일반 크기
                 GL.glBegin(GL.GL_POINTS)
                 for i, pos in enumerate(positions):
-                    GL.glColor3fv(colors[i])
-                    GL.glVertex3fv(pos)
+                    marker = valid_markers[i]
+                    is_pattern_selected = self.pattern_selection_mode and marker in self.pattern_markers
+                    if not is_pattern_selected:
+                        GL.glColor3fv(colors[i])
+                        GL.glVertex3fv(pos)
                 GL.glEnd()
+                
+                # 2단계: 선택된 패턴 마커 (패턴 모드일 때)
+                if self.pattern_selection_mode and any(m in self.pattern_markers for m in valid_markers):
+                    GL.glPointSize(8.0) # 큰 크기
+                    GL.glBegin(GL.GL_POINTS)
+                    for i, pos in enumerate(positions):
+                        marker = valid_markers[i]
+                        if marker in self.pattern_markers:
+                            # 색상은 colors 리스트에서 이미 레드로 설정되어 있음
+                            GL.glColor3fv(colors[i]) 
+                            GL.glVertex3fv(pos)
+                    GL.glEnd()
             
             # 선택된 마커 강조 표시
             if selected_position:
-                GL.glPointSize(7.0)
+                GL.glPointSize(8.0)
                 GL.glBegin(GL.GL_POINTS)
                 GL.glColor3f(1.0, 0.9, 0.4)  # 연한 노란색
                 GL.glVertex3fv(selected_position)
@@ -515,28 +532,51 @@ class MarkerGLRenderer(MarkerGLFrame):
             
             # 스켈레톤 라인 렌더링
             if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_pairs'):
-                GL.glLineWidth(2.0)
-                GL.glBegin(GL.GL_LINES)
+                # --- Enable Blending and Smoothing (needed for normal lines) ---
+                GL.glEnable(GL.GL_BLEND)
+                GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                GL.glEnable(GL.GL_LINE_SMOOTH)
+                GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+                # ---------------------------------------------------------------
                 
+                # Pass 1: Draw Normal Skeleton Lines (Gray, Semi-Transparent, Width 2.0)
+                GL.glLineWidth(2.0)
+                GL.glColor4f(0.7, 0.7, 0.7, 0.8) # Gray, Alpha 0.8
+                GL.glBegin(GL.GL_LINES)
                 for pair in self.skeleton_pairs:
                     if pair[0] in marker_positions and pair[1] in marker_positions:
                         p1 = marker_positions[pair[0]]
                         p2 = marker_positions[pair[1]]
-                        
-                        # 이상치 여부 확인
                         outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx] if hasattr(self, 'outliers') else False
                         outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx] if hasattr(self, 'outliers') else False
                         is_outlier = outlier_status1 or outlier_status2
-                        
-                        if is_outlier:
-                            GL.glColor3f(1.0, 0.0, 0.0)  # 빨간색
-                        else:
-                            GL.glColor3f(0.7, 0.7, 0.7)  # 회색
-                        
-                        GL.glVertex3fv(p1)
-                        GL.glVertex3fv(p2)
-                
+                        if not is_outlier:
+                            GL.glVertex3fv(p1)
+                            GL.glVertex3fv(p2)
                 GL.glEnd()
+                
+                # Pass 2: Draw Outlier Skeleton Lines (Red, Opaque, Width 4.0)
+                # Blending is already enabled, just change width and color
+                GL.glLineWidth(3.5)
+                GL.glColor4f(1.0, 0.0, 0.0, 1.0) # Red, Alpha 1.0
+                GL.glBegin(GL.GL_LINES)
+                for pair in self.skeleton_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+                        outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx] if hasattr(self, 'outliers') else False
+                        outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx] if hasattr(self, 'outliers') else False
+                        is_outlier = outlier_status1 or outlier_status2
+                        if is_outlier:
+                            GL.glVertex3fv(p1)
+                            GL.glVertex3fv(p2)
+                GL.glEnd()
+                
+                # --- Reset LineWidth and Disable Blending --- 
+                GL.glLineWidth(1.0) # Reset to OpenGL default
+                GL.glDisable(GL.GL_BLEND)
+                # GL.glDisable(GL.GL_LINE_SMOOTH) # Optional
+                # ------------------------------------------
             
             # 궤적 렌더링
             if self.current_marker is not None and hasattr(self, 'show_trajectory') and self.show_trajectory:
@@ -898,12 +938,20 @@ class MarkerGLRenderer(MarkerGLFrame):
             self.redraw()
 
     def on_right_mouse_press(self, event):
-        """오른쪽 마우스 버튼 누를 때 호출"""
-        self.last_x, self.last_y = event.x, event.y
-
+        """오른쪽 마우스 버튼 누름 이벤트 처리 (뷰 이동 시작 또는 패턴 선택 모드)"""
+        if not self.pattern_selection_mode: # 패턴 선택 모드가 아닐 때만 뷰 이동 시작
+            self.dragging = True
+            self.last_x = event.x
+            self.last_y = event.y
+            
     def on_right_mouse_release(self, event):
-        """오른쪽 마우스 버튼 뗄 때 호출"""
-        pass
+        """오른쪽 마우스 버튼 뗌 이벤트 처리 (뷰 이동 종료 또는 패턴 마커 선택)"""
+        if self.pattern_selection_mode:
+             # 패턴 선택 모드: 마커 픽킹 시도
+            self.pick_marker(event.x, event.y) 
+        elif self.dragging:
+            # 뷰 이동 모드 종료
+            self.dragging = False
 
     def on_right_mouse_move(self, event):
         """오른쪽 마우스 버튼 드래그할 때 호출 (이동)"""
@@ -1039,17 +1087,30 @@ class MarkerGLRenderer(MarkerGLFrame):
                 if 0 <= marker_idx < len(self.marker_names):
                     selected_marker = self.marker_names[marker_idx]
                     
-                    # 이미 선택된 마커를 다시 클릭한 경우 선택 취소
-                    if self.current_marker == selected_marker:
-                        self.current_marker = None
-                        self._notify_marker_selected(None)  # 선택 취소 알림
-                    # 새로운 마커를 선택한 경우
-                    else:
-                        # 현재 마커 업데이트
-                        self.current_marker = selected_marker
+                    # 패턴 선택 모드 처리
+                    if self.pattern_selection_mode:
+                        if selected_marker in self.parent.pattern_markers:
+                            self.parent.pattern_markers.remove(selected_marker)
+                        else:
+                            self.parent.pattern_markers.add(selected_marker)
                         
-                        # 부모 클래스에 알림
-                        self._notify_marker_selected(selected_marker)
+                        # Update the UI list in the parent (TRCViewer)
+                        if hasattr(self.parent, 'update_selected_markers_list'):
+                            self.parent.update_selected_markers_list()
+                            
+                    # 일반 마커 선택 모드 처리
+                    else:
+                        # 이미 선택된 마커를 다시 클릭한 경우 선택 취소
+                        if self.current_marker == selected_marker:
+                            self.current_marker = None
+                            self._notify_marker_selected(None)  # 선택 취소 알림
+                        # 새로운 마커를 선택한 경우
+                        else:
+                            # 현재 마커 업데이트
+                            self.current_marker = selected_marker
+                            
+                            # 부모 클래스에 알림
+                            self._notify_marker_selected(selected_marker)
         
             # 일반 렌더링 상태 복원
             GL.glEnable(GL.GL_BLEND)
@@ -1111,24 +1172,16 @@ class MarkerGLRenderer(MarkerGLFrame):
         Args:
             marker_name: 선택된 마커 이름 또는 None(선택 취소 시)
         """
-        # print(f"_notify_marker_selected: Called with marker_name = {marker_name}") # Removed print
-        # print(f"_notify_marker_selected: self.master is {self.master}") # Removed print
-        
         # 부모 창 메서드 호출
         if hasattr(self.master, 'on_marker_selected'):
-            # print("_notify_marker_selected: Found 'on_marker_selected' method on master.") # Removed print
             try:
-                # print("_notify_marker_selected: Attempting to call self.master.on_marker_selected...") # Removed print
                 self.master.on_marker_selected(marker_name)
-                # print("_notify_marker_selected: Successfully called self.master.on_marker_selected.") # Removed print
             except Exception as e:
-                # print(f"_notify_marker_selected: Error calling self.master.on_marker_selected: {e}") # Removed print
+                print(f"Error notifying master of marker selection: {e}")
                 import traceback
-                print(f"Error notifying master of marker selection: {e}") # Keep user-friendly error
-                traceback.print_exc() # Keep detailed traceback
+                traceback.print_exc()
         else:
-            # print("_notify_marker_selected: Did NOT find 'on_marker_selected' method on master.") # Removed print
-            print(f"Warning: Master {self.master} does not have 'on_marker_selected' method.") # Keep warning
+            print(f"Warning: Master {self.master} does not have 'on_marker_selected' method.")
             
         # 이벤트 기반 알림 시도 (Fallback)
         # ... (rest of the function)
