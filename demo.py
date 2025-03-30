@@ -57,7 +57,7 @@ matplotlib.use('TkAgg')
 class TRCViewer(ctk.CTk):
     def __init__(self, use_opengl=True):
         super().__init__()
-        self.title("TRC Viewer")
+        self.title("MarkerStudio")
         self.geometry("1920x1080")
 
         # 렌더링 모드 설정 - 항상 OpenGL 사용
@@ -520,7 +520,8 @@ class TRCViewer(ctk.CTk):
 
             # update vertical line if marker graph is displayed
             self._update_marker_plot_vertical_line_data()
-            if hasattr(self, 'marker_canvas'):
+            # Check if marker_canvas exists and is not None before drawing
+            if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
 
     def show_marker_plot(self, marker_name):
@@ -905,7 +906,8 @@ class TRCViewer(ctk.CTk):
 
             # update vertical line if marker graph is displayed
             self._update_marker_plot_vertical_line_data()
-            if hasattr(self, 'marker_canvas'):
+            # Check if marker_canvas exists before drawing
+            if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
 
     def change_timeline_mode(self, mode):
@@ -1029,7 +1031,11 @@ class TRCViewer(ctk.CTk):
             # 1. Filter Type Frame (in top row)
             filter_type_frame = ctk.CTkFrame(top_row_frame, fg_color="transparent")
             filter_type_frame.pack(side='left', padx=(0, 10)) # Add padding to the right
-            ctk.CTkLabel(filter_type_frame, text="Filter:").pack(side='left', padx=2)
+            
+            # Filter label with increased padding
+            filter_label = ctk.CTkLabel(filter_type_frame, text="Filter:", width=50, anchor="e")
+            filter_label.pack(side='left', padx=(3, 8))
+            
             self.filter_type_combo = ctk.CTkComboBox(
                 filter_type_frame,
                 width=150, # Adjust width if needed
@@ -1037,7 +1043,7 @@ class TRCViewer(ctk.CTk):
                 variable=self.filter_type_var,
                 command=self._on_filter_type_change_in_panel
             )
-            self.filter_type_combo.pack(side='left')
+            self.filter_type_combo.pack(side='left', padx=(42, 0))
 
             # 2. Dynamic Filter Parameters Container (in top row)
             self.filter_params_container = ctk.CTkFrame(top_row_frame, fg_color="transparent")
@@ -1052,7 +1058,10 @@ class TRCViewer(ctk.CTk):
             # Interpolation Method Frame
             interp_frame = ctk.CTkFrame(middle_row_frame, fg_color="transparent")
             interp_frame.pack(side='left', padx=(0, 10))
-            ctk.CTkLabel(interp_frame, text="Interpolation:").pack(side='left', padx=2)
+            
+            # Interpolation label with consistent styling
+            interp_label = ctk.CTkLabel(interp_frame, text="Interpolation:", width=90, anchor="e")
+            interp_label.pack(side='left', padx=(5, 8))
             
             # Interpolation ComboBox
             self.interp_method_combo = ctk.CTkComboBox(
@@ -1068,12 +1077,12 @@ class TRCViewer(ctk.CTk):
             interp_order_frame = ctk.CTkFrame(middle_row_frame, fg_color="transparent")
             interp_order_frame.pack(side='left')
             
-            # Order Label and Entry - disable by default if not polynomial/spline
-            self.interp_order_label = ctk.CTkLabel(interp_order_frame, text="Order:", width=80, anchor='w')
-            self.interp_order_label.pack(side='left', padx=(5, 2))
+            # Order Label and Entry - consistent styling with other labels
+            self.interp_order_label = ctk.CTkLabel(interp_order_frame, text="Order:", width=40, anchor='e')
+            self.interp_order_label.pack(side='left', padx=(0, 4))
             
             self.interp_order_entry = ctk.CTkEntry(interp_order_frame, textvariable=self.order_var, width=60)
-            self.interp_order_entry.pack(side='left', padx=(0, 5))
+            self.interp_order_entry.pack(side='left', padx=(0, 0))
             
             # Set initial state based on current method
             current_method = self.interp_method_var.get()
@@ -1087,7 +1096,7 @@ class TRCViewer(ctk.CTk):
 
             # 3. Action Buttons Frame (in bottom row)
             action_buttons_frame = ctk.CTkFrame(bottom_row_frame, fg_color="transparent")
-            action_buttons_frame.pack(side='left')
+            action_buttons_frame.pack(side='left', padx=(15, 0)) # 왼쪽에 20px 패딩 추가
             action_buttons = [
                 ("Filter", self.filter_selected_data),
                 ("Delete", self.delete_selected_data),
@@ -1095,7 +1104,7 @@ class TRCViewer(ctk.CTk):
                 ("Restore", self.restore_original_data)
             ]
             # Use smaller width for action buttons if needed
-            action_button_style = {**button_style, "width": 80, "height": 26}
+            action_button_style = {**button_style, "width": 80, "height": 28}
             for text, command in action_buttons:
                 btn = ctk.CTkButton(action_buttons_frame, text=text, command=command, **action_button_style)
                 btn.pack(side='left', padx=3)
@@ -1137,18 +1146,24 @@ class TRCViewer(ctk.CTk):
             
         # Special handling for pattern-based interpolation
         if choice == 'pattern-based':
-            # Clear any existing pattern markers
+            # Clear any existing pattern markers on the main app
             self.pattern_markers.clear()
-            # Set pattern selection mode
+            # Set pattern selection mode on the main app
             self.pattern_selection_mode = True
+            # **Update the renderer's mode**
+            if hasattr(self, 'gl_renderer'):
+                self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
             messagebox.showinfo("Pattern Selection", 
-                "Right-click markers to select/deselect them as reference patterns.\n"
+                "Right-click markers in the 3D view to select/deselect them as reference patterns.\n"
                 "Selected markers will be shown in red.")
         else:
-            # Disable pattern selection mode for other methods
+            # Disable pattern selection mode on the main app
             self.pattern_selection_mode = False
+            # **Update the renderer's mode**
+            if hasattr(self, 'gl_renderer'):
+                self.gl_renderer.set_pattern_selection_mode(False)
             
-        # Update main 3D view if needed
+        # Update main 3D view if needed (redraws with correct marker colors)
         self.update_plot()
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
             self.marker_canvas.draw_idle()
@@ -1162,6 +1177,20 @@ class TRCViewer(ctk.CTk):
 
         # Force Tkinter to process the destruction events immediately
         self.filter_params_container.update_idletasks()
+
+        # Save current parameter values before recreating StringVars
+        current_values = {}
+        if hasattr(self, 'filter_params') and filter_type in self.filter_params:
+            for param, var in self.filter_params[filter_type].items():
+                current_values[param] = var.get()
+        
+        # Recreate StringVar objects for the selected filter type
+        if hasattr(self, 'filter_params') and filter_type in self.filter_params:
+            for param in self.filter_params[filter_type]:
+                # Get current value or use default
+                value = current_values.get(param, self.filter_params[filter_type][param].get())
+                # Create a new StringVar with the same value
+                self.filter_params[filter_type][param] = ctk.StringVar(value=value)
 
         params_frame = self.filter_params_container # Use the container directly
 
