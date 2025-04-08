@@ -1,16 +1,28 @@
 import customtkinter as ctk
 from demo import TRCViewer
 
+
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+from importlib.metadata import version
+# __version__ = version('')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
+
 def main():
     """
-    MarkerStudio 애플리케이션의 진입점
+    Main function to run the MarkerStudio application
     """
-    # 테마 설정
+    # Theme
     ctk.set_appearance_mode("System")
     ctk.set_default_color_theme("blue")
     
-    # 애플리케이션 인스턴스 생성 및 실행 (OpenGL 모드 활성화)
-    app = TRCViewer(use_opengl=True)
+    app = TRCViewer()
     app.mainloop()
 
 if __name__ == "__main__":
