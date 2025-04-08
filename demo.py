@@ -169,6 +169,9 @@ class TRCViewer(ctk.CTk):
         self.is_editing = False # Add editing state flag
         self.edit_controls_frame = None # Placeholder for edit controls frame
 
+        # Analysis mode flag
+        self.is_analysis_mode = False
+
     def create_widgets(self):
         create_widgets(self)
 
@@ -520,7 +523,6 @@ class TRCViewer(ctk.CTk):
 
             # update vertical line if marker graph is displayed
             self._update_marker_plot_vertical_line_data()
-            # Check if marker_canvas exists and is not None before drawing
             if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
 
@@ -767,7 +769,7 @@ class TRCViewer(ctk.CTk):
                         ])
                         prev_length = np.linalg.norm(p2_prev - p1_prev)
 
-                        if abs(current_length - prev_length) / prev_length > 0.2:
+                        if abs(current_length - prev_length) / prev_length > 0.25:
                             self.outliers[pair[0]][frame] = True
                             self.outliers[pair[1]][frame] = True
 
@@ -792,7 +794,7 @@ class TRCViewer(ctk.CTk):
             
             # Update marker graph vertical line if it exists
             self._update_marker_plot_vertical_line_data()
-            if hasattr(self, 'marker_canvas'):
+            if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
             # self.update_frame_counter()
 
@@ -804,7 +806,7 @@ class TRCViewer(ctk.CTk):
             
             # Update marker graph vertical line if it exists
             self._update_marker_plot_vertical_line_data()
-            if hasattr(self, 'marker_canvas'):
+            if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
             # self.update_frame_counter()
 
@@ -1199,4 +1201,33 @@ class TRCViewer(ctk.CTk):
             build_filter_parameter_widgets(params_frame, filter_type, self.filter_params)
         else:
             print("Error: filter_params attribute not found on TRCViewer.")
+
+    # Placeholder for the analysis mode toggle function
+    def toggle_analysis_mode(self):
+        """Toggles the analysis mode on and off."""
+        self.is_analysis_mode = not self.is_analysis_mode
+        if self.is_analysis_mode:
+            print("Analysis mode activated.")
+            # Potentially change button appearance or disable other interactions
+            self.analysis_button.configure(fg_color="#00A6FF") # Example: Highlight button
+        else:
+            print("Analysis mode deactivated.")
+            # Restore button appearance and re-enable other interactions
+            button_style = {
+                "fg_color": "#333333",
+                "hover_color": "#444444"
+            }
+            self.analysis_button.configure(**button_style) # Example: Restore default style
+        
+        # We might need to clear analysis selections or reset state here later
+        # self.clear_analysis_selection()
+
+    def _update_marker_plot_vertical_line_data(self):
+        """Updates the vertical line data in the marker plot."""
+        if self.data is None or not hasattr(self, 'marker_canvas') or self.marker_canvas is None:
+            return
+
+        if hasattr(self, 'marker_lines') and self.marker_lines:
+            for line in self.marker_lines:
+                line.set_xdata([self.frame_idx, self.frame_idx])
 

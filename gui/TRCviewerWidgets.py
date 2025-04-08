@@ -59,6 +59,15 @@ def create_widgets(self):
     )
     self.trajectory_button.pack(side='left', padx=5)
 
+    # Analysis button (placeholder command)
+    self.analysis_button = ctk.CTkButton(
+        button_frame,
+        text="Analysis",
+        command=self.toggle_analysis_mode, # We will define this later
+        **button_style
+    )
+    self.analysis_button.pack(side='left', padx=5)
+
     self.save_button = ctk.CTkButton(
         button_frame,
         text="Save As...",
