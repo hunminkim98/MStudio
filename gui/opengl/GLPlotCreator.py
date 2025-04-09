@@ -7,27 +7,27 @@ import numpy as np
 import sys
 from .GridUtils import create_opengl_grid
 
-# 좌표계 회전 상수
-COORDINATE_X_ROTATION_Y_UP = -270.0  # Y-up 좌표계에서 X축 회전 각도 (-270도)
-COORDINATE_X_ROTATION_Z_UP = -90.0   # Z-up 좌표계에서 X축 회전 각도 (-90도)
+# Coordinate system rotation constants
+COORDINATE_X_ROTATION_Y_UP = -270.0  # X-axis rotation angle in Y-up coordinate system (-270 degrees)
+COORDINATE_X_ROTATION_Z_UP = -90.0   # X-axis rotation angle in Z-up coordinate system (-90 degrees)
 
 class MarkerGLFrame(OpenGLFrame):
-    """OpenGL 기반 3D 마커 시각화 프레임"""
+    """OpenGL based 3D marker visualization frame"""
     
     def __init__(self, parent, **kwargs):
         """
-        OpenGL 기반 3D 마커 시각화 프레임 초기화
+        Initialize the OpenGL based 3D marker visualization frame.
         
-        좌표계:
-        - Y-up: 기본 좌표계, Y축이 상단을 향함
-        - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
+        Coordinate Systems:
+        - Y-up: Default coordinate system, Y-axis points upwards.
+        - Z-up: Z-axis points upwards, X-Y forms the ground plane.
         """
         super().__init__(parent, **kwargs)
         
-        # 기존 plotCreator.py에서 필요한 속성들 가져오기
+        # Bring in necessary attributes from the existing plotCreator.py
         self.data = None
         self.marker_names = []
-        self.is_z_up = False  # Y-up을 기본 좌표계로 설정
+        self.is_z_up = False  # Set Y-up as the default coordinate system
         self.show_skeleton = True
         self.skeleton_pairs = []
         self.skeleton_lines = []
@@ -37,187 +37,187 @@ class MarkerGLFrame(OpenGLFrame):
         self.axis_labels = []
         self.grid_lines = []
         
-        # 마우스 제어 관련
-        self.rot_x = COORDINATE_X_ROTATION_Y_UP  # Y-up 좌표계에 맞는 기본 회전 각도
-        self.rot_y = 45.0   # 기본 회전 각도 (Y축)
-        self.zoom = -4.0    # 기본 줌 레벨
+        # Mouse control related
+        self.rot_x = COORDINATE_X_ROTATION_Y_UP  # Default rotation angle suitable for Y-up coordinate system
+        self.rot_y = 45.0   # Default rotation angle (Y-axis)
+        self.zoom = -4.0    # Default zoom level
         self.last_x = 0
         self.last_y = 0
         
-        # 초기화 플래그
+        # Initialization flag
         self.gl_initialized = False
         self.grid_list = None
         self.axes_list = None
         
-        # 마우스 이벤트 연결
+        # Connect mouse events
         self.bind("<ButtonPress-1>", self.on_mouse_press)
         self.bind("<ButtonRelease-1>", self.on_mouse_release)
         self.bind("<B1-Motion>", self.on_mouse_move)
         self.bind("<MouseWheel>", self.on_scroll)
     
     def initgl(self):
-        """OpenGL 초기화 (pyopengltk에서 자동 호출)"""
+        """Initialize OpenGL (automatically called by pyopengltk)"""
         try:
-            # GLUT 초기화 추가
+            # Add GLUT initialization
             GLUT.glutInit(sys.argv)
 
-            # 배경색 설정 (검정)
+            # Set background color (black)
             GL.glClearColor(0.0, 0.0, 0.0, 0.0)
             
-            # 깊이 테스트 활성화
+            # Enable depth testing
             GL.glEnable(GL.GL_DEPTH_TEST)
             
-            # 포인트 크기와 선 폭 설정
+            # Set point size and line width
             GL.glPointSize(5.0)
             GL.glLineWidth(2.0)
             
-            # 조명 설정 (기본 조명)
+            # Set lighting (basic lighting)
             GL.glEnable(GL.GL_LIGHTING)
             GL.glEnable(GL.GL_LIGHT0)
             GL.glLightfv(GL.GL_LIGHT0, GL.GL_POSITION, [1.0, 1.0, 1.0, 0.0])
             GL.glLightfv(GL.GL_LIGHT0, GL.GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
             
-            # 물체 재질 설정
+            # Set object material properties
             GL.glColorMaterial(GL.GL_FRONT_AND_BACK, GL.GL_AMBIENT_AND_DIFFUSE)
             GL.glEnable(GL.GL_COLOR_MATERIAL)
             
-            # 안티앨리어싱 설정
+            # Set anti-aliasing
             GL.glEnable(GL.GL_POINT_SMOOTH)
             GL.glEnable(GL.GL_LINE_SMOOTH)
             GL.glHint(GL.GL_POINT_SMOOTH_HINT, GL.GL_NICEST)
             GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
             
-            # 뷰포트 초기화
+            # Initialize viewport
             width, height = self.winfo_width(), self.winfo_height()
-            if width > 1 and height > 1:  # 유효한 크기인지 확인
+            if width > 1 and height > 1:  # Check if the size is valid
                 GL.glViewport(0, 0, width, height)
                 
-            # 초기 투영 설정
+            # Initial projection setup
             GL.glMatrixMode(GL.GL_PROJECTION)
             GL.glLoadIdentity()
             GLU.gluPerspective(45, float(width)/float(height) if width > 0 and height > 0 else 1.0, 0.1, 100.0)
             GL.glMatrixMode(GL.GL_MODELVIEW)
             GL.glLoadIdentity()
             
-            # 초기화 플래그 설정
+            # Set initialization flag
             self.gl_initialized = True
             
-            # 디스플레이 리스트 생성 - 초기화 이후에 실행
+            # Create display lists - execute after initialization
             self.after(100, self.create_display_lists)
             
         except Exception as e:
-            print(f"OpenGL 초기화 오류: {str(e)}")
+            print(f"OpenGL initialization error: {str(e)}")
             self.gl_initialized = False
     
     def create_display_lists(self):
-        """OpenGL 디스플레이 리스트 생성"""
+        """Create OpenGL display lists"""
         try:
             self.create_grid()
             self.create_axes()
         except Exception as e:
-            print(f"디스플레이 리스트 생성 오류: {str(e)}")
+            print(f"Display list creation error: {str(e)}")
     
     def reshape(self, width, height):
-        """창 크기 변경 처리"""
+        """Handle window resizing"""
         if not self.gl_initialized:
             return
             
         try:
-            if width > 1 and height > 1:  # 유효한 크기인지 확인
+            if width > 1 and height > 1:  # Check if the size is valid
                 GL.glViewport(0, 0, width, height)
                 GL.glMatrixMode(GL.GL_PROJECTION)
                 GL.glLoadIdentity()
                 GLU.gluPerspective(45, float(width)/float(height), 0.1, 100.0)
                 GL.glMatrixMode(GL.GL_MODELVIEW)
         except Exception as e:
-            print(f"창 크기 변경 오류: {str(e)}")
+            print(f"Window resize error: {str(e)}")
     
     def create_grid(self):
         """
-        바닥 그리드 생성
+        Create the ground grid.
         
-        현재 좌표계(Y-up 또는 Z-up)에 따라 적절한 그리드를 생성합니다.
+        Generates an appropriate grid based on the current coordinate system (Y-up or Z-up).
         """
-        # 중앙화된 유틸리티 함수 사용
+        # Use the centralized utility function
         self.grid_list = create_opengl_grid(
             grid_size=2.0,
             grid_divisions=20,
             color=(0.3, 0.3, 0.3),
-            is_z_up=getattr(self, 'is_z_up', False)  # 기본값 Y-up
+            is_z_up=getattr(self, 'is_z_up', False)  # Default Y-up
         )
     
     def create_axes(self):
-        """좌표축 생성"""
-        # 기존 리스트가 있으면 삭제
+        """Create coordinate axes"""
+        # Delete the list if it exists
         if hasattr(self, 'axes_list') and self.axes_list is not None:
             GL.glDeleteLists(self.axes_list, 1)
 
         self.axes_list = GL.glGenLists(1)
         GL.glNewList(self.axes_list, GL.GL_COMPILE)
 
-        # 축 길이 줄이기
+        # Reduce axis length
         axis_length = 0.2
 
-        # 축을 그리드 위로 띄울 오프셋 값
+        # Offset value to lift the axes above the grid
         offset_y = 0.001
 
-        # 축 굵기 설정
+        # Set axis thickness
         original_line_width = GL.glGetFloatv(GL.GL_LINE_WIDTH)
         GL.glLineWidth(3.0)
 
-        # X축 (빨강)
+        # X-axis (red)
         GL.glBegin(GL.GL_LINES)
         GL.glColor3f(1.0, 0.0, 0.0)
         GL.glVertex3f(0, offset_y, 0)
         GL.glVertex3f(axis_length, offset_y, 0)
 
-        # Y축 (노랑)
+        # Y-axis (yellow)
         GL.glColor3f(1.0, 1.0, 0.0)
         GL.glVertex3f(0, offset_y, 0)
         GL.glVertex3f(0, axis_length + offset_y, 0)
 
-        # Z축 (파랑)
+        # Z-axis (blue)
         GL.glColor3f(0.0, 0.0, 1.0)
         GL.glVertex3f(0, offset_y, 0)
         GL.glVertex3f(0, offset_y, axis_length)
         GL.glEnd()
 
-        # 축 라벨 텍스트 그리기 (GLUT 사용)
-        text_offset = 0.06 # 축 끝에서 텍스트를 띄울 거리
+        # Draw axis label text (using GLUT)
+        text_offset = 0.06 # Distance to offset text from the end of the axis
 
-        # 조명 비활성화 (텍스트 색상이 제대로 나오도록)
+        # Disable lighting (to ensure text color appears correctly)
         lighting_enabled = GL.glIsEnabled(GL.GL_LIGHTING)
         if lighting_enabled:
             GL.glDisable(GL.GL_LIGHTING)
 
-        # X 라벨
-        GL.glColor3f(1.0, 0.0, 0.0) # 빨강
+        # X Label
+        GL.glColor3f(1.0, 0.0, 0.0) # Red
         GL.glRasterPos3f(axis_length + text_offset, offset_y, 0)
         GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('X'))
 
-        # Y 라벨
-        GL.glColor3f(1.0, 1.0, 0.0) # 노랑
+        # Y Label
+        GL.glColor3f(1.0, 1.0, 0.0) # Yellow
         GL.glRasterPos3f(0, axis_length + text_offset + offset_y, 0)
         GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Y'))
 
-        # Z 라벨
-        GL.glColor3f(0.0, 0.0, 1.0) # 파랑
+        # Z Label
+        GL.glColor3f(0.0, 0.0, 1.0) # Blue
         GL.glRasterPos3f(0, offset_y, axis_length + text_offset)
         GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Z'))
 
-        # 원래 상태 복원
+        # Restore original state
         GL.glLineWidth(original_line_width)
         if lighting_enabled:
-            GL.glEnable(GL.GL_LIGHTING) # 조명 다시 활성화
+            GL.glEnable(GL.GL_LIGHTING) # Re-enable lighting
 
         GL.glEndList()
     
     def setup_view(self):
-        """기본 뷰 설정 (plotCreator._setup_plot_style 대체)"""
-        # 초기화 시 자동으로 호출되므로 여기선 추가 작업 없음
+        """Set up the basic view (replaces plotCreator._setup_plot_style)"""
+        # Automatically called during initialization, no additional work needed here
         pass
     
-    # 마우스 이벤트 핸들러 (기존 mouse_handler 클래스 기능 대체)
+    # Mouse event handlers (replace functionality of the previous mouse_handler class)
     def on_mouse_press(self, event):
         self.last_x, self.last_y = event.x, event.y
     
@@ -233,12 +233,7 @@ class MarkerGLFrame(OpenGLFrame):
         self.redraw()
     
     def on_scroll(self, event):
-        # Windows에서 event.delta, 다른 플랫폼에서는 다른 접근법 필요
+        # On Windows: event.delta, other platforms may need different approaches
         self.zoom += event.delta * 0.001
         self.redraw()
         
-    def pick_marker(self, x, y):
-        """화면 좌표에서 마커 선택 (미구현 부분, 향후 개발 필요)"""
-        # 픽킹 구현은 복잡하므로 현재는 기본 기능만 유지
-        # 향후 픽킹 기능 추가 시 구현 필요
-        pass

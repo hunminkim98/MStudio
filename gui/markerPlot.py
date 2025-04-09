@@ -2,6 +2,7 @@ import numpy as np
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from .markerPlotUI import build_marker_plot_buttons
 
 def show_marker_plot(self, marker_name):
     """
@@ -144,7 +145,7 @@ def show_marker_plot(self, marker_name):
 
     # --- Delegate button building to the main class method ---
     # This will now also set the height of button_frame
-    self._build_marker_plot_buttons(button_frame)
+    build_marker_plot_buttons(self, button_frame)
 
     # Pack the canvas LAST, filling the remaining space at the top
     self.marker_canvas.get_tk_widget().pack(side='top', fill='both', expand=True)

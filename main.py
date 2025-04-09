@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from demo import TRCViewer
+from app import TRCViewer
 
 
 ## AUTHORSHIP INFORMATION

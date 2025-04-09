@@ -7,20 +7,20 @@ import pandas as pd
 from .GridUtils import create_opengl_grid
 import ctypes
 
-# 좌표계 회전 상수
-COORDINATE_X_ROTATION_Y_UP = -270.0  # Y-up 좌표계에서 X축 회전 각도 (-270도)
-COORDINATE_X_ROTATION_Z_UP = -90.0   # Z-up 좌표계에서 X축 회전 각도 (-90도)
+# Coordinate system rotation constants
+COORDINATE_X_ROTATION_Y_UP = 45  # X-axis rotation angle in Y-up coordinate system (-270 degrees)
+COORDINATE_X_ROTATION_Z_UP = -90  # X-axis rotation angle in Z-up coordinate system (-90 degrees)
 
-# 좌표계 문자열 상수
+# Coordinate system string constants
 COORDINATE_SYSTEM_Y_UP = "y-up"
 COORDINATE_SYSTEM_Z_UP = "z-up"
 
-# 픽킹 텍스처 클래스
+# Picking Texture Class
 class PickingTexture:
-    """마커 선택을 위한 픽킹 텍스처 클래스"""
+    """Picking texture class for marker selection"""
     
     def __init__(self):
-        """픽킹 텍스처 초기화"""
+        """Initialize picking texture"""
         self.fbo = 0
         self.texture = 0
         self.depth_texture = 0
@@ -30,24 +30,24 @@ class PickingTexture:
         
     def init(self, width, height):
         """
-        픽킹 텍스처 초기화
+        Initialize picking texture
         
         Args:
-            width: 텍스처 너비
-            height: 텍스처 높이
+            width: Texture width
+            height: Texture height
         
         Returns:
-            bool: 초기화 성공 여부
+            bool: True if initialization succeeded, False otherwise
         """
         self.width = width
         self.height = height
         
         try:
-            # FBO 생성
+            # Create FBO
             self.fbo = GL.glGenFramebuffers(1)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
             
-            # ID 정보를 위한 텍스처 생성
+            # Create texture for ID information
             self.texture = GL.glGenTextures(1)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
             GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB32F, width, height, 
@@ -57,7 +57,7 @@ class PickingTexture:
             GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, 
                                     GL.GL_TEXTURE_2D, self.texture, 0)
             
-            # 깊이 정보를 위한 텍스처 생성
+            # Create texture for depth information
             self.depth_texture = GL.glGenTextures(1)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.depth_texture)
             GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_DEPTH_COMPONENT, width, height,
@@ -65,20 +65,20 @@ class PickingTexture:
             GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT,
                                     GL.GL_TEXTURE_2D, self.depth_texture, 0)
             
-            # 읽기 버퍼 비활성화 (이전 GPU 호환성을 위함)
+            # Disable read buffer (for older GPU compatibility)
             GL.glReadBuffer(GL.GL_NONE)
             
-            # 그리기 버퍼 설정
+            # Set draw buffer
             GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
             
-            # FBO 상태 확인
+            # Check FBO status
             status = GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)
             if status != GL.GL_FRAMEBUFFER_COMPLETE:
-                print(f"FBO 생성 오류, 상태: {status:x}")
+                print(f"FBO creation error, status: {status:x}")
                 self.cleanup()
                 return False
             
-            # 기본 프레임버퍼로 복원
+            # Restore default framebuffer
             GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
             
@@ -86,12 +86,12 @@ class PickingTexture:
             return True
             
         except Exception as e:
-            print(f"픽킹 텍스처 초기화 오류: {e}")
+            print(f"Picking texture initialization error: {e}")
             self.cleanup()
             return False
     
     def cleanup(self):
-        """리소스 정리"""
+        """Clean up resources"""
         try:
             if self.texture != 0:
                 GL.glDeleteTextures(self.texture)
@@ -107,10 +107,10 @@ class PickingTexture:
                 
             self.initialized = False
         except Exception as e:
-            print(f"픽킹 텍스처 정리 오류: {e}")
+            print(f"Picking texture cleanup error: {e}")
     
     def enable_writing(self):
-        """픽킹 텍스처에 쓰기 활성화"""
+        """Enable writing to the picking texture"""
         if not self.initialized:
             return False
             
@@ -118,69 +118,69 @@ class PickingTexture:
         return True
     
     def disable_writing(self):
-        """픽킹 텍스처에 쓰기 비활성화"""
+        """Disable writing to the picking texture"""
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, 0)
     
     def read_pixel(self, x, y):
         """
-        위치에 해당하는 픽셀 정보 읽기
+        Read pixel information at the given position
         
         Args:
-            x: 화면의 X 좌표
-            y: 화면의 Y 좌표
+            x: Screen X coordinate
+            y: Screen Y coordinate
             
         Returns:
-            tuple: (ObjectID, PrimID) 또는 None (선택된 객체가 없는 경우)
+            tuple: (ObjectID, PrimID) or None (if no object is selected)
         """
         if not self.initialized:
             return None
         
         try:
-            # 읽기 프레임버퍼로 FBO 바인딩
+            # Bind FBO as read framebuffer
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
             
-            # 픽셀 좌표가 텍스처 범위 내에 있는지 확인
+            # Check if pixel coordinates are within texture bounds
             if x < 0 or x >= self.width or y < 0 or y >= self.height:
                 return None
             
-            # 픽셀 정보 읽기
+            # Read pixel information
             data = GL.glReadPixels(x, y, 1, 1, GL.GL_RGB, GL.GL_FLOAT)
             pixel_info = np.frombuffer(data, dtype=np.float32)
             
-            # 기본 설정 복원
+            # Restore default settings
             GL.glReadBuffer(GL.GL_NONE)
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, 0)
             
-            # 배경 픽셀 확인 (ID가 0이면 배경)
+            # Check for background pixel (ID 0 means background)
             if pixel_info[0] == 0.0:
                 return None
                 
             return (pixel_info[0], pixel_info[1], pixel_info[2])
             
         except Exception as e:
-            print(f"픽셀 읽기 오류: {e}")
+            print(f"Pixel read error: {e}")
             return None
 
 class MarkerGLRenderer(MarkerGLFrame):
-    """완전한 마커 시각화 OpenGL 렌더러"""
+    """Complete marker visualization OpenGL renderer"""
     
     def __init__(self, parent, **kwargs):
         """
-        마커 데이터를 OpenGL로 렌더링하는 프레임 초기화
+        Initialize the frame for rendering marker data with OpenGL
         
-        좌표계:
-        - Y-up: 기본 좌표계, Y축이 상단을 향함
-        - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
+        Coordinate Systems:
+        - Y-up: Default coordinate system, Y-axis points upwards
+        - Z-up: Z-axis points upwards, X-Y forms the ground plane
         """
         super().__init__(parent, **kwargs)
         self.parent = parent # Store the parent reference
         
-        # 기본 좌표계 설정 (Y-up)
+        # Default coordinate system setting (Y-up)
         self.is_z_up = False
         self.coordinate_system = COORDINATE_SYSTEM_Y_UP
         
-        # 내부 상태 및 데이터 저장용 변수
+        # Variables for internal state and data storage
         self.frame_idx = 0
         self.outliers = {}
         self.num_frames = 0
@@ -192,21 +192,23 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.show_marker_names = False
         self.skeleton_pairs = None
         self.show_skeleton = False
-        self.rot_x = 90  # X축 기준으로 -270도 회전
+
+        # --- initial view state ---
+        self.rot_x = 45
         self.rot_y = 45.0
         self.zoom = -4.0
         
-        # 초기화 완료 플래그
+        # Initialization completion flag
         self.initialized = False
         self.gl_initialized = False
         
-        # 화면 이동(translation)을 위한 변수 추가
+        # Add variables for screen translation
         self.trans_x = 0.0
         self.trans_y = 0.0
         self.last_x = 0
         self.last_y = 0
         
-        # 마우스 이벤트 바인딩 추가
+        # Add mouse event bindings
         self.bind("<ButtonPress-1>", self.on_mouse_press)
         self.bind("<ButtonRelease-1>", self.on_mouse_release)
         self.bind("<B1-Motion>", self.on_mouse_move)
@@ -216,70 +218,70 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.bind("<MouseWheel>", self.on_scroll)
         self.bind("<Configure>", self.on_configure) # Add binding for Configure event
         
-        # 마커 픽킹 관련 변수
+        # Marker picking related variables
         self.picking_texture = PickingTexture()
         self.dragging = False
         
     def initialize(self):
         """
-        OpenGL 렌더러 초기화 - gui/plotCreator.py에서 호출됨
-        pyopengltk는 initgl 메서드를 통해 OpenGL을 초기화하므로,
-        여기서는 초기화 플래그만 설정합니다.
+        Initialize the OpenGL renderer - called from gui/plotCreator.py
+        pyopengltk initializes OpenGL via the initgl method,
+        so here we just set the initialization flag.
         """
         
-        # 초기화 완료 표시 - 실제 OpenGL 초기화는 initgl에서 수행됨
+        # Mark initialization as complete - actual OpenGL initialization happens in initgl
         self.initialized = True
         
-        # 화면 갱신
-        self.update()  # 자동으로 initgl과 redraw를 호출함
+        # Refresh the screen
+        self.update()  # Automatically calls initgl and redraw
         
     def initgl(self):
-        """OpenGL 초기화 (pyopengltk에서 자동 호출)"""
+        """Initialize OpenGL (automatically called by pyopengltk)"""
         try:
-            # 부모 클래스의 initgl 호출
+            # Call the parent class's initgl
             super().initgl()
             
-            # 배경색 설정 (검정)
+            # Set background color (black)
             GL.glClearColor(0.0, 0.0, 0.0, 0.0)
             
-            # 깊이 테스트 활성화
+            # Enable depth testing
             GL.glEnable(GL.GL_DEPTH_TEST)
             
-            # 포인트 크기와 선 폭 설정
+            # Set point size and line width
             GL.glPointSize(5.0)
             GL.glLineWidth(2.0)
             
-            # 조명 비활성화 - 모든 각도에서 일정한 색상을 위해
+            # Disable lighting - for consistent color from all angles
             GL.glDisable(GL.GL_LIGHTING)
             GL.glDisable(GL.GL_LIGHT0)
             
-            # 기존 디스플레이 리스트 제거 (혹시 있다면)
+            # Remove existing display lists (if any)
             if hasattr(self, 'grid_list') and self.grid_list is not None:
                 GL.glDeleteLists(self.grid_list, 1)
             if hasattr(self, 'axes_list') and self.axes_list is not None:
                 GL.glDeleteLists(self.axes_list, 1)
             
-            # 이제 OpenGL 컨텍스트가 완전히 초기화된 상태에서 디스플레이 리스트 생성
+            # Now create display lists after the OpenGL context is fully initialized
             self._create_grid_display_list()
             self._create_axes_display_list()
             
-            # 픽킹 텍스처 초기화
+            # Initialize picking texture
             width, height = self.winfo_width(), self.winfo_height()
             if width > 0 and height > 0:
                 self.picking_texture.init(width, height)
             
-            # OpenGL 초기화 완료 플래그 설정
+            # Set OpenGL initialization complete flag
             self.gl_initialized = True
         except Exception as e:
-            print(f"OpenGL 초기화 오류: {e}")
+            print(f"OpenGL initialization error: {e}")
             self.gl_initialized = False
         
     def _create_grid_display_list(self):
-        """그리드 표시를 위한 디스플레이 리스트 생성"""
+        """Create a display list for grid rendering"""
         if hasattr(self, 'grid_list') and self.grid_list is not None:
             GL.glDeleteLists(self.grid_list, 1)
             
-        # 중앙화된 유틸리티 함수 사용
+        # Use the centralized utility function
         is_z_up = getattr(self, 'is_z_up', True)
         self.grid_list = create_opengl_grid(
             grid_size=2.0, 
@@ -289,80 +291,80 @@ class MarkerGLRenderer(MarkerGLFrame):
         )
         
     def _create_axes_display_list(self):
-        """좌표축 표시를 위한 디스플레이 리스트 생성"""
+        """Create a display list for coordinate axis rendering"""
         if hasattr(self, 'axes_list') and self.axes_list is not None:
             GL.glDeleteLists(self.axes_list, 1)
             
         self.axes_list = GL.glGenLists(1)
         GL.glNewList(self.axes_list, GL.GL_COMPILE)
         
-        # 후면 컬링 비활성화
+        # Disable backface culling
         GL.glDisable(GL.GL_CULL_FACE)
         
-        # 축 길이 (원래 스타일 유지)
+        # Axis length (maintain original style)
         axis_length = 0.2
         
-        # 그리드와 확실히 구분되도록 원점을 이동 - 그리드 위에 띄우기
+        # Move the origin to be clearly distinguished from the grid - float above the grid
         offset_y = 0.001
         
-        # 축 굵기 설정 (원래 스타일 유지)
+        # Set axis thickness (maintain original style)
         original_line_width = GL.glGetFloatv(GL.GL_LINE_WIDTH)
         GL.glLineWidth(3.0)
         
-        # Z-up 좌표계에 맞게 축 그리기 (회전 매트릭스가 적용됨)
-        # X축 (빨강)
+        # Draw axes suitable for Z-up coordinate system (rotation matrix is applied)
+        # X-axis (red)
         GL.glBegin(GL.GL_LINES)
         GL.glColor3f(1.0, 0.0, 0.0)
         GL.glVertex3f(0, offset_y, 0)
         GL.glVertex3f(axis_length, offset_y, 0)
         
-        # Y축 (노랑)
+        # Y-axis (yellow)
         GL.glColor3f(1.0, 1.0, 0.0)
         GL.glVertex3f(0, offset_y, 0)
         GL.glVertex3f(0, axis_length + offset_y, 0)
         
-        # Z축 (파랑)
+        # Z-axis (blue)
         GL.glColor3f(0.0, 0.0, 1.0)
         GL.glVertex3f(0, offset_y, 0)
         GL.glVertex3f(0, offset_y, axis_length)
         GL.glEnd()
         
-        # 축 라벨 텍스트 그리기 (GLUT 사용 - 원래 스타일 유지)
-        text_offset = 0.06  # 축 끝에서 텍스트를 띄울 거리
+        # Draw axis label text (using GLUT - maintain original style)
+        text_offset = 0.06  # Distance to offset text from the end of the axis
         
-        # 조명 비활성화 (텍스트 색상이 제대로 나오도록)
+        # Disable lighting (to ensure text color appears correctly)
         lighting_enabled = GL.glIsEnabled(GL.GL_LIGHTING)
         if lighting_enabled:
             GL.glDisable(GL.GL_LIGHTING)
         
-        # X 라벨
-        GL.glColor3f(1.0, 0.0, 0.0)  # 빨강
+        # X Label
+        GL.glColor3f(1.0, 0.0, 0.0)  # Red
         GL.glRasterPos3f(axis_length + text_offset, offset_y, 0)
         try:
             GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('X'))
         except:
-            pass  # GLUT을 사용할 수 없는 경우 라벨 표시 생략
+            pass  # Skip label rendering if GLUT is unavailable
         
-        # Y 라벨
-        GL.glColor3f(1.0, 1.0, 0.0)  # 노랑
+        # Y Label
+        GL.glColor3f(1.0, 1.0, 0.0)  # Yellow
         GL.glRasterPos3f(0, axis_length + text_offset + offset_y, 0)
         try:
             GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Y'))
         except:
             pass
         
-        # Z 라벨
-        GL.glColor3f(0.0, 0.0, 1.0)  # 파랑
+        # Z Label
+        GL.glColor3f(0.0, 0.0, 1.0)  # Blue
         GL.glRasterPos3f(0, offset_y, axis_length + text_offset)
         try:
             GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Z'))
         except:
             pass
         
-        # 원래 상태 복원
+        # Restore original state
         GL.glLineWidth(original_line_width)
         if lighting_enabled:
-            GL.glEnable(GL.GL_LIGHTING)  # 조명 다시 활성화
+            GL.glEnable(GL.GL_LIGHTING)  # Re-enable lighting
         
         GL.glEnable(GL.GL_CULL_FACE)
         
@@ -370,38 +372,48 @@ class MarkerGLRenderer(MarkerGLFrame):
     
     def redraw(self):
         """
-        OpenGL 화면을 다시 그립니다.
+        Redraw the OpenGL screen.
         This is the main drawing method.
         """
         if not self.gl_initialized:
             return
             
-        # 내부 update_plot 메서드 호출
+        # Call the internal _update_plot method
         self._update_plot()
         
     def _update_plot(self):
         """
-        OpenGL로 3D 마커 시각화 업데이트
-        이전에 별도 파일 gui/opengl/GLPlotUpdater.py에 있던 기능을 클래스 내부로 통합
+        Update the 3D marker visualization with OpenGL
+        Integrates functionality previously in a separate file gui/opengl/GLPlotUpdater.py into the class
         
-        좌표계:
-        - Y-up: 기본 좌표계, Y축이 상단을 향함
-        - Z-up: Z축이 상단을 향하고, X-Y가 바닥 평면
+        Coordinate Systems:
+        - Y-up: Default coordinate system, Y-axis points upwards
+        - Z-up: Z-axis points upwards, X-Y forms the ground plane
         """
-        # OpenGL 초기화 확인
+        # Check OpenGL initialization
         if not self.gl_initialized:
             return
         
-        # 현재 좌표계 상태 확인 (기본값: Y-up)
+        # Check current coordinate system state (default: Y-up)
         is_z_up_local = getattr(self, 'is_z_up', False)
         
         try:
-            # OpenGL 컨텍스트 활성화 (안전을 위해)
+            # Activate OpenGL context (for safety)
             try:
                 self.tkMakeCurrent()
             except Exception as context_error:
                 print(f"Error setting OpenGL context: {context_error}")
                 return # Cannot proceed without context
+            
+            # --- Explicitly Reset Key OpenGL States --- START
+            GL.glEnable(GL.GL_DEPTH_TEST)
+            GL.glDisable(GL.GL_LIGHTING) # Ensure lighting is off
+            GL.glEnable(GL.GL_BLEND)
+            GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+            GL.glEnable(GL.GL_POINT_SMOOTH)
+            GL.glEnable(GL.GL_LINE_SMOOTH)
+            GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+            # --- Explicitly Reset Key OpenGL States --- END
             
             # --- Viewport and Projection Setup --- START
             width = self.winfo_width()
@@ -424,69 +436,69 @@ class MarkerGLRenderer(MarkerGLFrame):
             GL.glMatrixMode(GL.GL_MODELVIEW)
             # --- Viewport and Projection Setup --- END
             
-            # 프레임 초기화 (Clear after setting viewport/projection)
+            # Initialize frame (Clear after setting viewport/projection)
             GL.glClearColor(0.0, 0.0, 0.0, 0.0) # Ensure clear color is set
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             GL.glLoadIdentity() # Reset modelview matrix before camera setup
             
-            # 카메라 위치 설정 (줌, 회전, 이동)
+            # Set camera position (zoom, rotation, translation)
             GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
             GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
             GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
             
-            # 좌표계에 따른 추가 회전 적용
-            # - Y-up: 기본 카메라 설정이 이미 Y-up (-270도)에 맞춰져 있으므로 추가 회전 불필요
-            # - Z-up: Y-up 평면의 반대 방향을 보기 위해 X축 기준 -90도 추가 회전
+            # Apply additional rotation based on the coordinate system
+            # - Y-up: No additional rotation needed as the default camera setup is already aligned for Y-up (-270 degrees)
+            # - Z-up: Add -90 degrees rotation around the X-axis to view the opposite direction of the Y-up plane
             if is_z_up_local:
                 GL.glRotatef(COORDINATE_X_ROTATION_Z_UP, 1.0, 0.0, 0.0)
             
-            # 그리드와 축 표시 (디스플레이 리스트가 있는 경우에만)
+            # Display grid and axes (only if display lists exist)
             if hasattr(self, 'grid_list') and self.grid_list is not None:
                 GL.glCallList(self.grid_list)
             if hasattr(self, 'axes_list') and self.axes_list is not None:
                 GL.glCallList(self.axes_list)
             
-            # 데이터가 없는 경우 기본 뷰만 표시하고 종료
+            # If no data, display only the basic view and exit
             if self.data is None:
                 self.tkSwapBuffers()
                 return
             
-            # 마커 위치 데이터 수집
+            # Collect marker position data
             positions = []
             colors = []
             selected_position = None
             marker_positions = {}
             valid_markers = []
             
-            # 현재 프레임의 유효한 마커 데이터 수집
+            # Collect valid marker data for the current frame
             for marker in self.marker_names:
                 try:
                     x = self.data.loc[self.frame_idx, f'{marker}_X']
                     y = self.data.loc[self.frame_idx, f'{marker}_Y']
                     z = self.data.loc[self.frame_idx, f'{marker}_Z']
                     
-                    # NaN 값 건너뛰기
+                    # Skip NaN values
                     if pd.isna(x) or pd.isna(y) or pd.isna(z):
                         continue
                     
-                    # 좌표계에 맞게 위치 조정
+                    # Adjust position according to the coordinate system
                     pos = [x, y, z]
                         
                     marker_positions[marker] = pos
                     
-                    # 색상 설정
+                    # Set color
                     marker_str = str(marker)
                     current_marker_str = str(self.current_marker) if self.current_marker is not None else ""
                     
                     if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
                         if marker in self.pattern_markers:
-                            colors.append([1.0, 0.0, 0.0])  # 빨간색
+                            colors.append([1.0, 0.0, 0.0])  # Red
                         else:
-                            colors.append([1.0, 1.0, 1.0])  # 흰색
+                            colors.append([1.0, 1.0, 1.0])  # White
                     elif marker_str == current_marker_str:
-                        colors.append([1.0, 0.9, 0.4])  # 연한 노란색
+                        colors.append([1.0, 0.9, 0.4])  # Light yellow
                     else:
-                        colors.append([1.0, 1.0, 1.0])  # 흰색
+                        colors.append([1.0, 1.0, 1.0])  # White
                         
                     positions.append(pos)
                     valid_markers.append(marker)
@@ -497,10 +509,10 @@ class MarkerGLRenderer(MarkerGLFrame):
                 except KeyError:
                     continue
             
-            # 마커 렌더링 - 2단계로 분리: 일반 마커 -> 패턴 마커
+            # Marker rendering - separated into 2 stages: normal markers -> pattern markers
             if positions:
-                # 1단계: 일반 마커 (선택되지 않은 마커 또는 패턴 모드가 아닐 때)
-                GL.glPointSize(5.0) # 일반 크기
+                # Stage 1: Normal markers (unselected markers or when not in pattern mode)
+                GL.glPointSize(5.0) # Normal size
                 GL.glBegin(GL.GL_POINTS)
                 for i, pos in enumerate(positions):
                     marker = valid_markers[i]
@@ -510,27 +522,27 @@ class MarkerGLRenderer(MarkerGLFrame):
                         GL.glVertex3fv(pos)
                 GL.glEnd()
                 
-                # 2단계: 선택된 패턴 마커 (패턴 모드일 때)
+                # Stage 2: Selected pattern markers (when in pattern mode)
                 if self.pattern_selection_mode and any(m in self.pattern_markers for m in valid_markers):
-                    GL.glPointSize(8.0) # 큰 크기
+                    GL.glPointSize(8.0) # Larger size
                     GL.glBegin(GL.GL_POINTS)
                     for i, pos in enumerate(positions):
                         marker = valid_markers[i]
                         if marker in self.pattern_markers:
-                            # 색상은 colors 리스트에서 이미 레드로 설정되어 있음
+                            # Color is already set to red in the colors list
                             GL.glColor3fv(colors[i]) 
                             GL.glVertex3fv(pos)
                     GL.glEnd()
             
-            # 선택된 마커 강조 표시
+            # Highlight selected marker
             if selected_position:
                 GL.glPointSize(8.0)
                 GL.glBegin(GL.GL_POINTS)
-                GL.glColor3f(1.0, 0.9, 0.4)  # 연한 노란색
+                GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
                 GL.glVertex3fv(selected_position)
                 GL.glEnd()
             
-            # 스켈레톤 라인 렌더링
+            # Skeleton line rendering
             if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_pairs'):
                 # --- Enable Blending and Smoothing (needed for normal lines) ---
                 GL.glEnable(GL.GL_BLEND)
@@ -578,7 +590,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                 # GL.glDisable(GL.GL_LINE_SMOOTH) # Optional
                 # ------------------------------------------
             
-            # 궤적 렌더링
+            # Trajectory rendering
             if self.current_marker is not None and hasattr(self, 'show_trajectory') and self.show_trajectory:
                 trajectory_points = []
                 
@@ -591,7 +603,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                         if np.isnan(x) or np.isnan(y) or np.isnan(z):
                             continue
                         
-                        # 원본 데이터 그대로 사용 (Y-up/Z-up에 관계없이)
+                        # Use original data directly (regardless of Y-up/Z-up)
                         trajectory_points.append([x, y, z])
                             
                     except KeyError:
@@ -599,7 +611,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                 
                 if trajectory_points:
                     GL.glLineWidth(0.8)
-                    GL.glColor3f(1.0, 0.9, 0.4)  # 연한 노란색
+                    GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
                     GL.glBegin(GL.GL_LINE_STRIP)
                     
                     for point in trajectory_points:
@@ -607,88 +619,88 @@ class MarkerGLRenderer(MarkerGLFrame):
                     
                     GL.glEnd()
             
-            # 마커 이름 렌더링
+            # Marker name rendering
             if self.show_marker_names and valid_markers:
-                # 텍스트 렌더링을 위해 GLUT 필요
+                # GLUT is required for text rendering
                 try:
-                    # 현재 투영 및 모델뷰 매트릭스 저장
+                    # Save current projection and modelview matrices
                     GL.glPushMatrix()
                     
-                    # OpenGL 렌더링 상태 초기화 및 저장
+                    # Initialize and save OpenGL rendering state
                     GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT)
                     
-                    # 현재 마커 문자열화
+                    # Stringify current marker
                     current_marker_str = str(self.current_marker) if self.current_marker is not None else ""
                     
-                    # 먼저 일반 마커 이름을 모두 렌더링 (흰색)
+                    # First render all normal marker names (white)
                     for marker in valid_markers:
                         marker_str = str(marker)
                         if marker_str == current_marker_str:
-                            continue  # 선택된 마커는 나중에 렌더링
+                            continue  # Render selected marker later
                             
                         pos = marker_positions[marker]
                         
-                        # 일반 마커 이름은 흰색으로 렌더링
-                        GL.glColor3f(1.0, 1.0, 1.0)  # 흰색
+                        # Render normal marker names in white
+                        GL.glColor3f(1.0, 1.0, 1.0)  # White
                         GL.glRasterPos3f(pos[0], pos[1] + 0.03, pos[2])
                         
-                        # 마커 이름 렌더링
+                        # Render marker name
                         for c in marker_str:
                             try:
                                 GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(c))
                             except:
                                 pass
                     
-                    # 선택된 마커 이름만 노란색으로 렌더링 (별도 패스)
-                    GL.glFlush()  # 이전 렌더링 명령 실행 보장
+                    # Render only the selected marker name in yellow (separate pass)
+                    GL.glFlush()  # Ensure previous rendering commands are executed
                     
                     if self.current_marker is not None:
-                        # 선택된 마커만 찾아서 렌더링
+                        # Find and render only the selected marker
                         for marker in valid_markers:
                             marker_str = str(marker)
                             if marker_str == current_marker_str:
                                 pos = marker_positions[marker]
                                 
-                                # 선택된 마커 이름은 노란색으로 렌더링
-                                GL.glColor3f(1.0, 0.9, 0.4)  # 연한 노란색
+                                # Render selected marker name in yellow
+                                GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
                                 GL.glRasterPos3f(pos[0], pos[1] + 0.03, pos[2])
                                 
-                                # 마커 이름 렌더링
+                                # Render marker name
                                 for c in marker_str:
                                     try:
                                         GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(c))
                                     except:
                                         pass
                                 
-                                GL.glFlush()  # 렌더링 명령 즉시 실행
+                                GL.glFlush()  # Execute rendering command immediately
                                 break
                     
-                    # OpenGL 렌더링 상태 복원
+                    # Restore OpenGL rendering state
                     GL.glPopAttrib()
                     
-                    # 매트릭스 복원
+                    # Restore matrices
                     GL.glPopMatrix()
                     
                 except Exception as e:
-                    print(f"텍스트 렌더링 오류: {e}")
+                    print(f"Text rendering error: {e}")
                     import traceback
                     traceback.print_exc()
             
-            # 버퍼 교체 (화면 갱신)
+            # Swap buffers (refresh screen)
             self.tkSwapBuffers()
         
         except Exception as e:
-            # 디버깅을 위해 오류 로깅
-            print(f"OpenGL 렌더링 오류: {e}")
+            # Log error for debugging
+            print(f"OpenGL rendering error: {e}")
         
     def update_data(self, data, frame_idx):
-        """외부에서 호출하여 데이터 업데이트 (하위 호환성 유지)"""
+        """Update data called from external sources (backward compatibility)"""
         self.data = data
         self.frame_idx = frame_idx
         if data is not None:
             self.num_frames = len(data)
         
-        # current_marker 속성을 변경하지 않고 유지
+        # Keep the current_marker attribute unchanged
         
         self.initialized = True
         self.redraw()
@@ -697,24 +709,24 @@ class MarkerGLRenderer(MarkerGLFrame):
                        show_marker_names=False, show_trajectory=False, 
                        coordinate_system="z-up", skeleton_pairs=None):
         """
-        TRCViewer에서 호출되는 통합 데이터 업데이트 메서드
+        Integrated data update method called from TRCViewer
         
         Args:
-            data: 전체 마커 데이터
-            frame_idx: 현재 프레임 인덱스
-            marker_names: 마커 이름 목록
-            current_marker: 현재 선택된 마커 이름
-            show_marker_names: 마커 이름 표시 여부
-            show_trajectory: 궤적 표시 여부
-            coordinate_system: 좌표계 시스템 ("z-up" 또는 "y-up")
-            skeleton_pairs: 스켈레톤 페어 목록
+            data: Full marker data
+            frame_idx: Current frame index
+            marker_names: List of marker names
+            current_marker: Currently selected marker name
+            show_marker_names: Whether to display marker names
+            show_trajectory: Whether to display trajectory
+            coordinate_system: Coordinate system ("z-up" or "y-up")
+            skeleton_pairs: List of skeleton pairs
         """
         self.data = data
         self.frame_idx = frame_idx
         self.marker_names = marker_names
         
-        # 선택된 마커 정보 유지 - current_marker가 None이 아닌 경우에만 업데이트
-        # 또는 현재 마커가 없는 경우(self.current_marker가 None인 경우)에도 업데이트
+        # Maintain selected marker information - update only if current_marker is not None
+        # Or update if there is no current marker (self.current_marker is None)
         if current_marker is not None:
             self.current_marker = current_marker
         
@@ -723,50 +735,47 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.coordinate_system = coordinate_system
         self.skeleton_pairs = skeleton_pairs
         
-        # 데이터가 있는 경우 프레임 수 업데이트
+        # Update frame count if data exists
         if data is not None:
             self.num_frames = len(data)
             
-        # OpenGL 초기화 확인
+        # Check OpenGL initialization
         self.initialized = True
         
-        # 즉시 다시 그리기
+        # Redraw immediately
         self.redraw()
         
     def set_current_marker(self, marker_name):
-        """현재 선택된 마커 설정"""
-        # 마커 이름이 문자열이 아닌 경우 문자열로 변환
-        if marker_name is not None and not isinstance(marker_name, str):
-            marker_name = str(marker_name)
-        
+        """Set the currently selected marker name"""
         self.current_marker = marker_name
-        self.redraw()
+        # Update display only if necessary (e.g., marker highlight color)
+        # self.redraw() # Removed redundant redraw call due to unnecessary re-rendering
     
     def set_show_skeleton(self, show):
         """
-        스켈레톤 표시 여부 설정
+        Set whether to display the skeleton
         
         Args:
-            show: 스켈레톤을 표시하려면 True, 아니면 False
+            show: True to display the skeleton, False otherwise
         """
         self.show_skeleton = show
         self.redraw()
     
     def set_show_trajectory(self, show):
-        """궤적 표시 설정"""
+        """Set trajectory display"""
         self.show_trajectory = show
         self.redraw()
         
     def update_plot(self):
         """
-        외부에서 호출되는 화면 업데이트 메서드
-        이전에는 외부 모듈에 있던 update_plot 호출이었으나 이제 내부 메서드 호출로 변경
+        Screen update method called externally
+        Previously called update_plot in an external module, now calls the internal method
         """
         if self.gl_initialized:
             self.redraw()
         
     def set_pattern_selection_mode(self, mode, pattern_markers=None):
-        """패턴 선택 모드 설정"""
+        """Set pattern selection mode"""
         self.pattern_selection_mode = mode
         if pattern_markers is not None:
             self.pattern_markers = pattern_markers
@@ -774,80 +783,80 @@ class MarkerGLRenderer(MarkerGLFrame):
     
     def set_coordinate_system(self, is_z_up):
         """
-        좌표계 설정 변경
+        Change coordinate system setting
         
         Args:
-            is_z_up: Z-up 좌표계를 사용하려면 True, Y-up 좌표계를 사용하려면 False
+            is_z_up: True to use Z-up coordinate system, False for Y-up
         
-        주의:
-        좌표계 변경은 마커의 실제 좌표를 변경하지 않고 표시 방법만 변경합니다.
-        데이터는 항상 원래 좌표계를 유지합니다.
+        Note:
+        Changing the coordinate system only changes the display method, not the actual coordinates of the markers.
+        The data always retains its original coordinate system.
         """
-        # 변화가 없으면 불필요한 처리를 하지 않음
+        # Do not perform unnecessary processing if there is no change
         if self.is_z_up == is_z_up:
             return
         
-        # 좌표계 상태 업데이트
+        # Update coordinate system state
         self.is_z_up = is_z_up
         
-        # 좌표계 문자열 업데이트
+        # Update coordinate system string
         self.coordinate_system = COORDINATE_SYSTEM_Z_UP if is_z_up else COORDINATE_SYSTEM_Y_UP
         
-        # 좌표계에 따라 축 디스플레이 리스트 재생성
+        # Regenerate axis display list according to the coordinate system
         if self.gl_initialized:
             try:
-                # OpenGL 컨텍스트 활성화 - 필수
+                # Activate OpenGL context - essential
                 self.tkMakeCurrent()
                 
-                # 기존 축과 그리드 디스플레이 리스트 삭제
+                # Delete existing axis and grid display lists
                 if hasattr(self, 'axes_list') and self.axes_list is not None:
                     GL.glDeleteLists(self.axes_list, 1)
                 if hasattr(self, 'grid_list') and self.grid_list is not None:
                     GL.glDeleteLists(self.grid_list, 1)
                 
-                # 새 좌표계에 맞는 축과 그리드 생성
+                # Create axes and grid suitable for the new coordinate system
                 self._create_axes_display_list()
                 self._create_grid_display_list()
                 
-                # 화면 강제 갱신
+                # Force screen refresh
                 self.redraw()
-                # 메인 이벤트 루프에서 좀 더 여유있게 갱신 요청
+                # Request update more leisurely in the main event loop
                 self.after(20, self._force_redraw)
             except Exception as e:
-                print(f"좌표계 변경 중 오류 발생: {e}")
+                print(f"Error occurred during coordinate system change: {e}")
     
     def _force_redraw(self):
-        """강제로 화면을 다시 그립니다"""
+        """Force redraw the screen"""
         try:
-            # OpenGL 상태 확인
+            # Check OpenGL state
             if not self.gl_initialized:
                 return
                 
-            # 컨텍스트 활성화
+            # Activate context
             self.tkMakeCurrent()
             
-            # 전체 화면을 지우고 다시 그림
+            # Clear and redraw the entire screen
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             GL.glLoadIdentity()
             
-            # 3D 장면 설정
+            # Set up 3D scene
             GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
             GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
             GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
             
-            # 디스플레이 리스트 호출
+            # Call display lists
             if hasattr(self, 'grid_list') and self.grid_list is not None:
                 GL.glCallList(self.grid_list)
             if hasattr(self, 'axes_list') and self.axes_list is not None:
                 GL.glCallList(self.axes_list)
             
-            # 완전한 장면 갱신
+            # Complete scene update
             self.redraw()
             
-            # 강제 버퍼 교체
+            # Force buffer swap
             self.tkSwapBuffers()
             
-            # TK 업데이트
+            # TK update
             self.update()
             self.update_idletasks()
             
@@ -856,49 +865,49 @@ class MarkerGLRenderer(MarkerGLFrame):
     
     def reset_view(self):
         """
-        뷰 초기화 - 기본 카메라 위치와 각도로 재설정
+        Reset view - reset to default camera position and angle
         """
-        # 현재 좌표계에 맞는 X축 회전 각도 사용
-        self.rot_x = COORDINATE_X_ROTATION_Y_UP  # Y-up이 기본 설정
+        # Use X-axis rotation angle suitable for the current coordinate system
+        self.rot_x = COORDINATE_X_ROTATION_Y_UP  # Y-up is the default setting
         self.rot_y = 45.0
         self.zoom = -4.0
-        self.trans_x = 0.0  # 추가: translation 값도 초기화
-        self.trans_y = 0.0  # 추가: translation 값도 초기화
+        self.trans_x = 0.0  # Additional: reset translation value too
+        self.trans_y = 0.0  # Additional: reset translation value too
         self.redraw()
         
     def set_marker_names(self, marker_names):
-        """마커 이름 목록 설정"""
+        """Set the list of marker names"""
         self.marker_names = marker_names
         self.redraw()
         
     def set_skeleton_pairs(self, skeleton_pairs):
-        """스켈레톤 구성 쌍 설정"""
+        """Set skeleton configuration pairs"""
         self.skeleton_pairs = skeleton_pairs
         self.redraw()
         
     def set_outliers(self, outliers):
-        """이상치 데이터 설정"""
+        """Set outlier data"""
         self.outliers = outliers
         self.redraw()
         
     def set_show_marker_names(self, show):
         """
-        마커 이름 표시 여부 설정
+        Set whether to display marker names
         
         Args:
-            show: 마커 이름을 표시하려면 True, 아니면 False
+            show: True to display marker names, False otherwise
         """
         self.show_marker_names = show
         self.redraw()
         
     def set_data_limits(self, x_range, y_range, z_range):
         """
-        데이터의 범위를 설정합니다.
+        Sets the range of the data.
         
         Args:
-            x_range: X축 범위 (min, max)
-            y_range: Y축 범위 (min, max)
-            z_range: Z축 범위 (min, max)
+            x_range: X-axis range (min, max)
+            y_range: Y-axis range (min, max)
+            z_range: Z-axis range (min, max)
         """
         self.data_limits = {
             'x': x_range,
@@ -906,31 +915,31 @@ class MarkerGLRenderer(MarkerGLFrame):
             'z': z_range
         }
 
-    # 마우스 이벤트 핸들러 메서드 추가
+    # Add mouse event handler methods
     def on_mouse_press(self, event):
-        """왼쪽 마우스 버튼 누를 때 호출"""
+        """Called when the left mouse button is pressed"""
         self.last_x, self.last_y = event.x, event.y
         self.dragging = False
         
-        # 픽킹 수행
+        # Perform picking
         if self.data is not None and len(self.marker_names) > 0:
             self.pick_marker(event.x, event.y)
 
     def on_mouse_release(self, event):
-        """왼쪽 마우스 버튼 뗄 때 호출"""
-        # 드래그 상태가 아닌 경우 클릭으로 간주
+        """Called when the left mouse button is released"""
+        # Consider it a click if not in dragging state
         if not self.dragging and self.data is not None:
-            pass  # 픽킹은 press에서 처리
+            pass  # Picking is handled in press
 
     def on_mouse_move(self, event):
-        """왼쪽 마우스 버튼 드래그할 때 호출 (회전)"""
+        """Called when dragging with the left mouse button (rotation)"""
         dx, dy = event.x - self.last_x, event.y - self.last_y
         
-        # 약간의 드래그가 발생했을 때만 드래그 상태로 전환
+        # Switch to dragging state only when significant drag occurs
         if abs(dx) > 3 or abs(dy) > 3:
             self.dragging = True
         
-        # 드래그 중에는 회전만 수행
+        # Perform only rotation during drag
         if self.dragging:
             self.last_x, self.last_y = event.x, event.y
             self.rot_y += dx * 0.5
@@ -938,67 +947,67 @@ class MarkerGLRenderer(MarkerGLFrame):
             self.redraw()
 
     def on_right_mouse_press(self, event):
-        """오른쪽 마우스 버튼 누름 이벤트 처리 (뷰 이동 시작 또는 패턴 선택 모드)"""
-        if not self.pattern_selection_mode: # 패턴 선택 모드가 아닐 때만 뷰 이동 시작
+        """Handle right mouse button press event (start view translation or pattern selection mode)"""
+        if not self.pattern_selection_mode: # Start view translation only when not in pattern selection mode
             self.dragging = True
             self.last_x = event.x
             self.last_y = event.y
             
     def on_right_mouse_release(self, event):
-        """오른쪽 마우스 버튼 뗌 이벤트 처리 (뷰 이동 종료 또는 패턴 마커 선택)"""
+        """Handle right mouse button release event (end view translation or select pattern marker)"""
         if self.pattern_selection_mode:
-             # 패턴 선택 모드: 마커 픽킹 시도
+             # Pattern selection mode: Attempt marker picking
             self.pick_marker(event.x, event.y) 
         elif self.dragging:
-            # 뷰 이동 모드 종료
+            # End view translation mode
             self.dragging = False
 
     def on_right_mouse_move(self, event):
-        """오른쪽 마우스 버튼 드래그할 때 호출 (이동)"""
+        """Called when dragging with the right mouse button (translation)"""
         dx, dy = event.x - self.last_x, event.y - self.last_y
         self.last_x, self.last_y = event.x, event.y
         
-        # 화면 이동 계산 (화면 크기에 대한 비율로 이동)
+        # Calculate screen translation (move as a ratio of screen size)
         self.trans_x += dx * 0.005
-        self.trans_y -= dy * 0.005  # 좌표계 방향 반전 (화면 y는 아래로 증가)
+        self.trans_y -= dy * 0.005  # Invert coordinate system direction (screen y increases downwards)
         
         self.redraw()
 
     def on_scroll(self, event):
-        """마우스 휠 스크롤할 때 호출 (줌)"""
-        # Windows에서 event.delta, 다른 플랫폼에서는 다른 접근법 필요
+        """Called when scrolling the mouse wheel (zoom)"""
+        # On Windows: event.delta, other platforms may need different approaches
         self.zoom += event.delta * 0.001
         self.redraw()
 
     def pick_marker(self, x, y):
         """
-        마커 선택 (픽킹)
+        Select marker (picking)
         
         Args:
-            x: 화면 X 좌표
-            y: 화면 Y 좌표
+            x: Screen X coordinate
+            y: Screen Y coordinate
         """
         if not self.gl_initialized or not hasattr(self, 'picking_texture'):
             return
         
-        # 픽킹 텍스처 초기화 확인 및 필요시 초기화
+        # Check picking texture initialization and initialize if necessary
         if not self.picking_texture.initialized:
             width, height = self.winfo_width(), self.winfo_height()
             if width <= 0 or height <= 0 or not self.picking_texture.init(width, height):
                 return
         
         try:
-            # 컨텍스트 활성화
+            # Activate context
             self.tkMakeCurrent()
             
-            # 픽킹 텍스처에 렌더링
+            # Render to picking texture
             if not self.picking_texture.enable_writing():
                 return
             
-            # 버퍼 초기화
+            # Initialize buffer
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             
-            # 원근 투영 설정
+            # Set perspective projection
             width, height = self.winfo_width(), self.winfo_height()
             GL.glViewport(0, 0, width, height)
             GL.glMatrixMode(GL.GL_PROJECTION)
@@ -1008,51 +1017,51 @@ class MarkerGLRenderer(MarkerGLFrame):
             GL.glMatrixMode(GL.GL_MODELVIEW)
             GL.glLoadIdentity()
             
-            # 카메라 위치 설정 (줌, 이동, 회전)
+            # Set camera position (zoom, translation, rotation)
             GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
             GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
             GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
             
-            # Z-up 좌표계인 경우 추가 회전
+            # Additional rotation if Z-up coordinate system
             if self.is_z_up:
                 GL.glRotatef(COORDINATE_X_ROTATION_Z_UP, 1.0, 0.0, 0.0)
             
-            # 픽킹 렌더링을 위한 상태 설정
+            # Set state for picking rendering
             GL.glEnable(GL.GL_DEPTH_TEST)
             GL.glDisable(GL.GL_BLEND)
             GL.glDisable(GL.GL_POINT_SMOOTH)
             GL.glDisable(GL.GL_LINE_SMOOTH)
             
-            # 마커 정보 확인
+            # Check marker information
             if self.data is None or len(self.marker_names) == 0:
                 self.picking_texture.disable_writing()
                 return
             
-            # 픽킹을 위한 큰 점 크기 설정
+            # Set large point size for picking
             GL.glPointSize(12.0)
             
-            # 마커를 고유 ID 색상으로 렌더링
+            # Render markers with unique ID colors
             GL.glBegin(GL.GL_POINTS)
             
             for idx, marker in enumerate(self.marker_names):
                 try:
-                    # 현재 프레임의 마커 좌표 가져오기
+                    # Get marker coordinates for the current frame
                     x_val = self.data.loc[self.frame_idx, f'{marker}_X']
                     y_val = self.data.loc[self.frame_idx, f'{marker}_Y']
                     z_val = self.data.loc[self.frame_idx, f'{marker}_Z']
                     
-                    # NaN 값 건너뛰기
+                    # Skip NaN values
                     if pd.isna(x_val) or pd.isna(y_val) or pd.isna(z_val):
                         continue
                     
-                    # 마커 ID를 1부터 시작하도록 설정 (0은 배경)
+                    # Set marker ID starting from 1 (0 is background)
                     marker_id = idx + 1
                     
-                    # 각 마커마다 고유한 색상 인코딩
-                    # R 채널: 마커 ID를 정규화한 값
+                    # Unique color encoding for each marker
+                    # R channel: Normalized value of marker ID
                     r = float(marker_id) / float(len(self.marker_names) + 1)
-                    g = float(marker_id % 256) / 255.0  # 추가 정보
-                    b = 1.0  # 마커 식별용 상수
+                    g = float(marker_id % 256) / 255.0  # Additional info
+                    b = 1.0  # Constant for marker identification
                     
                     GL.glColor3f(r, g, b)
                     GL.glVertex3f(x_val, y_val, z_val)
@@ -1062,32 +1071,32 @@ class MarkerGLRenderer(MarkerGLFrame):
             
             GL.glEnd()
             
-            # 렌더링 완료 확인
+            # Verify rendering completion
             GL.glFinish()
             GL.glFlush()
             
-            # 픽셀 정보 읽기 (OpenGL 좌표계 변환)
+            # Read pixel information (OpenGL coordinate system conversion)
             y_inverted = height - y - 1
             pixel_info = self.read_pixel_at(x, y_inverted)
             
-            # 픽킹 텍스처 비활성화
+            # Disable picking texture
             self.picking_texture.disable_writing()
             
-            # 픽셀 정보가 있으면 마커 선택
+            # If pixel info exists, select marker
             if pixel_info is not None:
                 r_value = pixel_info[0]
                 
-                # ID 값 복원 (인코딩 방식: r = marker_id / (len(marker_names) + 1))
+                # Restore ID value (encoding scheme: r = marker_id / (len(marker_names) + 1))
                 actual_id = int(r_value * (len(self.marker_names) + 1) + 0.5)
                 
-                # 마커 ID는 1부터 시작하므로 인덱스로 변환
+                # Convert marker ID (starts from 1) to index
                 marker_idx = actual_id - 1
                 
-                # 유효한 마커 인덱스인지 확인
+                # Check if marker index is valid
                 if 0 <= marker_idx < len(self.marker_names):
                     selected_marker = self.marker_names[marker_idx]
                     
-                    # 패턴 선택 모드 처리
+                    # Handle pattern selection mode
                     if self.pattern_selection_mode:
                         if selected_marker in self.parent.pattern_markers:
                             self.parent.pattern_markers.remove(selected_marker)
@@ -1098,81 +1107,81 @@ class MarkerGLRenderer(MarkerGLFrame):
                         if hasattr(self.parent, 'update_selected_markers_list'):
                             self.parent.update_selected_markers_list()
                             
-                    # 일반 마커 선택 모드 처리
+                    # Handle normal marker selection mode
                     else:
-                        # 이미 선택된 마커를 다시 클릭한 경우 선택 취소
+                        # If the already selected marker is clicked again, deselect it
                         if self.current_marker == selected_marker:
                             self.current_marker = None
-                            self._notify_marker_selected(None)  # 선택 취소 알림
-                        # 새로운 마커를 선택한 경우
+                            self._notify_marker_selected(None)  # Notify deselection
+                        # If a new marker is selected
                         else:
-                            # 현재 마커 업데이트
+                            # Update current marker
                             self.current_marker = selected_marker
                             
-                            # 부모 클래스에 알림
+                            # Notify parent class
                             self._notify_marker_selected(selected_marker)
         
-            # 일반 렌더링 상태 복원
+            # Restore normal rendering state
             GL.glEnable(GL.GL_BLEND)
             GL.glEnable(GL.GL_POINT_SMOOTH)
             GL.glEnable(GL.GL_LINE_SMOOTH)
-            
-            # 화면 업데이트
-            self.redraw()
+
+            # Update screen - Removed redraw, parent (app.py) will handle the final update
+            # self.redraw()
         
         except Exception as e:
-            print(f"마커 선택 오류: {e}")
+            print(f"Marker selection error: {e}")
             import traceback
             traceback.print_exc()
 
     def read_pixel_at(self, x, y):
         """
-        지정된 위치의 픽셀 정보를 읽음
+        Read pixel information at the specified position
         
         Args:
-            x: 화면의 X 좌표
-            y: 화면의 Y 좌표 (이미 OpenGL 좌표계로 변환된 값)
+            x: Screen X coordinate
+            y: Screen Y coordinate (already converted to OpenGL coordinate system)
             
         Returns:
-            tuple: (R, G, B) 색상 값 또는 None
+            tuple: (R, G, B) color value or None
         """
         try:
-            # 프레임버퍼에서 픽셀 읽기
+            # Read pixel from framebuffer
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.picking_texture.fbo)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
             
-            # 픽셀 좌표가 텍스처 범위 내에 있는지 확인
+            # Check if pixel coordinates are within texture bounds
             width, height = self.picking_texture.width, self.picking_texture.height
             if x < 0 or x >= width or y < 0 or y >= height:
                 return None
             
-            # 픽셀 정보 읽기
+            # Read pixel information
             data = GL.glReadPixels(x, y, 1, 1, GL.GL_RGB, GL.GL_FLOAT)
             pixel_info = np.frombuffer(data, dtype=np.float32)
             
-            # 기본 설정 복원
+            # Restore default settings
             GL.glReadBuffer(GL.GL_NONE)
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, 0)
             
-            # 배경 픽셀 확인 (R=0이면 배경)
+            # Check for background pixel (R=0 means background)
             if pixel_info[0] == 0.0:
                 return None
             
-            # 픽셀 색상 값 반환
+            # Return pixel color value
             return (pixel_info[0], pixel_info[1], pixel_info[2])
             
         except Exception as e:
-            print(f"픽셀 읽기 오류: {e}")
+            print(f"Pixel read error: {e}")
             return None
 
     def _notify_marker_selected(self, marker_name):
         """
-        마커 선택 이벤트를 부모 창에 알림
+        Notify the parent window about the marker selection event
         
         Args:
-            marker_name: 선택된 마커 이름 또는 None(선택 취소 시)
+            marker_name: Selected marker name or None (for deselection)
         """
-        # 부모 창 메서드 호출
+        # Call parent window method
         if hasattr(self.master, 'on_marker_selected'):
             try:
                 self.master.on_marker_selected(marker_name)
@@ -1183,13 +1192,9 @@ class MarkerGLRenderer(MarkerGLFrame):
         else:
             print(f"Warning: Master {self.master} does not have 'on_marker_selected' method.")
             
-        # 이벤트 기반 알림 시도 (Fallback)
-        # ... (rest of the function)
-
+            
     def on_configure(self, event):
         """Handle widget resize/move/visibility changes."""
         # Check if GL is initialized before attempting to redraw
         if self.gl_initialized:
              self.redraw()
-        # Optionally, you could call self.update() if initgl needs to run on configure
-        # self.update()

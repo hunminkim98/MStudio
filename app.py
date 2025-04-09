@@ -12,6 +12,7 @@ from gui.TRCviewerWidgets import create_widgets
 from gui.markerPlot import show_marker_plot
 from gui.plotCreator import create_plot
 from gui.filterUI import on_filter_type_change, build_filter_parameter_widgets
+from gui.markerPlotUI import build_marker_plot_buttons
 
 from utils.dataLoader import open_file
 from utils.dataSaver import save_as
@@ -490,6 +491,17 @@ class TRCViewer(ctk.CTk):
 
     def on_marker_selected(self, marker_name):
         """Handle marker selection event"""
+        # Save current view state
+        current_view_state = None
+        if hasattr(self, 'gl_renderer'):
+            current_view_state = {
+                'rot_x': self.gl_renderer.rot_x,
+                'rot_y': self.gl_renderer.rot_y,
+                'zoom': self.gl_renderer.zoom,
+                'trans_x': self.gl_renderer.trans_x,
+                'trans_y': self.gl_renderer.trans_y
+            }
+        
         self.current_marker = marker_name
         
         # 마커 목록에서 선택 상태 업데이트
@@ -521,8 +533,17 @@ class TRCViewer(ctk.CTk):
         # OpenGL 렌더러에게 선택된 마커 정보 전달
         if hasattr(self, 'gl_renderer'):
             self.gl_renderer.set_current_marker(marker_name)
-        
-        # 화면 업데이트
+
+        # Restore view state *before* final plot update
+        if hasattr(self, 'gl_renderer') and current_view_state:
+            self.gl_renderer.rot_x = current_view_state['rot_x']
+            self.gl_renderer.rot_y = current_view_state['rot_y']
+            self.gl_renderer.zoom = current_view_state['zoom']
+            self.gl_renderer.trans_x = current_view_state['trans_x']
+            self.gl_renderer.trans_y = current_view_state['trans_y']
+            # No need for extra redraw here, update_plot will handle it
+
+        # 화면 업데이트 (이제 복원된 뷰 상태로 렌더링)
         self.update_plot()
 
 
@@ -988,7 +1009,7 @@ class TRCViewer(ctk.CTk):
             
             if button_frame:
                 # Call our helper to rebuild the buttons with the new mode
-                self._build_marker_plot_buttons(button_frame)
+                build_marker_plot_buttons(self, button_frame)
                 
                 # Update pattern selection mode based on interpolation method
                 if self.is_editing and self.interp_method_var.get() == 'pattern-based':
@@ -1003,131 +1024,7 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
     
     # NOTE: This function should be moved to the other file.
-    def _build_marker_plot_buttons(self, parent_frame):
-        """Helper method to build buttons for the marker plot, adjusting height for edit mode."""
-        # Destroy existing button frame contents if they exist
-        for widget in parent_frame.winfo_children():
-            widget.destroy()
-
-        button_style = {
-            "width": 80, "height": 28, "fg_color": "#3B3B3B", "hover_color": "#4B4B4B",
-            "text_color": "#FFFFFF", "corner_radius": 6, "border_width": 1, "border_color": "#555555"
-        }
-
-        if self.is_editing:
-            # --- Build Edit Controls (Multi-row) ---
-            parent_frame.configure(height=90) # Increase height for edit mode with interpolation
-
-            # Main container for edit controls
-            self.edit_controls_frame = ctk.CTkFrame(parent_frame, fg_color="transparent")
-            self.edit_controls_frame.pack(fill='both', expand=True, padx=5, pady=2)
-
-            # Top Row Frame
-            top_row_frame = ctk.CTkFrame(self.edit_controls_frame, fg_color="transparent")
-            top_row_frame.pack(side='top', fill='x', pady=(0, 5)) # Add padding below
-
-            # 1. Filter Type Frame (in top row)
-            filter_type_frame = ctk.CTkFrame(top_row_frame, fg_color="transparent")
-            filter_type_frame.pack(side='left', padx=(0, 10)) # Add padding to the right
-            
-            # Filter label with increased padding
-            filter_label = ctk.CTkLabel(filter_type_frame, text="Filter:", width=50, anchor="e")
-            filter_label.pack(side='left', padx=(3, 8))
-            
-            self.filter_type_combo = ctk.CTkComboBox(
-                filter_type_frame,
-                width=150, # Adjust width if needed
-                values=['kalman', 'butterworth', 'butterworth_on_speed', 'gaussian', 'LOESS', 'median'],
-                variable=self.filter_type_var,
-                command=self._on_filter_type_change_in_panel
-            )
-            self.filter_type_combo.pack(side='left', padx=(42, 0))
-
-            # 2. Dynamic Filter Parameters Container (in top row)
-            self.filter_params_container = ctk.CTkFrame(top_row_frame, fg_color="transparent")
-            self.filter_params_container.pack(side='left', fill='x', expand=True)
-            # Initial population of parameters based on current filter type
-            self._build_filter_param_widgets(self.filter_type_var.get())
-
-            # Middle Row Frame for Interpolation
-            middle_row_frame = ctk.CTkFrame(self.edit_controls_frame, fg_color="transparent")
-            middle_row_frame.pack(side='top', fill='x', pady=(0, 5))
-            
-            # Interpolation Method Frame
-            interp_frame = ctk.CTkFrame(middle_row_frame, fg_color="transparent")
-            interp_frame.pack(side='left', padx=(0, 10))
-            
-            # Interpolation label with consistent styling
-            interp_label = ctk.CTkLabel(interp_frame, text="Interpolation:", width=90, anchor="e")
-            interp_label.pack(side='left', padx=(5, 8))
-            
-            # Interpolation ComboBox
-            self.interp_method_combo = ctk.CTkComboBox(
-                interp_frame,
-                width=150,
-                values=self.interp_methods,
-                variable=self.interp_method_var,
-                command=self._on_interp_method_change_in_panel
-            )
-            self.interp_method_combo.pack(side='left')
-            
-            # Interpolation Order Frame
-            interp_order_frame = ctk.CTkFrame(middle_row_frame, fg_color="transparent")
-            interp_order_frame.pack(side='left')
-            
-            # Order Label and Entry - consistent styling with other labels
-            self.interp_order_label = ctk.CTkLabel(interp_order_frame, text="Order:", width=40, anchor='e')
-            self.interp_order_label.pack(side='left', padx=(0, 4))
-            
-            self.interp_order_entry = ctk.CTkEntry(interp_order_frame, textvariable=self.order_var, width=60)
-            self.interp_order_entry.pack(side='left', padx=(0, 0))
-            
-            # Set initial state based on current method
-            current_method = self.interp_method_var.get()
-            if current_method not in ['polynomial', 'spline']:
-                self.interp_order_label.configure(state='disabled')
-                self.interp_order_entry.configure(state='disabled')
-
-            # Bottom Row Frame
-            bottom_row_frame = ctk.CTkFrame(self.edit_controls_frame, fg_color="transparent")
-            bottom_row_frame.pack(side='top', fill='x')
-
-            # 3. Action Buttons Frame (in bottom row)
-            action_buttons_frame = ctk.CTkFrame(bottom_row_frame, fg_color="transparent")
-            action_buttons_frame.pack(side='left', padx=(15, 0)) # 왼쪽에 20px 패딩 추가
-            action_buttons = [
-                ("Filter", self.filter_selected_data),
-                ("Delete", self.delete_selected_data),
-                ("Interpolate", self.interpolate_selected_data),
-                ("Restore", self.restore_original_data)
-            ]
-            # Use smaller width for action buttons if needed
-            action_button_style = {**button_style, "width": 80, "height": 28}
-            for text, command in action_buttons:
-                btn = ctk.CTkButton(action_buttons_frame, text=text, command=command, **action_button_style)
-                btn.pack(side='left', padx=3)
-
-            # 4. Done Button (in bottom row, packed to the right)
-            done_button = ctk.CTkButton(
-                bottom_row_frame, text="Done", command=self.toggle_edit_mode, **button_style
-            )
-            # Pack Done button to the far right of the bottom row
-            done_button.pack(side='right', padx=(10, 0)) # Add padding to the left
-
-        else:
-            # --- Build View Controls (Single Row) ---
-            parent_frame.configure(height=40) # Set default height for view mode
-
-            reset_button = ctk.CTkButton(
-                parent_frame, text="Reset View", command=self.reset_graph_view, **button_style
-            )
-            reset_button.pack(side='right', padx=5, pady=5)
-
-            self.edit_button = ctk.CTkButton(
-                parent_frame, text="Edit", command=self.toggle_edit_mode, **button_style
-            )
-            self.edit_button.pack(side='right', padx=5, pady=5)
-
+    # The original _build_marker_plot_buttons function (lines 1006-1129) is removed here.
     
     # ---------- Select data ----------
     def highlight_selection(self):
