@@ -1,5 +1,16 @@
 import customtkinter as ctk
 
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
 class EditWindow(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)

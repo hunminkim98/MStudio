@@ -1,8 +1,6 @@
-import os
-import pandas as pd
 import numpy as np
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import messagebox
 import matplotlib.pyplot as plt
 from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
@@ -16,19 +14,22 @@ from gui.markerPlotUI import build_marker_plot_buttons
 
 from utils.dataLoader import open_file
 from utils.dataSaver import save_as
-from utils.viewToggles import toggle_marker_names, toggle_trajectory, toggle_animation
+from utils.viewToggles import (
+    toggle_marker_names,
+    toggle_trajectory,
+    toggle_animation,
+)
 from utils.viewReset import reset_main_view, reset_graph_view
 from utils.dataProcessor import *
 from utils.mouseHandler import MouseHandler
-
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"
 __copyright__ = ""
 __credits__ = [""]
 __license__ = ""
-from importlib.metadata import version
-# __version__ = version('')
+# from importlib.metadata import version
+# __version__ = version('MEditor')
 __maintainer__ = "HunMin Kim"
 __email__ = "hunminkim98@gmail.com"
 __status__ = "Development"
@@ -48,8 +49,11 @@ matplotlib.use('TkAgg')
 class TRCViewer(ctk.CTk): 
     def __init__(self):
         super().__init__()
-        self.title("MarkerStudio")
-        self.geometry("1920x1080") # May be changed based on the user's screen size
+        self.title("MEditor")
+        # Get screen dimensions
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(f"{screen_width}x{screen_height}")
 
         # coordinate system setting variable
         self.coordinate_system = "y-up"  # Default is y-up because Pose2Sim and OpenSim use y-up coordinate system
@@ -229,69 +233,6 @@ class TRCViewer(ctk.CTk):
 
 
     #########################################
-    ###### Coordinate system manager  #######
-    #########################################
-
-    # TODO for coordinate system manager:
-    # 1. Add a X-up coordinate system
-    # 2. Add a left-handed coordinate system
-
-    def toggle_coordinates(self):
-        """Toggle between Z-up and Y-up coordinate systems"""
-        # 이전 상태 저장
-        previous_state = self.is_z_up
-        
-        # 좌표계 상태 전환
-        self.is_z_up = not self.is_z_up
-        
-        # 버튼 텍스트 업데이트
-        button_text = "Switch to Y-up" if self.is_z_up else "Switch to Z-up"
-        if hasattr(self, 'coord_button'):
-            self.coord_button.configure(text=button_text)
-            self.update_idletasks()  # UI 즉시 갱신
-        
-        # 좌표계 설정 변경
-        self.coordinate_system = "z-up" if self.is_z_up else "y-up"
-        
-        # OpenGL 렌더러에 좌표계 변경 전달
-        if hasattr(self, 'gl_renderer'):
-            if hasattr(self.gl_renderer, 'set_coordinate_system'):
-                self.gl_renderer.set_coordinate_system(self.is_z_up)
-            
-            # 화면 강제 갱신 요청 - 약간의 지연 후 실행
-            self.after(50, self._force_update_opengl)
-
-
-    def _force_update_opengl(self):
-        """OpenGL 렌더러의 화면을 강제로 갱신합니다."""
-        if not hasattr(self, 'gl_renderer'):
-            return
-            
-        try:
-            # 현재 프레임을 다시 설정하여 강제 갱신
-            if self.data is not None:
-                self.gl_renderer.set_frame_data(
-                    data=self.data,
-                    frame_idx=self.frame_idx,
-                    marker_names=self.marker_names,
-                    current_marker=self.current_marker,
-                    show_marker_names=self.show_names,
-                    show_trajectory=self.show_trajectory,
-                    coordinate_system="z-up" if self.is_z_up else "y-up",
-                    skeleton_pairs=self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
-                )
-                
-                # 화면 갱신 명령
-                self.gl_renderer._force_redraw()
-                
-                # 한 번 더 갱신 요청 (보험)
-                self.after(100, lambda: self.gl_renderer.redraw())
-                
-        except Exception:
-            pass
-
-
-    #########################################
     ###### Show/Hide Name of markers ########
     #########################################
 
@@ -311,30 +252,6 @@ class TRCViewer(ctk.CTk):
     def toggle_trajectory(self):
         toggle_trajectory(self)
 
-
-    #########################################
-    ############ Analysis Mode ##############
-    #########################################
-
-    # TODO for analysis mode:
-    # 1. Distance (and dotted line?) visualization between two selected markers
-    # 2. Joint angle (and arc)visualization for three selected markers
-
-    def toggle_analysis_mode(self):
-        """Toggles the analysis mode on and off."""
-        self.is_analysis_mode = not self.is_analysis_mode
-        if self.is_analysis_mode:
-            print("Analysis mode activated.")
-            # Potentially change button appearance or disable other interactions
-            self.analysis_button.configure(fg_color="#00A6FF") # Example: Highlight button
-        else:
-            print("Analysis mode deactivated.")
-            # Restore button appearance and re-enable other interactions
-            button_style = {
-                "fg_color": "#333333",
-                "hover_color": "#444444"
-            }
-            self.analysis_button.configure(**button_style) # Example: Restore default style
         
     #########################################
     ####### Skeleton model manager ##########
@@ -356,7 +273,7 @@ class TRCViewer(ctk.CTk):
                 self.show_skeleton = True
                 self.update_skeleton_pairs()
 
-            # OpenGL 렌더러에 스켈레톤 쌍 정보 전달
+            # Deliver skeleton pairs and show skeleton to OpenGL renderer
             if hasattr(self, 'gl_renderer'):
                 self.gl_renderer.set_skeleton_pairs(self.skeleton_pairs)
                 self.gl_renderer.set_show_skeleton(self.show_skeleton)
@@ -364,7 +281,7 @@ class TRCViewer(ctk.CTk):
             # Re-detect outliers with new skeleton pairs
             self.detect_outliers()
             
-            # OpenGL 렌더러에 이상치 정보 전달
+            # Deliver outliers to OpenGL renderer
             if hasattr(self, 'gl_renderer') and hasattr(self, 'outliers'):
                 self.gl_renderer.set_outliers(self.outliers)
 
@@ -447,7 +364,7 @@ class TRCViewer(ctk.CTk):
                 except KeyError:
                     continue
                     
-        # OpenGL 렌더러에 이상치 정보 전달
+        # Deliver outliers to OpenGL renderer
         if hasattr(self, 'gl_renderer'):
             self.gl_renderer.set_outliers(self.outliers)
 
@@ -457,9 +374,9 @@ class TRCViewer(ctk.CTk):
     #########################################
 
     def connect_mouse_events(self):
-        # OpenGL 렌더러에서는 마우스 이벤트가 이미 내부적으로 처리됨
+        # OpenGL renderer handles mouse events internally
 
-        # 마커 캔버스(matplotlib)는 여전히 연결 필요
+        # Marker canvas (matplotlib) still needs to be connected
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
             self.marker_canvas.mpl_connect('scroll_event', self.mouse_handler.on_marker_scroll)
             self.marker_canvas.mpl_connect('button_press_event', self.mouse_handler.on_marker_mouse_press)
@@ -469,7 +386,7 @@ class TRCViewer(ctk.CTk):
 
     def disconnect_mouse_events(self):
         """disconnect mouse events"""
-        # 마커 캔버스(matplotlib) 이벤트 연결 해제
+        # Marker canvas (matplotlib) still needs to be connected
         if hasattr(self, 'marker_canvas') and self.marker_canvas and hasattr(self.marker_canvas, 'callbacks') and self.marker_canvas.callbacks:
              # Iterate through all event types and their registered callback IDs
              all_cids = []
@@ -504,24 +421,24 @@ class TRCViewer(ctk.CTk):
         
         self.current_marker = marker_name
         
-        # 마커 목록에서 선택 상태 업데이트
+        # Update selection state in markers list
         if hasattr(self, 'markers_list') and self.markers_list:
             try:
-                # 마커 리스트에서 선택 항목 모두 해제
+                # Clear selection in markers list
                 self.markers_list.selection_clear(0, "end")
                 
-                # 마커가 선택된 경우에만 목록에서 선택
+                # Select marker in markers list if it is selected
                 if marker_name is not None:
-                    # 선택된 마커의 인덱스 찾기
+                    # Find index of selected marker
                     for i, item in enumerate(self.markers_list.get(0, "end")):
                         if item == marker_name:
-                            self.markers_list.selection_set(i)  # 선택 항목 설정
-                            self.markers_list.see(i)  # 스크롤하여 보이게
+                            self.markers_list.selection_set(i)  # Set selection
+                            self.markers_list.see(i)  # Scroll to show
                             break
             except Exception as e:
-                print(f"마커 목록 업데이트 오류: {e}")
+                print(f"Error updating markers list: {e}")
         
-        # 마커 그래프 표시 (마커가 선택된 경우에만)
+        # Display marker plot (if marker is selected)
         if marker_name is not None and hasattr(self, 'show_marker_plot'):
             try:
                 self.show_marker_plot(marker_name)
@@ -530,7 +447,7 @@ class TRCViewer(ctk.CTk):
                 print(f"Error displaying marker plot: {e}")
                 traceback.print_exc()
         
-        # OpenGL 렌더러에게 선택된 마커 정보 전달
+        # Deliver selected marker information to OpenGL renderer
         if hasattr(self, 'gl_renderer'):
             self.gl_renderer.set_current_marker(marker_name)
 
@@ -543,7 +460,7 @@ class TRCViewer(ctk.CTk):
             self.gl_renderer.trans_y = current_view_state['trans_y']
             # No need for extra redraw here, update_plot will handle it
 
-        # 화면 업데이트 (이제 복원된 뷰 상태로 렌더링)
+        # Update screen (now rendering with restored view state)
         self.update_plot()
 
 
@@ -680,16 +597,16 @@ class TRCViewer(ctk.CTk):
         이제는 OpenGL 렌더러를 직접 호출합니다.
         """
         if hasattr(self, 'gl_renderer'):
-            # 데이터 전달
+            # Deliver data
             if self.data is not None:
-                # 좌표계 설정 확인
+                # Check coordinate system
                 coordinate_system = "z-up" if self.is_z_up else "y-up"
                 
-                # 이상치(outliers) 데이터 전달
+                # Deliver outliers
                 if hasattr(self, 'outliers') and self.outliers:
                     self.gl_renderer.set_outliers(self.outliers)
                 
-                # 현재 프레임 데이터 전달
+                # Deliver current frame data
                 try:
                     self.gl_renderer.set_frame_data(
                         self.data, 
@@ -702,11 +619,11 @@ class TRCViewer(ctk.CTk):
                         self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
                     )
                 except Exception as e:
-                    print(f"OpenGL 데이터 설정 중 오류: {e}")
+                    print(f"Error setting OpenGL data: {e}")
                     import traceback
                     traceback.print_exc()
             
-            # OpenGL 렌더러 화면 갱신
+            # Update OpenGL renderer screen
             self.gl_renderer.update_plot()
 
 
@@ -735,8 +652,6 @@ class TRCViewer(ctk.CTk):
         
         # Update marker graph vertical line if it exists
         self._update_marker_plot_vertical_line_data()
-        # if hasattr(self, 'marker_canvas'):
-        #     self.marker_canvas.draw()
 
 
     def update_fps_label(self):
@@ -785,10 +700,10 @@ class TRCViewer(ctk.CTk):
                 plt.close(self.marker_plot_fig)
                 del self.marker_plot_fig
 
-            # canvas 관련 처리를 더 안전하게 수정
+            # canvas related processing
             if hasattr(self, 'canvas') and self.canvas:
                 try:
-                    # OpenGL 렌더러인 경우 - 이제 항상 이 경우
+                    # OpenGL renderer case - always this case
                     if hasattr(self, 'gl_renderer'):
                         if self.canvas == self.gl_renderer:
                             if hasattr(self.gl_renderer, 'pack_forget'):
@@ -796,7 +711,7 @@ class TRCViewer(ctk.CTk):
                             if hasattr(self, 'gl_renderer'):
                                 del self.gl_renderer
                 except Exception as e:
-                    print(f"Canvas 정리 중 오류: {e}")
+                    print(f"Error clearing canvas: {e}")
                 
                 self.canvas = None
 
@@ -805,7 +720,7 @@ class TRCViewer(ctk.CTk):
                     if hasattr(self.marker_canvas, 'get_tk_widget'):
                         self.marker_canvas.get_tk_widget().destroy()
                 except Exception as e:
-                    print(f"Marker canvas 정리 중 오류: {e}")
+                    print(f"Error clearing marker canvas: {e}")
                 
                 if hasattr(self, 'marker_canvas'):
                     del self.marker_canvas
@@ -938,8 +853,6 @@ class TRCViewer(ctk.CTk):
 
             # Update marker graph vertical line if it exists (Added)
             self._update_marker_plot_vertical_line_data()
-            # if hasattr(self, 'marker_canvas'):
-            #     self.marker_canvas.draw_idle() # Use draw_idle for potentially better performance in animation loop
 
             # remove speed slider related code and use default FPS
             base_fps = float(self.fps_var.get())
@@ -989,7 +902,6 @@ class TRCViewer(ctk.CTk):
 
     # TODO for edit mode:
     # 1. Create a new file for edit mode
-
     def toggle_edit_mode(self):
         """Toggles the editing mode for the marker plot."""
         if not self.current_marker: # Ensure a marker plot is shown

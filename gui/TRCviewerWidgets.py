@@ -1,6 +1,19 @@
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from utils.viewToggles import toggle_coordinates, toggle_analysis_mode
+
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
 
 def create_widgets(self):
     """
@@ -38,7 +51,7 @@ def create_widgets(self):
     self.coord_button = ctk.CTkButton(
         button_frame,
         text="Switch to Y-up" if self.is_z_up else "Switch to Z-up",
-        command=self.toggle_coordinates,
+        command=lambda: toggle_coordinates(self),
         **button_style
     )
     self.coord_button.pack(side='left', padx=5)
@@ -63,7 +76,7 @@ def create_widgets(self):
     self.analysis_button = ctk.CTkButton(
         button_frame,
         text="Analysis",
-        command=self.toggle_analysis_mode, # We will define this later
+        command=lambda: toggle_analysis_mode(self),
         **button_style
     )
     self.analysis_button.pack(side='left', padx=5)

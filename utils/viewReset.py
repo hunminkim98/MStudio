@@ -3,6 +3,17 @@ This module contains functions for resetting view states in the TRCViewer applic
 These functions were extracted from the main class to improve code organization.
 """
 
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
 def reset_main_view(self):
     """
     Resets the main 3D OpenGL view to its default state based on data limits.

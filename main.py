@@ -1,14 +1,13 @@
 import customtkinter as ctk
 from app import TRCViewer
 
-
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"
 __copyright__ = ""
 __credits__ = [""]
 __license__ = ""
-from importlib.metadata import version
-# __version__ = version('')
+# from importlib.metadata import version
+# __version__ = version('MEditor')
 __maintainer__ = "HunMin Kim"
 __email__ = "hunminkim98@gmail.com"
 __status__ = "Development"

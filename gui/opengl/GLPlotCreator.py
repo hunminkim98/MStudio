@@ -1,11 +1,20 @@
-import customtkinter as ctk
 from pyopengltk import OpenGLFrame
 from OpenGL import GL
 from OpenGL import GLU
 from OpenGL import GLUT
-import numpy as np
 import sys
 from .GridUtils import create_opengl_grid
+
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
 
 # Coordinate system rotation constants
 COORDINATE_X_ROTATION_Y_UP = -270.0  # X-axis rotation angle in Y-up coordinate system (-270 degrees)

@@ -4,13 +4,25 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from .markerPlotUI import build_marker_plot_buttons
 
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
 def show_marker_plot(self, marker_name):
     """
     Creates and displays a detailed plot for a specific marker.
     This function was extracted from the main class to improve code organization.
     
-    Note: 이 함수는 OpenGL 렌더링 모드에서도 matplotlib을 사용하여 그래프를 표시합니다.
+    Note: This function uses matplotlib to display the plot even in OpenGL rendering mode.
     """
+    
     # Save current states
     was_editing = getattr(self, 'is_editing', False)
     

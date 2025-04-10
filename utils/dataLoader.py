@@ -1,6 +1,17 @@
 import pandas as pd
 import c3d
 
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
 def read_data_from_c3d(c3d_file_path):
     """
     Read data from a C3D file and return header lines, data frame, marker names, and frame rate.
@@ -102,16 +113,16 @@ def open_file(viewer):
 
     if file_path:
         try:
-            # 현재 상태 초기화
+            # Reset the current state
             viewer.clear_current_state()
 
-            # 파일 정보 설정
+            # Set the file information
             viewer.current_file = file_path
             file_name = os.path.basename(file_path)
             file_extension = os.path.splitext(file_path)[1].lower()
             viewer.title_label.configure(text=file_name)
 
-            # 파일 확장자에 따라 데이터 로드
+            # Load the data based on the file extension
             if file_extension == '.trc':
                 header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_trc(file_path)
             elif file_extension == '.c3d':
@@ -119,7 +130,7 @@ def open_file(viewer):
             else:
                 raise Exception("Unsupported file format")
 
-            # 데이터 초기화
+            # Reset the data
             viewer.num_frames = viewer.data.shape[0]
             viewer.original_data = viewer.data.copy(deep=True)
             viewer.calculate_data_limits()
@@ -128,30 +139,30 @@ def open_file(viewer):
             viewer.frame_idx = 0
             viewer.update_timeline()
 
-            # 스켈레톤 모델 설정
+            # Set the skeleton model
             viewer.current_model = viewer.available_models[viewer.model_var.get()]
             viewer.update_skeleton_pairs()
             viewer.detect_outliers()
             
-            # 플롯 생성 (이제 항상 OpenGL)
+            # Create the plot (now always OpenGL)
             viewer.create_plot()
             
-            # 렌더러 초기화 대기 (필요 시)
+            # Wait for the renderer to initialize (if needed)
             viewer.update_idletasks() 
             
-            # 안전하게 뷰 리셋 및 업데이트
+            # Reset the view and update safely
             try:
                 viewer.reset_main_view()
             except Exception as e:
-                print(f"뷰 리셋 중 오류: {e}. 계속 진행합니다.")
+                print(f"Error resetting the view: {e}. Continuing...")
                 
-            # 플롯 업데이트 (오류 발생 시 폴백 로직 제거)
+            # Update the plot (if error, remove the fallback logic)
             try:
                 viewer.update_plot()
             except Exception as e:
-                print(f"초기 플롯 업데이트 중 오류: {e}")
+                print(f"Error updating the plot: {e}")
 
-            # UI 컨트롤 상태 업데이트
+            # Update the UI controls
             viewer.play_pause_button.configure(state='normal')
             viewer.loop_checkbox.configure(state='normal')
             viewer.is_playing = False

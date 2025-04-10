@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools >= 42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meditor"
+version = "0.1.0"
+description = "A 3D motion capture marker data visualization and editing tool"
+authors = [
+    {name = "HunMin Kim", email = "hunminkim98@gmail.com"},
+]
+readme = "README.md"
+license = { text = "MIT" } # Assuming MIT license text, adjust if file exists
+requires-python = ">=3.10"
+keywords = ["biomechanics", "kinemaics", "marker", "editor", "Pose2Sim", "Sports2D", "mocap", "motion capture", "human pose"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",  
+]
+urls = {Homepage = "https://github.com/hunminkim98/MEditor", "Bug Tracker" = "https://github.com/hunminkim98/MEditor/issues"}
+dependencies = [
+    "customtkinter",
+    "pose2sim",
+    "matplotlib",
+    "pyopengl",
+    "pyopengl-accelerate",
+    "pyopengltk",
+    "numpy>=1.19",
+    "pandas>=1.5",
+    "c3d",
+]
+
+[project.scripts]
+meditor = "main:main"
+
+[tool.setuptools]
+packages = {find = { where = ["."], include = ["utils*", "gui*"]}}
+include-package-data = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test.py" 

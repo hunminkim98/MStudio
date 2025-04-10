@@ -1,5 +1,13 @@
-import numpy as np
-import matplotlib.pyplot as plt
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
 
 class MouseHandler:
     def __init__(self, parent):
@@ -66,9 +74,9 @@ class MouseHandler:
 
     def on_marker_mouse_press(self, event):
         if event.button == 1:
-            # edit 모드일 때만 선택 가능하도록
+            # edit mode only
             if event.inaxes in self.parent.marker_axes and self.parent.is_editing:
-                # 기존 선택 영역 제거
+                # remove existing selection
                 self.parent.clear_selection()
                 self.selection_in_progress = True
                 self.parent.start_new_selection(event)

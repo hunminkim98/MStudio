@@ -5,6 +5,17 @@ These functions were extracted from the main class to improve code organization.
 
 import customtkinter as ctk
 
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
 def build_filter_parameter_widgets(parent_frame: ctk.CTkFrame, filter_type: str, filter_params_vars: dict):
     """
     Builds the specific parameter entry widgets for the selected filter type

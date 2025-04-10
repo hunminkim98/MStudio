@@ -1,8 +1,0 @@
-pandas
-numpy
-customtkinter
-matplotlib
-Pose2Sim
-pyopengltk
-pyopengl
-pyopengl-accelerate

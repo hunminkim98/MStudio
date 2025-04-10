@@ -5,7 +5,17 @@ from OpenGL import GLUT
 import numpy as np
 import pandas as pd
 from .GridUtils import create_opengl_grid
-import ctypes
+
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
 
 # Coordinate system rotation constants
 COORDINATE_X_ROTATION_Y_UP = 45  # X-axis rotation angle in Y-up coordinate system (-270 degrees)

@@ -1,8 +1,18 @@
 from OpenGL import GL
-import numpy as np
 
-# 좌표계 기본 설정
-DEFAULT_COORDINATE_SYSTEM = False  # False: Y-up (기본값), True: Z-up
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
+
+
+DEFAULT_COORDINATE_SYSTEM = False  # False: Y-up, True: Z-up
 
 def create_opengl_grid(grid_size=2.0, grid_divisions=20, color=(0.3, 0.3, 0.3), is_z_up=DEFAULT_COORDINATE_SYSTEM):
     """
@@ -25,10 +35,10 @@ def create_opengl_grid(grid_size=2.0, grid_divisions=20, color=(0.3, 0.3, 0.3), 
         The actual data coordinates are not affected by the coordinate system.
         This function is only used for visualization purposes.
     Args:
-        grid_size: 그리드 크기 (기본값: 2.0)
-        grid_divisions: 그리드 분할 수 (기본값: 20)
-        color: 그리드 색상 (R, G, B) (기본값: 어두운 회색)
-        is_z_up: Z-up 좌표계 사용 여부 (True: Z-up, False: Y-up)
+        grid_size: Grid size (default: 2.0)
+        grid_divisions: Grid divisions (default: 20)
+        color: Grid color (R, G, B) (default: dark gray)
+        is_z_up: Use Z-up coordinate system (True: Z-up, False: Y-up)
     
     Returns:
         grid_list: Created OpenGL display list ID

@@ -1,7 +1,18 @@
 import os
 import numpy as np
-import pandas as pd
+import c3d
 from tkinter import messagebox, filedialog
+
+## AUTHORSHIP INFORMATION
+__author__ = "HunMin Kim"
+__copyright__ = ""
+__credits__ = [""]
+__license__ = ""
+# from importlib.metadata import version
+# __version__ = version('MEditor')
+__maintainer__ = "HunMin Kim"
+__email__ = "hunminkim98@gmail.com"
+__status__ = "Development"
 
 def save_to_trc(file_path, data, fps, marker_names, num_frames):
     """
@@ -41,11 +52,6 @@ def save_to_c3d(file_path, data, fps, marker_names, num_frames):
         marker_names (list): List of marker names
         num_frames (int): Number of frames
     """
-    try:
-        import c3d
-    except ImportError:
-        messagebox.showerror("c3d Library Missing", "Please install the 'c3d' library to save in C3D format.")
-        return
 
     try:
         writer = c3d.Writer(point_rate=float(fps), analog_rate=0)
@@ -102,8 +108,6 @@ def save_as(viewer):
     Returns:
         bool: True if file was successfully saved, False otherwise
     """
-    from tkinter import messagebox, filedialog
-    import os
     
     if viewer.data is None:
         messagebox.showinfo("No Data", "There is no data to save.")
