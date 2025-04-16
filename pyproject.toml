@@ -3,7 +3,7 @@ requires = ["setuptools >= 42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "meditor"
+name = "MStudio"
 version = "0.1.0"
 description = "A motion capture marker data visualization and editing tool"
 authors = [
@@ -21,7 +21,7 @@ classifiers = [
 
     "Operating System :: OS Independent",  
 ]
-urls = {Homepage = "https://github.com/hunminkim98/MEditor", "Bug Tracker" = "https://github.com/hunminkim98/MEditor/issues"}
+urls = {Homepage = "https://github.com/hunminkim98/MStudio", "Bug Tracker" = "https://github.com/hunminkim98/MStudio/issues"}
 dependencies = [
     "customtkinter",
     "pose2sim",
@@ -35,11 +35,12 @@ dependencies = [
 ]
 
 [project.scripts]
-meditor = "MEditor.main:main"
+MStudio = "MStudio.main:main"
 
 [tool.setuptools]
-packages = {find = { where = ["."], include = ["MEditor*"]}}
-include-package-data = true
+packages = {find = { where = ["."], include = ["MStudio*"]}}
+
+[tool.setuptools.package-data]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

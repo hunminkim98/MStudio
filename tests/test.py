@@ -2,12 +2,12 @@ import pytest
 
 def test_import_main():
     try:
-        from MEditor import main
+        from MStudio import main
     except ImportError as e:
-        pytest.fail(f"Importing MEditor.main failed: {e}")
+        pytest.fail(f"Importing MStudio.main failed: {e}")
 
 def test_main_smoke():
-    from MEditor import main
+    from MStudio import main
     # Just check that main() can be called without crashing (no arguments)
     try:
         main()
