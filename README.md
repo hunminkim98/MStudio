@@ -8,7 +8,13 @@ A comprehensive toolkit for editing and managing 2D and 3D markers in motion cap
 
 ## 📦 Installation
 
-**PyPI (recommended):**
+**Step 1. Create a virtual environment using Anaconda (recommended):**
+```bash
+conda create -n mstudio python=3.10 -y
+conda activate mstudio
+```
+
+**Step 2. Install MStudio from PyPI:**
 ```bash
 pip install mstudio
 ```
