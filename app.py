@@ -357,7 +357,7 @@ class TRCViewer(ctk.CTk):
                         ])
                         prev_length = np.linalg.norm(p2_prev - p1_prev)
 
-                        if abs(current_length - prev_length) / prev_length > 0.25:
+                        if abs(current_length - prev_length) / prev_length > 1.0:
                             self.outliers[pair[0]][frame] = True
                             self.outliers[pair[1]][frame] = True
 
