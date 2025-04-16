@@ -22,9 +22,29 @@ pip install .
 
 ## 🚀 Quick Start
 
+### 1. Recommended: Run from the project root
+
+```bash
+# From the project root directory (the folder containing MEditor/ and README.md)
+python -m MEditor.main
+```
+
+- This ensures all package imports work correctly.
+- Do NOT run main.py directly from the MEditor/ subfolder, as this may cause ModuleNotFoundError.
+
+### 2. Alternative: Directly run main.py (with sys.path workaround)
+
+If you want to run main.py directly (not recommended for production), make sure the following lines are at the top of MEditor/main.py:
+
 ```python
-from MEditor import main
-main()  # or use the CLI: `meditor`
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+```
+
+Then you can run:
+
+```bash
+python MEditor/main.py
 ```
 
 ---

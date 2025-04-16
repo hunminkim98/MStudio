@@ -10,7 +10,7 @@ authors = [
     {name = "HunMin Kim", email = "hunminkim98@gmail.com"},
 ]
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.10"
 keywords = ["biomechanics", "kinemaics", "marker", "editor", "Pose2Sim", "Sports2D", "mocap", "motion capture", "human pose"]
 classifiers = [
@@ -18,7 +18,7 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Healthcare Industry",
-    "License :: OSI Approved :: MIT License",
+
     "Operating System :: OS Independent",  
 ]
 urls = {Homepage = "https://github.com/hunminkim98/MEditor", "Bug Tracker" = "https://github.com/hunminkim98/MEditor/issues"}

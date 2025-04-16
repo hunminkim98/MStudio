@@ -12,9 +12,9 @@ from MEditor.gui.plotCreator import create_plot
 from MEditor.gui.filterUI import on_filter_type_change, build_filter_parameter_widgets
 from MEditor.gui.markerPlotUI import build_marker_plot_buttons
 
-from MEditor.utils.utils.dataLoader import open_file
-from MEditor.utils.utils.dataSaver import save_as
-from MEditor.utils.utils.viewToggles import (
+from MEditor.utils.dataLoader import open_file
+from MEditor.utils.dataSaver import save_as
+from MEditor.utils.viewToggles import (
     toggle_marker_names,
     toggle_trajectory,
     toggle_animation,
