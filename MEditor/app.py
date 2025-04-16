@@ -19,9 +19,9 @@ from MEditor.utils.viewToggles import (
     toggle_trajectory,
     toggle_animation,
 )
-from utils.viewReset import reset_main_view, reset_graph_view
-from utils.dataProcessor import *
-from utils.mouseHandler import MouseHandler
+from MEditor.utils.viewReset import reset_main_view, reset_graph_view
+from MEditor.utils.dataProcessor import *
+from MEditor.utils.mouseHandler import MouseHandler
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"

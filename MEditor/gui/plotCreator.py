@@ -19,7 +19,7 @@ def create_plot(self):
     Now supports only OpenGL rendering mode.
     """
     try:
-        from gui.opengl.GLMarkerRenderer import MarkerGLRenderer
+        from MEditor.gui.opengl.GLMarkerRenderer import MarkerGLRenderer
         
         # If there is an existing canvas, destroy it
         if hasattr(self, 'canvas') and self.canvas:
