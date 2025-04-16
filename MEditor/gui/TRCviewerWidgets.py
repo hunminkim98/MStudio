@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from utils.viewToggles import toggle_coordinates, toggle_analysis_mode
+from MEditor.utils.utils.viewToggles import toggle_coordinates, toggle_analysis_mode
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"

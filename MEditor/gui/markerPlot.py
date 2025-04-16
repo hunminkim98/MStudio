@@ -2,7 +2,7 @@ import numpy as np
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from .markerPlotUI import build_marker_plot_buttons
+from MEditor.gui.markerPlotUI import build_marker_plot_buttons
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"

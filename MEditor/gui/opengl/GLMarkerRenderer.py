@@ -1,10 +1,10 @@
-from gui.opengl.GLPlotCreator import MarkerGLFrame
+from MEditor.gui.opengl.GLPlotCreator import MarkerGLFrame
 from OpenGL import GL
 from OpenGL import GLU
 from OpenGL import GLUT
 import numpy as np
 import pandas as pd
-from .GridUtils import create_opengl_grid
+from MEditor.gui.opengl.GridUtils import create_opengl_grid
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"

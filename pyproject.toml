@@ -35,12 +35,12 @@ dependencies = [
 ]
 
 [project.scripts]
-meditor = "main:main"
+meditor = "MEditor.main:main"
 
 [tool.setuptools]
-packages = {find = { where = ["."], include = ["utils*", "gui*"]}}
+packages = {find = { where = ["."], include = ["MEditor*"]}}
 include-package-data = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test.py" 
+python_files = "test.py"

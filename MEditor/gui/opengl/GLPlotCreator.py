@@ -3,7 +3,7 @@ from OpenGL import GL
 from OpenGL import GLU
 from OpenGL import GLUT
 import sys
-from .GridUtils import create_opengl_grid
+from MEditor.gui.opengl.GridUtils import create_opengl_grid
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"

@@ -6,15 +6,15 @@ from Pose2Sim.skeletons import *
 from Pose2Sim.filtering import *
 import matplotlib
 
-from gui.TRCviewerWidgets import create_widgets
-from gui.markerPlot import show_marker_plot
-from gui.plotCreator import create_plot
-from gui.filterUI import on_filter_type_change, build_filter_parameter_widgets
-from gui.markerPlotUI import build_marker_plot_buttons
+from MEditor.gui.TRCviewerWidgets import create_widgets
+from MEditor.gui.markerPlot import show_marker_plot
+from MEditor.gui.plotCreator import create_plot
+from MEditor.gui.filterUI import on_filter_type_change, build_filter_parameter_widgets
+from MEditor.gui.markerPlotUI import build_marker_plot_buttons
 
-from utils.dataLoader import open_file
-from utils.dataSaver import save_as
-from utils.viewToggles import (
+from MEditor.utils.utils.dataLoader import open_file
+from MEditor.utils.utils.dataSaver import save_as
+from MEditor.utils.utils.viewToggles import (
     toggle_marker_names,
     toggle_trajectory,
     toggle_animation,

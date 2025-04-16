@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from app import TRCViewer
+from MEditor.app import TRCViewer
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"

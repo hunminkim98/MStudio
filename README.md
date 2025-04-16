@@ -1,6 +1,38 @@
 # MEditor
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies. Designed to be compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim), and [Sports2D](https://github.com/davidpagnon/Sports2D), providing seamless integration for marker data processing and analysis.
 
+---
+
+## 📦 Installation
+
+**PyPI (recommended):**
+```bash
+pip install meditor
+```
+
+**From source:**
+```bash
+git clone https://github.com/hunminkim98/MEditor.git
+cd MarkerStudio
+pip install .
+```
+
+---
+
+## 🚀 Quick Start
+
+```python
+from MEditor import main
+main()  # or use the CLI: `meditor`
+```
+
+---
+
+## 📚 Documentation & Support
+- [Issue Tracker](https://github.com/hunminkim98/MEditor/issues)
+
+---
 
 ## Features
 
