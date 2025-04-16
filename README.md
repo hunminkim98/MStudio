@@ -22,26 +22,33 @@ pip install .
 
 ## 🚀 Quick Start
 
-### 1. Recommended: Run from the project root
+### The Easiest Way to Run MEditor (Recommended!)
+
+Just open your terminal in the project root folder (where you see both `README.md` and the `MEditor/` directory) and run:
 
 ```bash
-# From the project root directory (the folder containing MEditor/ and README.md)
 python -m MEditor.main
 ```
 
-- This ensures all package imports work correctly.
-- Do NOT run main.py directly from the MEditor/ subfolder, as this may cause ModuleNotFoundError.
+That’s it! This is the safest way to launch the app.
 
-### 2. Alternative: Directly run main.py (with sys.path workaround)
+> **Heads up!**
+> If you try to run `main.py` directly (like `python MEditor/main.py`), you might get an error like:
+> `ModuleNotFoundError: No module named 'MEditor'`
+> To avoid this, always use the command above from the root folder.
 
-If you want to run main.py directly (not recommended for production), make sure the following lines are at the top of MEditor/main.py:
+---
+
+### Want to Run main.py Directly?
+
+If you’re actively developing and want to quickly test changes, you can add these lines at the very top of `MEditor/main.py`:
 
 ```python
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 ```
 
-Then you can run:
+Now you can run:
 
 ```bash
 python MEditor/main.py
