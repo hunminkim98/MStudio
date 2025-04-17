@@ -4,7 +4,7 @@ This module provides data processing functionality for marker data in the TRCVie
 import numpy as np
 import pandas as pd
 from tkinter import messagebox
-from Pose2Sim.filtering import filter1d
+from MStudio.utils.filtering import *
 import logging
 
 logger = logging.getLogger(__name__)

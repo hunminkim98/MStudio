@@ -320,192 +320,192 @@ def median_filter_1d(config_dict, frame_rate, col):
     return col_filtered
 
 
-def display_figures_fun(Q_unfilt, Q_filt, time_col, keypoints_names, person_id=0):
-    '''
-    Displays filtered and unfiltered data for comparison
+# def display_figures_fun(Q_unfilt, Q_filt, time_col, keypoints_names, person_id=0):
+#     '''
+#     Displays filtered and unfiltered data for comparison
 
-    INPUTS:
-    - Q_unfilt: pandas dataframe of unfiltered 3D coordinates
-    - Q_filt: pandas dataframe of filtered 3D coordinates
-    - time_col: pandas column
-    - keypoints_names: list of strings
+#     INPUTS:
+#     - Q_unfilt: pandas dataframe of unfiltered 3D coordinates
+#     - Q_filt: pandas dataframe of filtered 3D coordinates
+#     - time_col: pandas column
+#     - keypoints_names: list of strings
 
-    OUTPUT:
-    - matplotlib window with tabbed figures for each keypoint
-    '''
+#     OUTPUT:
+#     - matplotlib window with tabbed figures for each keypoint
+#     '''
 
-    pw = plotWindow()
-    pw.MainWindow.setWindowTitle('Person '+ str(person_id) + ' coordinates')
-    for id, keypoint in enumerate(keypoints_names):
-        f = plt.figure()
+#     pw = plotWindow()
+#     pw.MainWindow.setWindowTitle('Person '+ str(person_id) + ' coordinates')
+#     for id, keypoint in enumerate(keypoints_names):
+#         f = plt.figure()
         
-        axX = plt.subplot(311)
-        plt.plot(time_col.to_numpy(), Q_unfilt.iloc[:,id*3].to_numpy(), label='unfiltered')
-        plt.plot(time_col.to_numpy(), Q_filt.iloc[:,id*3].to_numpy(), label='filtered')
-        plt.setp(axX.get_xticklabels(), visible=False)
-        axX.set_ylabel(keypoint+' X')
-        plt.legend()
+#         axX = plt.subplot(311)
+#         plt.plot(time_col.to_numpy(), Q_unfilt.iloc[:,id*3].to_numpy(), label='unfiltered')
+#         plt.plot(time_col.to_numpy(), Q_filt.iloc[:,id*3].to_numpy(), label='filtered')
+#         plt.setp(axX.get_xticklabels(), visible=False)
+#         axX.set_ylabel(keypoint+' X')
+#         plt.legend()
 
-        axY = plt.subplot(312)
-        plt.plot(time_col.to_numpy(), Q_unfilt.iloc[:,id*3+1].to_numpy(), label='unfiltered')
-        plt.plot(time_col.to_numpy(), Q_filt.iloc[:,id*3+1].to_numpy(), label='filtered')
-        plt.setp(axY.get_xticklabels(), visible=False)
-        axY.set_ylabel(keypoint+' Y')
-        plt.legend()
+#         axY = plt.subplot(312)
+#         plt.plot(time_col.to_numpy(), Q_unfilt.iloc[:,id*3+1].to_numpy(), label='unfiltered')
+#         plt.plot(time_col.to_numpy(), Q_filt.iloc[:,id*3+1].to_numpy(), label='filtered')
+#         plt.setp(axY.get_xticklabels(), visible=False)
+#         axY.set_ylabel(keypoint+' Y')
+#         plt.legend()
 
-        axZ = plt.subplot(313)
-        plt.plot(time_col.to_numpy(), Q_unfilt.iloc[:,id*3+2].to_numpy(), label='unfiltered')
-        plt.plot(time_col.to_numpy(), Q_filt.iloc[:,id*3+2].to_numpy(), label='filtered')
-        axZ.set_ylabel(keypoint+' Z')
-        axZ.set_xlabel('Time')
-        plt.legend()
+#         axZ = plt.subplot(313)
+#         plt.plot(time_col.to_numpy(), Q_unfilt.iloc[:,id*3+2].to_numpy(), label='unfiltered')
+#         plt.plot(time_col.to_numpy(), Q_filt.iloc[:,id*3+2].to_numpy(), label='filtered')
+#         axZ.set_ylabel(keypoint+' Z')
+#         axZ.set_xlabel('Time')
+#         plt.legend()
 
-        pw.addPlot(keypoint, f)
+#         pw.addPlot(keypoint, f)
     
-    pw.show()
+#     pw.show()
 
 
-def filter1d(col, config_dict, filter_type, frame_rate):
-    '''
-    Choose filter type and filter column
+# def filter1d(col, config_dict, filter_type, frame_rate):
+#     '''
+#     Choose filter type and filter column
 
-    INPUT:
-    - col: Pandas dataframe column
-    - filter_type: filter type from Config.toml
-    - frame_rate: int
+#     INPUT:
+#     - col: Pandas dataframe column
+#     - filter_type: filter type from Config.toml
+#     - frame_rate: int
     
-    OUTPUT:
-    - col_filtered: Filtered pandas dataframe column
-    '''
+#     OUTPUT:
+#     - col_filtered: Filtered pandas dataframe column
+#     '''
 
-    # Choose filter
-    filter_mapping = {
-        'kalman': kalman_filter_1d,
-        'butterworth': butterworth_filter_1d, 
-        'butterworth_on_speed': butterworth_on_speed_filter_1d, 
-        'gaussian': gaussian_filter_1d, 
-        'LOESS': loess_filter_1d, 
-        'median': median_filter_1d
-        }
-    filter_fun = filter_mapping[filter_type]
+#     # Choose filter
+#     filter_mapping = {
+#         'kalman': kalman_filter_1d,
+#         'butterworth': butterworth_filter_1d, 
+#         'butterworth_on_speed': butterworth_on_speed_filter_1d, 
+#         'gaussian': gaussian_filter_1d, 
+#         'LOESS': loess_filter_1d, 
+#         'median': median_filter_1d
+#         }
+#     filter_fun = filter_mapping[filter_type]
     
-    # Filter column
-    col_filtered = filter_fun(config_dict, frame_rate, col)
+#     # Filter column
+#     col_filtered = filter_fun(config_dict, frame_rate, col)
 
-    return col_filtered
+#     return col_filtered
 
 
-def recap_filter3d(config_dict, trc_path):
-    '''
-    Print a log message giving filtering parameters. Also stored in User/logs.txt.
+# def recap_filter3d(config_dict, trc_path):
+#     '''
+#     Print a log message giving filtering parameters. Also stored in User/logs.txt.
 
-    OUTPUT:
-    - Message in console
-    '''
+#     OUTPUT:
+#     - Message in console
+#     '''
 
-    # Read Config
-    filter_type = config_dict.get('filtering').get('type')
-    kalman_filter_trustratio = int(config_dict.get('filtering').get('kalman').get('trust_ratio'))
-    kalman_filter_smooth = int(config_dict.get('filtering').get('kalman').get('smooth'))
-    kalman_filter_smooth_str = 'smoother' if kalman_filter_smooth else 'filter'
-    butterworth_filter_type = 'low' # config_dict.get('filtering').get('butterworth').get('type')
-    butterworth_filter_order = int(config_dict.get('filtering').get('butterworth').get('order'))
-    butterworth_filter_cutoff = int(config_dict.get('filtering').get('butterworth').get('cut_off_frequency'))
-    butter_speed_filter_type = 'low' # config_dict.get('filtering').get('butterworth_on_speed').get('type')
-    butter_speed_filter_order = int(config_dict.get('filtering').get('butterworth_on_speed').get('order'))
-    butter_speed_filter_cutoff = int(config_dict.get('filtering').get('butterworth_on_speed').get('cut_off_frequency'))
-    gaussian_filter_sigma_kernel = int(config_dict.get('filtering').get('gaussian').get('sigma_kernel'))
-    loess_filter_nb_values = config_dict.get('filtering').get('LOESS').get('nb_values_used')
-    median_filter_kernel_size = config_dict.get('filtering').get('median').get('kernel_size')
-    make_c3d = config_dict.get('filtering').get('make_c3d')
+#     # Read Config
+#     filter_type = config_dict.get('filtering').get('type')
+#     kalman_filter_trustratio = int(config_dict.get('filtering').get('kalman').get('trust_ratio'))
+#     kalman_filter_smooth = int(config_dict.get('filtering').get('kalman').get('smooth'))
+#     kalman_filter_smooth_str = 'smoother' if kalman_filter_smooth else 'filter'
+#     butterworth_filter_type = 'low' # config_dict.get('filtering').get('butterworth').get('type')
+#     butterworth_filter_order = int(config_dict.get('filtering').get('butterworth').get('order'))
+#     butterworth_filter_cutoff = int(config_dict.get('filtering').get('butterworth').get('cut_off_frequency'))
+#     butter_speed_filter_type = 'low' # config_dict.get('filtering').get('butterworth_on_speed').get('type')
+#     butter_speed_filter_order = int(config_dict.get('filtering').get('butterworth_on_speed').get('order'))
+#     butter_speed_filter_cutoff = int(config_dict.get('filtering').get('butterworth_on_speed').get('cut_off_frequency'))
+#     gaussian_filter_sigma_kernel = int(config_dict.get('filtering').get('gaussian').get('sigma_kernel'))
+#     loess_filter_nb_values = config_dict.get('filtering').get('LOESS').get('nb_values_used')
+#     median_filter_kernel_size = config_dict.get('filtering').get('median').get('kernel_size')
+#     make_c3d = config_dict.get('filtering').get('make_c3d')
     
-    # Recap
-    filter_mapping_recap = {
-        'kalman': f'--> Filter type: Kalman {kalman_filter_smooth_str}. Measurements trusted {kalman_filter_trustratio} times as much as previous data, assuming a constant acceleration process.', 
-        'butterworth': f'--> Filter type: Butterworth {butterworth_filter_type}-pass. Order {butterworth_filter_order}, Cut-off frequency {butterworth_filter_cutoff} Hz.', 
-        'butterworth_on_speed': f'--> Filter type: Butterworth on speed {butter_speed_filter_type}-pass. Order {butter_speed_filter_order}, Cut-off frequency {butter_speed_filter_cutoff} Hz.', 
-        'gaussian': f'--> Filter type: Gaussian. Standard deviation kernel: {gaussian_filter_sigma_kernel}', 
-        'LOESS': f'--> Filter type: LOESS. Number of values used: {loess_filter_nb_values}', 
-        'median': f'--> Filter type: Median. Kernel size: {median_filter_kernel_size}'
-    }
-    logging.info(filter_mapping_recap[filter_type])
-    logging.info(f'Filtered 3D coordinates are stored at {trc_path}.\n')
-    if make_c3d:
-        logging.info('All filtered trc files have been converted to c3d.')
+#     # Recap
+#     filter_mapping_recap = {
+#         'kalman': f'--> Filter type: Kalman {kalman_filter_smooth_str}. Measurements trusted {kalman_filter_trustratio} times as much as previous data, assuming a constant acceleration process.', 
+#         'butterworth': f'--> Filter type: Butterworth {butterworth_filter_type}-pass. Order {butterworth_filter_order}, Cut-off frequency {butterworth_filter_cutoff} Hz.', 
+#         'butterworth_on_speed': f'--> Filter type: Butterworth on speed {butter_speed_filter_type}-pass. Order {butter_speed_filter_order}, Cut-off frequency {butter_speed_filter_cutoff} Hz.', 
+#         'gaussian': f'--> Filter type: Gaussian. Standard deviation kernel: {gaussian_filter_sigma_kernel}', 
+#         'LOESS': f'--> Filter type: LOESS. Number of values used: {loess_filter_nb_values}', 
+#         'median': f'--> Filter type: Median. Kernel size: {median_filter_kernel_size}'
+#     }
+#     logging.info(filter_mapping_recap[filter_type])
+#     logging.info(f'Filtered 3D coordinates are stored at {trc_path}.\n')
+#     if make_c3d:
+#         logging.info('All filtered trc files have been converted to c3d.')
 
 
-def filter_all(config_dict):
-    '''
-    Filter the 3D coordinates of the trc file.
-    Displays filtered coordinates for checking.
+# def filter_all(config_dict):
+#     '''
+#     Filter the 3D coordinates of the trc file.
+#     Displays filtered coordinates for checking.
 
-    INPUTS:
-    - a trc file
-    - filtration parameters from Config.toml
+#     INPUTS:
+#     - a trc file
+#     - filtration parameters from Config.toml
 
-    OUTPUT:
-    - a filtered trc file
-    '''
+#     OUTPUT:
+#     - a filtered trc file
+#     '''
 
-    # Read config_dict
-    project_dir = config_dict.get('project').get('project_dir')
-    pose3d_dir = os.path.realpath(os.path.join(project_dir, 'pose-3d'))
-    display_figures = config_dict.get('filtering').get('display_figures')
-    filter_type = config_dict.get('filtering').get('type')
-    make_c3d = config_dict.get('filtering').get('make_c3d')
+#     # Read config_dict
+#     project_dir = config_dict.get('project').get('project_dir')
+#     pose3d_dir = os.path.realpath(os.path.join(project_dir, 'pose-3d'))
+#     display_figures = config_dict.get('filtering').get('display_figures')
+#     filter_type = config_dict.get('filtering').get('type')
+#     make_c3d = config_dict.get('filtering').get('make_c3d')
 
-    # Get frame_rate
-    video_dir = os.path.join(project_dir, 'videos')
-    vid_img_extension = config_dict['pose']['vid_img_extension']
-    video_files = glob.glob(os.path.join(video_dir, '*'+vid_img_extension))
-    frame_rate = config_dict.get('project').get('frame_rate')
-    if frame_rate == 'auto': 
-        try:
-            cap = cv2.VideoCapture(video_files[0])
-            cap.read()
-            if cap.read()[0] == False:
-                raise
-            frame_rate = round(cap.get(cv2.CAP_PROP_FPS))
-        except:
-            frame_rate = 60
+#     # Get frame_rate
+#     video_dir = os.path.join(project_dir, 'videos')
+#     vid_img_extension = config_dict['pose']['vid_img_extension']
+#     video_files = glob.glob(os.path.join(video_dir, '*'+vid_img_extension))
+#     frame_rate = config_dict.get('project').get('frame_rate')
+#     if frame_rate == 'auto': 
+#         try:
+#             cap = cv2.VideoCapture(video_files[0])
+#             cap.read()
+#             if cap.read()[0] == False:
+#                 raise
+#             frame_rate = round(cap.get(cv2.CAP_PROP_FPS))
+#         except:
+#             frame_rate = 60
     
-    # Trc paths
-    trc_path_in = [file for file in glob.glob(os.path.join(pose3d_dir, '*.trc')) if 'filt' not in file]
-    trc_f_out = [f'{os.path.basename(t).split(".")[0]}_filt_{filter_type}.trc' for t in trc_path_in]
-    trc_path_out = [os.path.join(pose3d_dir, t) for t in trc_f_out]
+#     # Trc paths
+#     trc_path_in = [file for file in glob.glob(os.path.join(pose3d_dir, '*.trc')) if 'filt' not in file]
+#     trc_f_out = [f'{os.path.basename(t).split(".")[0]}_filt_{filter_type}.trc' for t in trc_path_in]
+#     trc_path_out = [os.path.join(pose3d_dir, t) for t in trc_f_out]
     
-    for person_id, (t_in, t_out) in enumerate(zip(trc_path_in, trc_path_out)):
-        # Read trc header
-        with open(t_in, 'r') as trc_file:
-            header = [next(trc_file) for line in range(5)]
+#     for person_id, (t_in, t_out) in enumerate(zip(trc_path_in, trc_path_out)):
+#         # Read trc header
+#         with open(t_in, 'r') as trc_file:
+#             header = [next(trc_file) for line in range(5)]
 
-        # Read trc coordinates values
-        trc_df = pd.read_csv(t_in, sep="\t", skiprows=4)
-        frames_col, time_col = trc_df.iloc[:,0], trc_df.iloc[:,1]
-        Q_coord = trc_df.drop(trc_df.columns[[0, 1, -1]], axis=1)
+#         # Read trc coordinates values
+#         trc_df = pd.read_csv(t_in, sep="\t", skiprows=4)
+#         frames_col, time_col = trc_df.iloc[:,0], trc_df.iloc[:,1]
+#         Q_coord = trc_df.drop(trc_df.columns[[0, 1, -1]], axis=1)
 
-        # Filter coordinates
-        Q_filt = Q_coord.apply(filter1d, axis=0, args = [config_dict, filter_type, frame_rate])
+#         # Filter coordinates
+#         Q_filt = Q_coord.apply(filter1d, axis=0, args = [config_dict, filter_type, frame_rate])
 
-        # Display figures
-        if display_figures:
-            # Retrieve keypoints
-            keypoints_names = pd.read_csv(t_in, sep="\t", skiprows=3, nrows=0).columns[2::3][:-1].to_numpy()
-            display_figures_fun(Q_coord, Q_filt, time_col, keypoints_names, person_id)
+#         # Display figures
+#         if display_figures:
+#             # Retrieve keypoints
+#             keypoints_names = pd.read_csv(t_in, sep="\t", skiprows=3, nrows=0).columns[2::3][:-1].to_numpy()
+#             display_figures_fun(Q_coord, Q_filt, time_col, keypoints_names, person_id)
 
-        # Reconstruct trc file with filtered coordinates
-        with open(t_out, 'w') as trc_o:
-            [trc_o.write(line) for line in header]
-            Q_filt.insert(0, 'Frame#', frames_col)
-            Q_filt.insert(1, 'Time', time_col)
-            # Q_filt = Q_filt.fillna(' ')
-            Q_filt.to_csv(trc_o, sep='\t', index=False, header=None, lineterminator='\n')
+#         # Reconstruct trc file with filtered coordinates
+#         with open(t_out, 'w') as trc_o:
+#             [trc_o.write(line) for line in header]
+#             Q_filt.insert(0, 'Frame#', frames_col)
+#             Q_filt.insert(1, 'Time', time_col)
+#             # Q_filt = Q_filt.fillna(' ')
+#             Q_filt.to_csv(trc_o, sep='\t', index=False, header=None, lineterminator='\n')
 
-        # Save c3d
-        if make_c3d:
-            convert_to_c3d(t_out)
+#         # Save c3d
+#         if make_c3d:
+#             convert_to_c3d(t_out)
 
-        # Recap
-        recap_filter3d(config_dict, t_out)
+#         # Recap
+#         recap_filter3d(config_dict, t_out)
 
 
