@@ -37,16 +37,16 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 from filterpy.kalman import KalmanFilter, rts_smoother
 from filterpy.common import Q_discrete_white_noise
 
-from Pose2Sim.common import plotWindow
-from Pose2Sim.common import convert_to_c3d
+# from Pose2Sim.common import plotWindow
+# from Pose2Sim.common import convert_to_c3d
 
 ## AUTHORSHIP INFORMATION
 __author__ = "David Pagnon"
 __copyright__ = "Copyright 2021, Pose2Sim"
 __credits__ = ["David Pagnon"]
 __license__ = "BSD 3-Clause License"
-from importlib.metadata import version
-__version__ = version('pose2sim')
+# from importlib.metadata import version
+# __version__ = version('pose2sim')
 __maintainer__ = "David Pagnon"
 __email__ = "contact@david-pagnon.com"
 __status__ = "Development"

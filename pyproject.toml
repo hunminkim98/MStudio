@@ -31,6 +31,9 @@ dependencies = [
     "pandas>=1.5",
     "c3d",
     "anytree",
+    "filterpy",
+    "scipy",
+    "statsmodels"
 ]
 
 [project.scripts]
