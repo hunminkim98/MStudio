@@ -30,6 +30,7 @@ dependencies = [
     "numpy>=1.19",
     "pandas>=1.5",
     "c3d",
+    "anytree",
 ]
 
 [project.scripts]
