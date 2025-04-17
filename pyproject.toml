@@ -10,8 +10,7 @@ authors = [
     {name = "HunMin Kim", email = "hunminkim98@gmail.com"},
 ]
 readme = "README.md"
-license = "MIT"
-requires-python = ">=3.10"
+license = { file = "LICENSE" }
 keywords = ["biomechanics", "kinemaics", "marker", "editor", "Pose2Sim", "Sports2D", "mocap", "motion capture", "human pose"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -24,7 +23,6 @@ classifiers = [
 urls = {Homepage = "https://github.com/hunminkim98/MStudio", "Bug Tracker" = "https://github.com/hunminkim98/MStudio/issues"}
 dependencies = [
     "customtkinter",
-    "pose2sim",
     "matplotlib",
     "pyopengl",
     "pyopengl-accelerate",

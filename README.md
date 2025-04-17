@@ -32,10 +32,9 @@ pip install .
 
 ### The Easiest Way to Run MStudio (Recommended!)
 
-Just open your terminal in the project root folder (where you see both `README.md` and the `MStudio/` directory) and run:
-
+Just open your terminal and run:
 ```bash
-python -m MStudio.main
+mstudio
 ```
 
 That's it! This is the safest way to launch the app.

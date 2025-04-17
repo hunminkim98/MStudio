@@ -2,8 +2,6 @@ import numpy as np
 import customtkinter as ctk
 from tkinter import messagebox
 import matplotlib.pyplot as plt
-from Pose2Sim.skeletons import *
-from Pose2Sim.filtering import *
 import matplotlib
 
 from MStudio.gui.TRCviewerWidgets import create_widgets
@@ -14,6 +12,8 @@ from MStudio.gui.markerPlotUI import build_marker_plot_buttons
 
 from MStudio.utils.dataLoader import open_file
 from MStudio.utils.dataSaver import save_as
+from MStudio.utils.skeletons import *
+from MStudio.utils.filtering import *
 from MStudio.utils.viewToggles import (
     toggle_marker_names,
     toggle_trajectory,

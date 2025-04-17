@@ -1,6 +1,9 @@
 import customtkinter as ctk
 from MStudio.app import TRCViewer
 
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"
 __copyright__ = ""
