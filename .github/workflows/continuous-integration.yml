@@ -1,0 +1,66 @@
+# Conda-based CI for MStudio
+# This workflow will install Python dependencies, run tests and lint on several OS with a several versions of Python
+# See: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+# This script is from Pose2Sim made by David Pagnon
+
+name: Build on Win-MacOS-Ubuntu with Python 3.10-3.11
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13] # Mac ARM M1 vs Intel processors
+        python-version: ["3.10", "3.11"]
+        include:
+          - os: ubuntu-latest
+            path: ~/.cache/pip
+          - os: macos-latest
+            path: ~/Library/Caches/pip
+          - os: windows-latest
+            path: ~\AppData\Local\pip\Cache
+            
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache conda packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.os == 'windows-latest' && 'C:\\Users\\runneradmin\\.conda' || '~/.conda' }}
+          key: ${{ runner.os }}-conda-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-conda-${{ matrix.python-version }}-
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          auto-update-conda: true
+          activate-environment: mstudio
+
+      - name: Install MStudio and tools
+        run: |
+          conda run -n mstudio python -m pip install --upgrade pip
+          conda run -n mstudio python -m pip install .
+          conda run -n mstudio python -m pip install pytest flake8
+
+      - name: Lint with flake8
+        run: |
+          conda run -n mstudio flake8 MStudio --count --select=E9,F63,F7,F82 --show-source --statistics
+          conda run -n mstudio flake8 MStudio --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run tests
+        run: |
+          conda run -n mstudio pytest tests --maxfail=1 --disable-warnings -q
+        env:
+          CI: true 
