@@ -101,6 +101,12 @@ python MStudio/main.py
 - Frame-by-frame navigation
 - Timeline scrubbing with time/frame display modes
 - Outlier detection and highlighting
+- **Analysis Mode:**
+  - Activate via the "Analysis" button.
+  - Left-click markers in the 3D view to select up to 3 markers.
+  - Visualize Euclidean distance (m) between 2 selected markers directly in the 3D view.
+  - Visualize joint angle (°) formed by 3 selected markers (using the second selected marker as the vertex) directly in the 3D view.
+  - Selected markers are highlighted (green, thicker) for clear identification.
 ### 🔧 Data Processing
 - Multiple filtering options:
   - Butterworth filter
@@ -113,4 +119,14 @@ python MStudio/main.py
 - Import TRC/C3D files
 - Export to TRC/C3D files
 - Original data preservation
+
+---
+
+## Future Enhancements / TODO
+
+- [ ] Add skeleton lines for trunk.
+- [ ] Drag and select multiple markers (requires changing left-click logic).
+- [ ] Choose the view by clicking the plane (inspired by OpenSim GUI).
+- [ ] Customize marker size, color, and opacity.
+- [ ] Add an arc for visualizing the range of motion.
 
