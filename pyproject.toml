@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MStudio"
-version = "0.1.1"
+version = "0.1.2"
 description = "A motion capture marker data visualization and editing tool"
 authors = [
     {name = "HunMin Kim", email = "hunminkim98@gmail.com"},

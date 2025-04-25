@@ -128,6 +128,7 @@ class TRCViewer(ctk.CTk):
         }
         self.current_model = None
         self.skeleton_pairs = []
+        self.show_skeleton = False 
 
         # --- Animation Attributes ---
         self.is_playing = False
@@ -635,6 +636,7 @@ class TRCViewer(ctk.CTk):
                         getattr(self, 'current_marker', None),
                         getattr(self, 'show_names', False),
                         getattr(self, 'show_trajectory', False),
+                        getattr(self, 'show_skeleton', False),
                         coordinate_system,
                         self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
                     )
@@ -775,7 +777,7 @@ class TRCViewer(ctk.CTk):
             # frame_slider related code
             self.title_label.configure(text="")
             self.show_names = False
-            self.show_skeleton = True
+            self.show_skeleton = False
             self.current_file = None
 
             # timeline initialization

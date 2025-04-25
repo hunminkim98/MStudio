@@ -124,9 +124,9 @@ python MStudio/main.py
 
 ## Future Enhancements / TODO
 
-- [ ] Add skeleton lines for trunk.
+- [v] Add skeleton lines for trunk.
 - [ ] Drag and select multiple markers (requires changing left-click logic).
 - [ ] Choose the view by clicking the plane (inspired by OpenSim GUI).
 - [ ] Customize marker size, color, and opacity.
-- [ ] Add an arc for visualizing the range of motion.
+- [v] Add an arc for visualizing the range of motion.
 

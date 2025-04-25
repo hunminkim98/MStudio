@@ -5,7 +5,7 @@ from OpenGL import GLUT
 import numpy as np
 import pandas as pd
 from MStudio.gui.opengl.GridUtils import create_opengl_grid
-from MStudio.utils.analysisMode import calculate_distance, calculate_angle 
+from MStudio.utils.analysisMode import calculate_distance, calculate_angle, calculate_arc_points, calculate_velocity, calculate_acceleration
 import logging
 
 logger = logging.getLogger(__name__)
@@ -602,11 +602,36 @@ class MarkerGLRenderer(MarkerGLFrame):
                             GL.glVertex3fv(p2)
                 GL.glEnd()
                 
-                # --- Reset LineWidth and Disable Blending --- 
-                GL.glLineWidth(1.0) # Reset to OpenGL default
-                GL.glDisable(GL.GL_BLEND)
-                # GL.glDisable(GL.GL_LINE_SMOOTH) # Optional
+                # --- Reset LineWidth and Disable Blending for standard skeleton--- 
+                # GL.glLineWidth(1.0) # Resetting here might interfere if torso lines need different width
+                # GL.glDisable(GL.GL_BLEND) # Keep blend enabled for torso potentially
                 # ------------------------------------------
+                
+                # --- Draw additional explicit torso lines (Now inside the skeleton check) --- 
+                explicit_torso_pairs = [
+                    ("RHip", "RShoulder"),
+                    ("LHip", "LShoulder"),
+                    ("RHip", "LHip"),
+                    ("RShoulder", "LShoulder")
+                ]
+                # Use the same style as normal skeleton lines (or adjust if needed)
+                # Ensure Blend is enabled if needed
+                # GL.glEnable(GL.GL_BLEND) # Already enabled from standard skeleton drawing
+                GL.glLineWidth(2.0) # Match normal skeleton line width
+                GL.glColor4f(0.7, 0.7, 0.7, 0.8) # Gray, Alpha 0.8
+                GL.glBegin(GL.GL_LINES)
+                for pair in explicit_torso_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+                        GL.glVertex3fv(p1)
+                        GL.glVertex3fv(p2)
+                GL.glEnd()
+                
+                # --- Final Reset after all skeleton + torso lines --- 
+                GL.glLineWidth(1.0) # Reset to OpenGL default
+                GL.glDisable(GL.GL_BLEND) # Disable blending after all skeleton/torso lines
+                # --- End additional torso lines ---
             
             # --- Analysis Mode Visualization ---
             if self.analysis_mode_active and len(self.analysis_selection) >= 1: 
@@ -626,8 +651,90 @@ class MarkerGLRenderer(MarkerGLFrame):
                     GL.glEnd()
                     GL.glPointSize(5.0) # Reset point size
 
-                    # Draw lines and text ONLY if 2 or more valid markers are selected
-                    if len(valid_analysis_markers) >= 2:
+                    # --- Calculations and Visualizations based on selection count --- 
+                    num_valid_analysis = len(valid_analysis_markers)
+                    
+                    # -- Velocity and Acceleration (1 Marker Selected) --
+                    if num_valid_analysis == 1:
+                        marker_name = valid_analysis_markers[0]
+                        current_pos = analysis_positions_raw[marker_name]
+                        frame_idx = self.frame_idx
+                        frame_rate = float(self.parent.fps_var.get()) # Get fps from parent
+                        
+                        # --- Get positions for velocity and acceleration calculation --- 
+                        pos_data = {}
+                        valid_indices = True
+                        for i in range(frame_idx - 2, frame_idx + 3): # Need i-2 to i+2 for accel calc
+                            if 0 <= i < self.num_frames:
+                                try:
+                                    pos_data[i] = self.data.loc[i, [f'{marker_name}_{c}' for c in 'XYZ']].values
+                                    if np.isnan(pos_data[i]).any():
+                                         # If any needed position is NaN, cannot proceed reliably
+                                         valid_indices = False
+                                         logger.debug(f"NaN found at frame {i} for {marker_name}, skipping vel/accel.")
+                                         break 
+                                except KeyError:
+                                    valid_indices = False
+                                    logger.debug(f"KeyError at frame {i} for {marker_name}, skipping vel/accel.")
+                                    break # Stop if data is missing
+                            else:
+                                # Frame index out of bounds
+                                valid_indices = False
+                                logger.debug(f"Frame index {i} out of bounds, skipping vel/accel.")
+                                break
+                                
+                        # --- Calculate Velocity and Acceleration (if data is valid) --- 
+                        velocity = None
+                        acceleration = None
+                        if valid_indices:
+                            # Calculate velocity at current frame (i)
+                            velocity = calculate_velocity(pos_data[frame_idx-1], current_pos, pos_data[frame_idx+1], frame_rate)
+                            
+                            # Calculate velocities at previous (i-1) and next (i+1) frames for acceleration
+                            vel_prev = calculate_velocity(pos_data[frame_idx-2], pos_data[frame_idx-1], current_pos, frame_rate)
+                            vel_next = calculate_velocity(current_pos, pos_data[frame_idx+1], pos_data[frame_idx+2], frame_rate)
+                            
+                            if vel_prev is not None and vel_next is not None:
+                                acceleration = calculate_acceleration(vel_prev, vel_next, frame_rate)
+
+                        # --- Display Text --- 
+                        analysis_text_lines = [] # Initialize empty list
+                        
+                        if velocity is not None:
+                            speed = np.linalg.norm(velocity)
+                            # Only add if speed is meaningful (optional threshold check can be added)
+                            analysis_text_lines.append(f"{speed:.2f} m/s") 
+                            
+                        if acceleration is not None:
+                            accel_mag = np.linalg.norm(acceleration)
+                            # Only add if acceleration is meaningful
+                            analysis_text_lines.append(f"{accel_mag:.2f} m/s²")
+
+                        # Only proceed with rendering if there is text to display
+                        if analysis_text_lines:
+                            text_color = (1.0, 1.0, 0.0) # Yellow
+                            text_base_pos = [current_pos[0], current_pos[1] + 0.04, current_pos[2]] # Base position above marker
+                            line_height_offset = 0.02 # Adjust for line spacing
+                            
+                            GL.glPushMatrix()
+                            GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT | GL.GL_DEPTH_BUFFER_BIT)
+                            GL.glDisable(GL.GL_DEPTH_TEST)
+                            GL.glColor3fv(text_color) 
+                            
+                            for i, line in enumerate(analysis_text_lines):
+                                # Adjust Y position for each line
+                                current_text_pos = [text_base_pos[0], text_base_pos[1] - i * line_height_offset, text_base_pos[2]]
+                                GL.glRasterPos3f(current_text_pos[0], current_text_pos[1], current_text_pos[2])
+                                for char in line:
+                                    try:
+                                        GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(char)) # Smaller font
+                                    except Exception: pass
+                                    
+                            GL.glPopAttrib()
+                            GL.glPopMatrix()
+
+                    # -- Distance / Angle (2 or 3 Markers Selected) --
+                    elif num_valid_analysis >= 2:
                         # Get positions in the selection order
                         analysis_positions_ordered = [analysis_positions_raw[m] for m in valid_analysis_markers]
 
@@ -666,7 +773,44 @@ class MarkerGLRenderer(MarkerGLFrame):
                             if angle is not None:
                                 analysis_text = f"{angle:.1f}\xb0" # Degree symbol
                                 text_position = [analysis_positions_ordered[1][0], analysis_positions_ordered[1][1] + 0.03, analysis_positions_ordered[1][2]]
+                                
+                                # Calculate and draw the arc
+                                arc_radius = min(np.linalg.norm(analysis_positions_ordered[0]-analysis_positions_ordered[1]), 
+                                                 np.linalg.norm(analysis_positions_ordered[2]-analysis_positions_ordered[1])) * 0.2 # Radius as 20% of shorter arm
+                                arc_points = calculate_arc_points(vertex=analysis_positions_ordered[1], 
+                                                                  p1=analysis_positions_ordered[0], 
+                                                                  p3=analysis_positions_ordered[2], 
+                                                                  radius=max(0.01, arc_radius), # Ensure minimum radius
+                                                                  num_segments=20)
+                                
+                                if arc_points:
+                                    # Draw the filled, semi-transparent arc using TRIANGLE_FAN
+                                    GL.glEnable(GL.GL_BLEND) # Ensure blend is enabled
+                                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA) 
+                                    GL.glDepthMask(GL.GL_FALSE) # Disable depth writing for transparency
+                                    
+                                    # Set color to semi-transparent green (match highlight color)
+                                    GL.glColor4f(1.0, 1.0, 0.0, 0.3) # yellow with 30% alpha
+                                    
+                                    GL.glBegin(GL.GL_TRIANGLE_FAN)
+                                    # Center vertex of the fan is the angle vertex
+                                    GL.glVertex3fv(analysis_positions_ordered[1]) 
+                                    # Outer vertices are the points along the arc
+                                    for point in arc_points:
+                                        GL.glVertex3fv(point)
+                                    GL.glEnd()
+                                    
+                                    # Optional: Draw outline of the arc (thinner line)
+                                    GL.glLineWidth(1.0)
+                                    GL.glColor4f(1.0, 1.0, 0.0, 0.7) # Slightly more opaque outline
+                                    GL.glBegin(GL.GL_LINE_STRIP)
+                                    for point in arc_points:
+                                        GL.glVertex3fv(point)
+                                    GL.glEnd()
 
+                                    GL.glDepthMask(GL.GL_TRUE) # Re-enable depth writing
+                                    # GL.glDisable(GL.GL_BLEND) # Optionally disable blend if not needed afterwards
+                                    
                         # Render the analysis text if available
                         if analysis_text and text_position:
                             GL.glPushMatrix()
@@ -802,7 +946,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.redraw()
     
     def set_frame_data(self, data, frame_idx, marker_names, current_marker=None, 
-                       show_marker_names=False, show_trajectory=False, 
+                       show_marker_names=False, show_trajectory=False, show_skeleton=False,
                        coordinate_system="z-up", skeleton_pairs=None):
         """
         Integrated data update method called from TRCViewer
@@ -814,6 +958,7 @@ class MarkerGLRenderer(MarkerGLFrame):
             current_marker: Currently selected marker name
             show_marker_names: Whether to display marker names
             show_trajectory: Whether to display trajectory
+            show_skeleton: Whether to display the skeleton
             coordinate_system: Coordinate system ("z-up" or "y-up")
             skeleton_pairs: List of skeleton pairs
         """
@@ -828,6 +973,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         
         self.show_marker_names = show_marker_names
         self.show_trajectory = show_trajectory
+        self.show_skeleton = show_skeleton
         self.coordinate_system = coordinate_system
         self.skeleton_pairs = skeleton_pairs
         
