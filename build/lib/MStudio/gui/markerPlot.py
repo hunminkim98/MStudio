@@ -54,25 +54,22 @@ def show_marker_plot(self, marker_name):
         initial_width = self.winfo_width() // 3
         self.right_panel.configure(width=initial_width)
         
-        # TODO: Currently, flickering occurs when resizing the window..
         # create and configure Sizer
-        # if not hasattr(self, 'sizer') or self.sizer is None:
-        #     self.sizer = ctk.CTkFrame(self.main_content, width=5, height=self.main_content.winfo_height(),
-        #                             fg_color="#666666", bg_color="black")
-        #     self.sizer.pack_propagate(False)
+        if not hasattr(self, 'sizer') or self.sizer is None:
+            self.sizer = ctk.CTkFrame(self.main_content, width=5, height=self.main_content.winfo_height(),
+                                    fg_color="#666666", bg_color="black")
+            self.sizer.pack(side='left', fill='y')
+            self.sizer.pack_propagate(False)
             
-        #     # Sizer bindings
-        #     self.sizer.bind('<Enter>', lambda e: (
-        #         self.sizer.configure(fg_color="#888888"),
-        #         self.sizer.configure(cursor="sb_h_double_arrow")
-        #     ))
-        #     self.sizer.bind('<Leave>', lambda e: self.sizer.configure(fg_color="#666666"))
-        #     self.sizer.bind('<Button-1>', self.start_resize)
-        #     self.sizer.bind('<B1-Motion>', self.do_resize)
-        #     self.sizer.bind('<ButtonRelease-1>', self.stop_resize)
-            
-        # # Always pack the sizer if the graph frame is being packed
-        # self.sizer.pack(side='left', fill='y')
+            # Sizer bindings
+            self.sizer.bind('<Enter>', lambda e: (
+                self.sizer.configure(fg_color="#888888"),
+                self.sizer.configure(cursor="sb_h_double_arrow")
+            ))
+            self.sizer.bind('<Leave>', lambda e: self.sizer.configure(fg_color="#666666"))
+            self.sizer.bind('<Button-1>', self.start_resize)
+            self.sizer.bind('<B1-Motion>', self.do_resize)
+            self.sizer.bind('<ButtonRelease-1>', self.stop_resize)
     
         self.graph_frame.pack(fill='both', expand=True)
 

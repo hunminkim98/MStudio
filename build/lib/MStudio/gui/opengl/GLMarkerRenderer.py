@@ -1119,9 +1119,15 @@ class MarkerGLRenderer(MarkerGLFrame):
                     
                     # Handle pattern selection mode
                     if self.pattern_selection_mode:
-                        # Notify the parent (TRCViewer) to handle the selection change
-                        self.parent.handle_pattern_marker_selection(selected_marker)
+                        if selected_marker in self.parent.pattern_markers:
+                            self.parent.pattern_markers.remove(selected_marker)
+                        else:
+                            self.parent.pattern_markers.add(selected_marker)
                         
+                        # Update the UI list in the parent (TRCViewer)
+                        if hasattr(self.parent, 'update_selected_markers_list'):
+                            self.parent.update_selected_markers_list()
+                            
                     # Handle normal marker selection mode
                     else:
                         # If the already selected marker is clicked again, deselect it

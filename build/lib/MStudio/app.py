@@ -410,11 +410,6 @@ class TRCViewer(ctk.CTk):
 
     def on_marker_selected(self, marker_name):
         """Handle marker selection event"""
-        
-        # If the clicked marker is already selected, deselect it
-        if marker_name == self.current_marker:
-            marker_name = None
-
         # Save current view state
         current_view_state = None
         if hasattr(self, 'gl_renderer'):
@@ -445,26 +440,12 @@ class TRCViewer(ctk.CTk):
             except Exception as e:
                 logger.error("Error updating markers list: %s", e, exc_info=True)
         
-        # Display marker plot (if marker is selected) or hide if deselected
+        # Display marker plot (if marker is selected)
         if marker_name is not None and hasattr(self, 'show_marker_plot'):
             try:
                 self.show_marker_plot(marker_name)
             except Exception as e:
                 logger.error("Error displaying marker plot: %s", e, exc_info=True)
-        elif marker_name is None:
-            # Hide graph frame, sizer, and right panel if they exist and are visible
-            if hasattr(self, 'graph_frame') and self.graph_frame.winfo_ismapped():
-                self.graph_frame.pack_forget()
-            if hasattr(self, 'sizer') and self.sizer.winfo_ismapped():
-                self.sizer.pack_forget()
-            if hasattr(self, 'right_panel') and self.right_panel.winfo_ismapped():
-                self.right_panel.pack_forget()
-            
-            # Disconnect mouse events from the (now hidden) marker canvas
-            self.disconnect_mouse_events()
-            # Clear the reference to the marker canvas
-            if hasattr(self, 'marker_canvas'):
-                del self.marker_canvas
         
         # Deliver selected marker information to OpenGL renderer
         if hasattr(self, 'gl_renderer'):
@@ -1148,7 +1129,7 @@ class TRCViewer(ctk.CTk):
             if hasattr(self, 'gl_renderer'):
                 self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
             messagebox.showinfo("Pattern Selection", 
-                "Left-click markers in the 3D view to select/deselect them as reference patterns.\n"
+                "Right-click markers in the 3D view to select/deselect them as reference patterns.\n"
                 "Selected markers will be shown in red.")
         else:
             # Disable pattern selection mode on the main app
@@ -1161,25 +1142,3 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
             self.marker_canvas.draw_idle()
-
-
-    def handle_pattern_marker_selection(self, marker_name):
-        """Handles the selection/deselection of a marker for pattern-based interpolation."""
-        if not self.pattern_selection_mode:
-            return # Should not happen if called correctly, but as a safeguard
-
-        if marker_name in self.pattern_markers:
-            self.pattern_markers.remove(marker_name)
-            logger.info(f"Removed {marker_name} from pattern markers.")
-        else:
-            self.pattern_markers.add(marker_name)
-            logger.info(f"Added {marker_name} to pattern markers.")
-
-        # Update the UI list showing selected markers
-        self.update_selected_markers_list()
-        
-        # Update the renderer state (important for visual feedback)
-        if hasattr(self, 'gl_renderer'):
-            self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
-            # Trigger redraw in the renderer to show color changes
-            self.gl_renderer.redraw() 

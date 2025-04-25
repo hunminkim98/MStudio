@@ -1,0 +1,168 @@
+Metadata-Version: 2.4
+Name: MStudio
+Version: 0.1.1
+Summary: A motion capture marker data visualization and editing tool
+Author-email: HunMin Kim <hunminkim98@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2025 HunMin Kim
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/hunminkim98/MStudio
+Project-URL: Bug Tracker, https://github.com/hunminkim98/MStudio/issues
+Keywords: biomechanics,kinemaics,marker,editor,Pose2Sim,Sports2D,mocap,motion capture,human pose
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: customtkinter
+Requires-Dist: matplotlib
+Requires-Dist: pyopengl
+Requires-Dist: pyopengl-accelerate
+Requires-Dist: pyopengltk
+Requires-Dist: numpy>=1.19
+Requires-Dist: pandas>=1.5
+Requires-Dist: c3d
+Requires-Dist: anytree
+Requires-Dist: filterpy
+Requires-Dist: scipy
+Requires-Dist: statsmodels
+Requires-Dist: opencv-python
+Dynamic: license-file
+
+# MStudio
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)\
+A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies. Designed to be compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim), and [Sports2D](https://github.com/davidpagnon/Sports2D), providing seamless integration for marker data processing and analysis.
+
+> **Note:** This is an initial release. Automated tests are minimal and only basic smoke tests are included. More comprehensive tests will be added in future updates.
+
+---
+
+## 📦 Installation
+
+**Step 1. Create a virtual environment using Anaconda (recommended):**
+```bash
+conda create -n mstudio python=3.10 -y
+conda activate mstudio
+```
+
+**Step 2. Install MStudio from PyPI:**
+```bash
+pip install mstudio
+```
+
+**From source:**
+```bash
+git clone https://github.com/hunminkim98/MStudio.git
+cd MStudio
+pip install .
+```
+
+---
+
+## 🚀 Quick Start
+
+### The Easiest Way to Run MStudio (Recommended!)
+
+Just open your terminal and run:
+```bash
+mstudio
+```
+
+That's it! This is the safest way to launch the app.
+
+> **Heads up!**
+> If you try to run `main.py` directly (like `python MStudio/main.py`), you might get an error like:
+> `ModuleNotFoundError: No module named 'MStudio'`
+> To avoid this, always use the command above from the root folder.
+
+---
+
+### Want to Run main.py Directly?
+
+If you're actively developing and want to quickly test changes, you can add these lines at the very top of `MStudio/main.py`:
+
+```python
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+```
+
+Now you can run:
+
+```bash
+python MStudio/main.py
+```
+
+---
+
+## 📚 Documentation & Support
+- [Issue Tracker](https://github.com/hunminkim98/MStudio/issues)
+
+---
+
+## Features
+
+### 🎯 3D Marker Visualization
+
+- Interactive 3D viewport with real-time marker display
+
+- Customizable marker colors and sizes (TODO)
+
+- Toggle marker labels visibility
+
+- Coordinate system switching (Z-up/Y-up)
+
+- Zoom and pan controls
+
+### 🦴 Skeleton 
+
+- Multiple pre-defined skeleton models:
+
+  - BODY_25B
+  - BODY_25
+  - BODY_135
+  - BLAZEPOSE
+  - HALPE (26/68/136)
+  - COCO (17/133)
+  - MPII
+- Toggle skeleton visibility
+- Color-coded connections for outlier detection
+### 📊 Data Analysis Tools
+- Marker trajectory visualization
+- Multi-axis coordinate plots
+- Frame-by-frame navigation
+- Timeline scrubbing with time/frame display modes
+- Outlier detection and highlighting
+### 🔧 Data Processing
+- Multiple filtering options:
+  - Butterworth filter
+  - Butterworth on speed
+  - Median filter
+- Customizable filter parameters
+- Pattern-based marker interpolation
+- Interactive data selection and editing
+### 💾 File Operations
+- Import TRC/C3D files
+- Export to TRC/C3D files
+- Original data preservation
+

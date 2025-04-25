@@ -313,52 +313,12 @@ def median_filter_1d(config_dict, frame_rate, col):
     - col_filtered: Filtered pandas dataframe column
     '''
     
-    # NOTE: this logic is added due to TypeError: 'numpy.float64' object cannot be interpreted as an integer
-    median_filter_kernel_size = int(config_dict.get('filtering').get('median').get('kernel_size'))
-    if not isinstance(median_filter_kernel_size, int) or median_filter_kernel_size <= 0:
-        # Default to 3 if conversion fails or value is not numeric
-        median_filter_kernel_size = 3
-        
-    # Ensure kernel size is odd
-    if median_filter_kernel_size % 2 == 0:
-        median_filter_kernel_size += 1
+    median_filter_kernel_size = config_dict.get('filtering').get('median').get('kernel_size')
     
-    # Ensure kernel size is at least 1
-    median_filter_kernel_size = max(1, median_filter_kernel_size)
-
     col_filtered = signal.medfilt(col, kernel_size=median_filter_kernel_size)
 
     return col_filtered
 
-
-def filter1d(col, config_dict, filter_type, frame_rate):
-    '''
-    Choose filter type and filter column
-
-    INPUT:
-    - col: Pandas dataframe column
-    - filter_type: filter type from Config.toml
-    - frame_rate: int
-    
-    OUTPUT:
-    - col_filtered: Filtered pandas dataframe column
-    '''
-
-    # Choose filter
-    filter_mapping = {
-        'kalman': kalman_filter_1d,
-        'butterworth': butterworth_filter_1d, 
-        'butterworth_on_speed': butterworth_on_speed_filter_1d, 
-        'gaussian': gaussian_filter_1d, 
-        'LOESS': loess_filter_1d, 
-        'median': median_filter_1d
-        }
-    filter_fun = filter_mapping[filter_type]
-    
-    # Filter column
-    col_filtered = filter_fun(config_dict, frame_rate, col)
-
-    return col_filtered
 
 # def display_figures_fun(Q_unfilt, Q_filt, time_col, keypoints_names, person_id=0):
 #     '''
@@ -405,6 +365,34 @@ def filter1d(col, config_dict, filter_type, frame_rate):
 #     pw.show()
 
 
+# def filter1d(col, config_dict, filter_type, frame_rate):
+#     '''
+#     Choose filter type and filter column
+
+#     INPUT:
+#     - col: Pandas dataframe column
+#     - filter_type: filter type from Config.toml
+#     - frame_rate: int
+    
+#     OUTPUT:
+#     - col_filtered: Filtered pandas dataframe column
+#     '''
+
+#     # Choose filter
+#     filter_mapping = {
+#         'kalman': kalman_filter_1d,
+#         'butterworth': butterworth_filter_1d, 
+#         'butterworth_on_speed': butterworth_on_speed_filter_1d, 
+#         'gaussian': gaussian_filter_1d, 
+#         'LOESS': loess_filter_1d, 
+#         'median': median_filter_1d
+#         }
+#     filter_fun = filter_mapping[filter_type]
+    
+#     # Filter column
+#     col_filtered = filter_fun(config_dict, frame_rate, col)
+
+#     return col_filtered
 
 
 # def recap_filter3d(config_dict, trc_path):

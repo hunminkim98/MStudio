@@ -6,6 +6,8 @@ import pandas as pd
 from tkinter import messagebox
 from MStudio.utils.filtering import *
 import logging
+from .filtering import filter1d
+from scipy.spatial.transform import Rotation # Import Rotation
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +98,11 @@ def filter_selected_data(self):
             series = self.data[col_name]
             
             # Apply Pose2Sim filter
-            filtered_data = filter1d(series, config_dict, filter_type, frame_rate)
+            filtered_series = filter1d(series.copy(), config_dict, filter_type, frame_rate)
             
-            # Update data
-            self.data[col_name] = filtered_data
+            # Update data only within the selected range, casting to original dtype to avoid warnings
+            original_dtype = self.data[col_name].dtype
+            self.data.loc[start_frame:end_frame, col_name] = filtered_series.loc[start_frame:end_frame].astype(original_dtype)
 
         # Update plots
         self.detect_outliers()
@@ -166,62 +169,92 @@ def interpolate_selected_data(self):
 
         for coord in ['X', 'Y', 'Z']:
             col_name = f'{self.current_marker}_{coord}'
-            series = self.data[col_name]
+            original_series = self.data[col_name] # No need for copy() if we update self.data directly
 
-            self.data.loc[start_frame:end_frame, col_name] = np.nan
+            # 1. Identify NaN indices *within* the selected range
+            nan_indices_in_range = self.data.loc[start_frame:end_frame, col_name].isnull()
+            target_indices = nan_indices_in_range[nan_indices_in_range].index
 
-            interp_kwargs = {}
-            if order is not None:
-                interp_kwargs['order'] = order
+            if not target_indices.empty: # Proceed only if there are NaNs in the selected range
+                interp_kwargs = {}
+                if method in ['polynomial', 'spline']:
+                    try:
+                        # Ensure order is an integer for polynomial/spline
+                        interp_kwargs['order'] = int(order)
+                    except (ValueError, TypeError):
+                        messagebox.showerror("Interpolation Error", f"Invalid order '{order}' for {method} interpolation. Please enter an integer.")
+                        return # Stop processing for this coordinate
+                
+                try:
+                    # 2. Perform full interpolation on the series to get potential values
+                    fully_interpolated_series = original_series.interpolate(method=method, limit_direction='both', **interp_kwargs)
 
-            try:
-                self.data[col_name] = series.interpolate(method=method, **interp_kwargs)
-            except Exception as e:
-                messagebox.showerror("Interpolation Error", f"Error interpolating {coord} with method '{method}': {e}")
-                return
+                    # 3. Selective update: Update the original data only at the target NaN indices
+                    self.data.loc[target_indices, col_name] = fully_interpolated_series.loc[target_indices]
+                    
+                except Exception as e:
+                    messagebox.showerror("Interpolation Error", f"Error interpolating {coord} with method '{method}': {e}")
+                    logger.error(f"Interpolation failed for {col_name}, method={method}, kwargs={interp_kwargs}: {e}", exc_info=True)
+                    # Optionally continue to the next coordinate or return
+                    return # Stop if one coordinate fails
 
-    self.detect_outliers()
-    self.show_marker_plot(self.current_marker)
+        self.detect_outliers()
+        self.show_marker_plot(self.current_marker)
 
-    for ax, view_state in zip(self.marker_axes, view_states):
-        ax.set_xlim(view_state['xlim'])
-        ax.set_ylim(view_state['ylim'])
+        for ax, view_state in zip(self.marker_axes, view_states):
+            ax.set_xlim(view_state['xlim'])
+            ax.set_ylim(view_state['ylim'])
 
-    self.update_plot()
+        self.update_plot()
 
-    self.selection_data['start'] = current_selection['start']
-    self.selection_data['end'] = current_selection['end']
-    self.highlight_selection()
+        self.selection_data['start'] = current_selection['start']
+        self.selection_data['end'] = current_selection['end']
+        self.highlight_selection()
 
 def interpolate_with_pattern(self):
     """
     Pattern-based interpolation using reference markers to interpolate target marker.
     This method uses spatial relationships between markers to estimate missing positions.
     """
-    try:
-        print(f"\nStarting pattern-based interpolation:")
-        print(f"Target marker to interpolate: {self.current_marker}")
-        print(f"Reference markers: {list(self.pattern_markers)}")
-        
+    try: 
         reference_markers = list(self.pattern_markers)
-        if not reference_markers:
-            print("Error: No reference markers selected")
-            messagebox.showerror("Error", "Please select reference markers")
+        if len(reference_markers) < 3:
+            messagebox.showerror("Error", "Please select at least 3 reference markers for robust pattern-based interpolation.")
             return
 
         start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
         end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
-        print(f"Frame range for interpolation: {start_frame} to {end_frame}")
+        logger.info(f"Frame range for interpolation: {start_frame} to {end_frame}")
         
-        # search for valid frames in entire dataset
-        print("\nSearching for valid target marker data...")
-        all_valid_frames = []
-        for frame in range(len(self.data)):
-            if not any(pd.isna(self.data.loc[frame, f'{self.current_marker}_{coord}']) 
-                      for coord in ['X', 'Y', 'Z']):
-                all_valid_frames.append(frame)
+        # --- Pre-extract data into NumPy arrays for performance ---
+        try:
+            target_cols = [f'{self.current_marker}_{c}' for c in 'XYZ']
+            ref_cols = [f'{m}_{c}' for m in reference_markers for c in 'XYZ']
+            
+            # Get data as NumPy arrays. Use .copy() for target data as we'll modify it.
+            target_data_np = self.data[target_cols].values.copy() 
+            ref_data_np = self.data[ref_cols].values
+            num_frames_total = len(target_data_np)
+            num_ref_markers = len(reference_markers)
+            
+            # Get original dtypes from DataFrame to cast back later
+            original_dtypes = {c: self.data[f'{self.current_marker}_{c}'].dtype for c in 'XYZ'}
+            
+        except KeyError as e:
+             messagebox.showerror("Error", f"Marker data column not found: {e}")
+             return
+        except Exception as e:
+             messagebox.showerror("Error", f"Failed to extract data into NumPy arrays: {e}")
+             logger.error("NumPy data extraction failed: %s", e, exc_info=True)
+             return
+             
+        # search for valid frames in entire dataset (using NumPy)
+        logger.info("Searching for valid target marker data...")
+        # Check rows where NONE of the XYZ coords are NaN
+        valid_target_mask = ~np.isnan(target_data_np).any(axis=1)
+        all_valid_frames = np.where(valid_target_mask)[0]
         
-        if not all_valid_frames:
+        if not all_valid_frames.size > 0:
             logger.error("Error: No valid data found for target marker in entire dataset")
             messagebox.showerror("Error", "No valid data found for target marker in entire dataset")
             return
@@ -234,78 +267,96 @@ def interpolate_with_pattern(self):
                           key=lambda x: min(abs(x - start_frame), abs(x - end_frame)))
         logger.info("Using frame %d as reference frame", closest_frame)
         
-        # Get initial positions using closest valid frame
-        target_pos_init = np.array([
-            self.data.loc[closest_frame, f'{self.current_marker}_X'],
-            self.data.loc[closest_frame, f'{self.current_marker}_Y'],
-            self.data.loc[closest_frame, f'{self.current_marker}_Z']
-        ])
-        logger.info("Initial target position: %s", target_pos_init)
-        
-        # Calculate initial distances and positions
-        marker_distances = {}
-        marker_positions_init = {}
-        
-        logger.info("Calculating initial distances:")
-        for ref_marker in reference_markers:
-            ref_pos = np.array([
-                self.data.loc[closest_frame, f'{ref_marker}_X'],
-                self.data.loc[closest_frame, f'{ref_marker}_Y'],
-                self.data.loc[closest_frame, f'{ref_marker}_Z']
-            ])
-            marker_positions_init[ref_marker] = ref_pos
-            marker_distances[ref_marker] = np.linalg.norm(target_pos_init - ref_pos)
-            logger.info("%s: Initial position: %s, Distance from target: %.3f", ref_marker, ref_pos, marker_distances[ref_marker])
-        
-        # Interpolate missing frames
-        logger.info("Starting frame interpolation:")
-        interpolated_count = 0
-        frames = range(start_frame, end_frame + 1)
-        for frame in frames:
-            # Check if target marker needs interpolation
-            if any(pd.isna(self.data.loc[frame, f'{self.current_marker}_{coord}']) 
-                  for coord in ['X', 'Y', 'Z']):
-                
-                weighted_pos = np.zeros(3)
-                total_weight = 0
-                
-                # Use each reference marker to estimate position
-                for ref_marker in reference_markers:
-                    current_ref_pos = np.array([
-                        self.data.loc[frame, f'{ref_marker}_X'],
-                        self.data.loc[frame, f'{ref_marker}_Y'],
-                        self.data.loc[frame, f'{ref_marker}_Z']
-                    ])
-                    
-                    # Calculate expected position based on initial distance
-                    init_distance = marker_distances[ref_marker]
-                    init_direction = target_pos_init - marker_positions_init[ref_marker]
-                    init_unit_vector = init_direction / np.linalg.norm(init_direction)
-                    
-                    # Weight based on initial distance
-                    weight = 1.0 / (init_distance + 1e-6)
-                    weighted_pos += weight * (current_ref_pos + init_unit_vector * init_distance)
-                    total_weight += weight
-                
-                # Calculate final interpolated position
-                interpolated_pos = weighted_pos / total_weight
-                
-                # Update target marker position
-                self.data.loc[frame, f'{self.current_marker}_X'] = interpolated_pos[0]
-                self.data.loc[frame, f'{self.current_marker}_Y'] = interpolated_pos[1]
-                self.data.loc[frame, f'{self.current_marker}_Z'] = interpolated_pos[2]
-                
-                interpolated_count += 1
-                
-                if frame % 10 == 0:
-                    logger.info("  Interpolated position: %s", interpolated_pos)
+        try:
+            # Reshape ref_data_np row for this frame into (num_ref_markers, 3)
+            P0 = ref_data_np[closest_frame].reshape(num_ref_markers, 3)
+            if np.isnan(P0).any():
+                messagebox.showerror("Error", f"Reference markers have NaN values in the chosen reference frame ({closest_frame}). Cannot proceed.")
+                return
+            p0_centroid = P0.mean(axis=0)
+            P0_centered = P0 - p0_centroid
             
-            elif frame % 10 == 0:
-                logger.info("Skipping frame %d (valid data exists)", frame)
+            # Target position from target_data_np
+            target_pos_init = target_data_np[closest_frame]
+            if np.isnan(target_pos_init).any():
+                 messagebox.showerror("Error", f"Target marker has NaN values in the chosen reference frame ({closest_frame}). Cannot proceed.")
+                 return
+            target_rel = target_pos_init - p0_centroid
+        except KeyError as e:
+            messagebox.showerror("Error", f"Marker data not found in reference frame {closest_frame}: {e}")
+            return
+        except Exception as e:
+            messagebox.showerror("Error", f"Error during initial state calculation: {e}")
+            logger.error("Error calculating initial state: %s", e, exc_info=True)
+            return
+            
+        logger.info("Initial state calculated.")
+        logger.info(f"  P0 Centroid: {p0_centroid}")
+        logger.info(f"  Target Relative Vector: {target_rel}")
         
-        logger.info("Interpolation completed successfully")
-        logger.info("Total frames interpolated: %d", interpolated_count)
+        # Interpolate missing frames using Kabsch/Procrustes
+        logger.info("Starting frame interpolation using rigid body transformation:")
+        interpolated_count = 0
+        # Iterate through the selected frame range
+        for frame in range(start_frame, end_frame + 1):
+            # Check if target marker needs interpolation (using NumPy array)
+            if np.isnan(target_data_np[frame]).any():
+                
+                # --- Current Frame Calculation (using NumPy) ---
+                try:
+                    # Reshape ref_data_np row for the current frame
+                    Q = ref_data_np[frame].reshape(num_ref_markers, 3)
+                    # Check if *any* reference marker is NaN in the current frame
+                    if np.isnan(Q).any():
+                        logger.warning(f"Skipping frame {frame}: NaN value found in reference markers.")
+                        continue # Skip this frame if reference data is missing
+                    
+                    q_centroid = Q.mean(axis=0)
+                    Q_centered = Q - q_centroid
+                except KeyError as e:
+                    logger.warning(f"Skipping frame {frame}: Marker data not found: {e}")
+                    continue
+                except Exception as e:
+                    logger.error(f"Error processing frame {frame}: {e}", exc_info=True)
+                    continue
+                    
+                # --- Find Optimal Rotation and Transform Target ---
+                try:
+                    # Find rotation that aligns initial centered points (P0_centered) to current centered points (Q_centered)
+                    R_opt, _ = Rotation.align_vectors(P0_centered, Q_centered)
+                    
+                    # Apply rotation to the initial relative target vector and add current centroid
+                    target_est = R_opt.apply(target_rel) + q_centroid
+                    
+                except Exception as e:
+                    logger.error(f"Error during alignment/transformation for frame {frame}: {e}", exc_info=True)
+                    continue # Skip frame if alignment fails
+                
+                try:
+                    target_data_np[frame, 0] = np.array(target_est[0]).astype(original_dtypes['X'])
+                    target_data_np[frame, 1] = np.array(target_est[1]).astype(original_dtypes['Y'])
+                    target_data_np[frame, 2] = np.array(target_est[2]).astype(original_dtypes['Z'])
+                    interpolated_count += 1
+                except Exception as e:
+                     logger.error(f"Error updating NumPy array for frame {frame}: {e}", exc_info=True)
+
+                if frame % 100 == 0: # Log every 100 frames
+                    logger.debug(f"  Frame {frame}: Interpolated position: {target_est}")
+            
+            elif frame % 100 == 0: 
+                logger.debug("Skipping frame %d (valid data exists)", frame)
         
+        logger.info("Interpolation loop completed.")
+        logger.info(f"Total frames processed in range: {end_frame - start_frame + 1}")
+        logger.info(f"Total frames interpolated: {interpolated_count}")
+
+        try:
+             self.data[target_cols] = target_data_np
+             logger.info("DataFrame updated with interpolated data.")
+        except Exception as e:
+             messagebox.showerror("Error", f"Failed to update DataFrame with results: {e}")
+             logger.error("DataFrame update failed: %s", e, exc_info=True)
+
         # end pattern-based mode and initialize
         self.pattern_selection_mode = False
         self.pattern_markers.clear()
