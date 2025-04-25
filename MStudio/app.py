@@ -3,6 +3,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 import matplotlib.pyplot as plt
 import matplotlib
+import os
 
 from MStudio.gui.TRCviewerWidgets import create_widgets
 from MStudio.gui.markerPlot import show_marker_plot
@@ -36,7 +37,11 @@ __status__ = "Development"
 
 # Interactive mode on
 plt.ion()
-matplotlib.use('TkAgg')
+# Conditionally set backend based on DISPLAY environment variable
+if os.environ.get('DISPLAY'):
+    matplotlib.use('TkAgg')
+else:
+    matplotlib.use('Agg') # Use non-interactive backend for headless environments (CI)
 
 
 # General TODO:
