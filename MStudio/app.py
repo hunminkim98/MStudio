@@ -148,6 +148,7 @@ class TRCViewer(ctk.CTk):
 
         # --- Analysis Mode ---
         self.is_analysis_mode = False
+        self.analysis_markers = [] # List to store selected markers for analysis
 
         # --- Key Bindings ---
         self.bind('<space>', lambda e: self.toggle_animation())
@@ -1161,6 +1162,87 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
         if hasattr(self, 'marker_canvas') and self.marker_canvas:
             self.marker_canvas.draw_idle()
+
+
+    def handle_pattern_marker_selection(self, marker_name):
+        """Handles the selection/deselection of a marker for pattern-based interpolation."""
+        if not self.pattern_selection_mode:
+            return # Should not happen if called correctly, but as a safeguard
+
+        if marker_name in self.pattern_markers:
+            self.pattern_markers.remove(marker_name)
+            logger.info(f"Removed {marker_name} from pattern markers.")
+        else:
+            self.pattern_markers.add(marker_name)
+            logger.info(f"Added {marker_name} to pattern markers.")
+
+        # Update the UI list showing selected markers
+        self.update_selected_markers_list()
+        
+        # Update the renderer state (important for visual feedback)
+        if hasattr(self, 'gl_renderer'):
+            self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
+            # Trigger redraw in the renderer to show color changes
+            self.gl_renderer.redraw() 
+
+
+    def toggle_analysis_mode(self):
+        """Toggles the analysis mode on/off."""
+        self.is_analysis_mode = not self.is_analysis_mode
+        logger.info(f"Analysis mode {'enabled' if self.is_analysis_mode else 'disabled'}.")
+
+        if not self.is_analysis_mode:
+            # Clear analysis markers when exiting the mode
+            self.analysis_markers.clear()
+            # Update renderer state if needed (e.g., remove highlights)
+            if hasattr(self, 'gl_renderer'):
+                # We need a way to tell the renderer about the mode change and selected markers
+                # Let's assume a method `set_analysis_state` exists or will be added
+                self.gl_renderer.set_analysis_state(self.is_analysis_mode, self.analysis_markers)
+                self.gl_renderer.redraw() # Redraw to remove highlights/text
+        else:
+            # Inform the user how to use the mode (Optional)
+            # messagebox.showinfo("Analysis Mode", "Analysis mode enabled. Left-click markers in the 3D view to select for analysis (up to 3).")
+            # Ensure renderer is aware of the mode change
+             if hasattr(self, 'gl_renderer'):
+                self.gl_renderer.set_analysis_state(self.is_analysis_mode, self.analysis_markers)
+                self.gl_renderer.redraw()
+
+        # Visually update the button state (assuming button exists)
+        if hasattr(self, 'analysis_button'):
+            if self.is_analysis_mode:
+                # Indicate active state (e.g., change color, text)
+                self.analysis_button.configure(fg_color="#00529B") # Example: Blue color when active
+            else:
+                # Indicate inactive state (e.g., default color)
+                self.analysis_button.configure(fg_color=["#3B3B3B", "#3B3B3B"]) # Example: Default button color
+
+
+    def handle_analysis_marker_selection(self, marker_name):
+        """Handles marker selection/deselection in analysis mode."""
+        if not self.is_analysis_mode:
+            logger.warning("handle_analysis_marker_selection called when not in analysis mode.")
+            return
+
+        if marker_name in self.analysis_markers:
+            self.analysis_markers.remove(marker_name)
+            logger.info(f"Removed {marker_name} from analysis markers.")
+        else:
+            if len(self.analysis_markers) < 3:
+                # Append marker. Order might be important for angle calculation (e.g., vertex is middle).
+                self.analysis_markers.append(marker_name) 
+                logger.info(f"Added {marker_name} to analysis markers: {self.analysis_markers}")
+            else:
+                # Notify user that the limit is reached
+                logger.warning(f"Cannot select more than 3 markers for analysis. Click existing marker to deselect.")
+                messagebox.showwarning("Analysis Mode", "You can select a maximum of 3 markers for analysis. Click on an already selected marker to deselect it.")
+                return # Do not proceed further if limit reached
+
+        # Update the renderer state with the new list and trigger redraw
+        if hasattr(self, 'gl_renderer'):
+            # Ensure the renderer knows the current mode state and the updated list
+            self.gl_renderer.set_analysis_state(self.is_analysis_mode, self.analysis_markers)
+            self.gl_renderer.redraw() # Redraw to show selection changes
 
 
     def handle_pattern_marker_selection(self, marker_name):

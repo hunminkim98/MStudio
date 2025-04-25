@@ -5,6 +5,7 @@ from OpenGL import GLUT
 import numpy as np
 import pandas as pd
 from MStudio.gui.opengl.GridUtils import create_opengl_grid
+from MStudio.utils.analysisMode import calculate_distance, calculate_angle 
 import logging
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,10 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.show_marker_names = False
         self.skeleton_pairs = None
         self.show_skeleton = False
+
+        # --- Analysis Mode State (internal to renderer) ---
+        self.analysis_mode_active = False
+        self.analysis_selection = [] # Store names of selected markers for analysis highlight
 
         # --- initial view state ---
         self.rot_x = 45
@@ -603,6 +608,84 @@ class MarkerGLRenderer(MarkerGLFrame):
                 # GL.glDisable(GL.GL_LINE_SMOOTH) # Optional
                 # ------------------------------------------
             
+            # --- Analysis Mode Visualization ---
+            if self.analysis_mode_active and len(self.analysis_selection) >= 1: 
+                try:
+                    # Highlight selected analysis markers (Green, larger size)
+                    GL.glPointSize(10.0) # Larger size for analysis selection
+                    GL.glColor3f(0.0, 1.0, 0.0) # Green color
+                    GL.glBegin(GL.GL_POINTS)
+                    analysis_positions_raw = {}
+                    valid_analysis_markers = []
+                    for marker_name in self.analysis_selection:
+                        if marker_name in marker_positions:
+                            pos = marker_positions[marker_name]
+                            analysis_positions_raw[marker_name] = np.array(pos) # Store as numpy array
+                            GL.glVertex3fv(pos)
+                            valid_analysis_markers.append(marker_name)
+                    GL.glEnd()
+                    GL.glPointSize(5.0) # Reset point size
+
+                    # Draw lines and text ONLY if 2 or more valid markers are selected
+                    if len(valid_analysis_markers) >= 2:
+                        # Get positions in the selection order
+                        analysis_positions_ordered = [analysis_positions_raw[m] for m in valid_analysis_markers]
+
+                        # Draw thicker lines between selected markers
+                        GL.glLineWidth(3.0) # Thicker line for analysis
+                        GL.glColor3f(0.0, 1.0, 0.0) # Green color for analysis lines
+                        if len(analysis_positions_ordered) == 2:
+                            GL.glBegin(GL.GL_LINES)
+                            GL.glVertex3fv(analysis_positions_ordered[0])
+                            GL.glVertex3fv(analysis_positions_ordered[1])
+                            GL.glEnd()
+                        elif len(analysis_positions_ordered) == 3:
+                            GL.glBegin(GL.GL_LINES)
+                            # Draw lines based on selection order: 0->1 and 1->2
+                            GL.glVertex3fv(analysis_positions_ordered[0])
+                            GL.glVertex3fv(analysis_positions_ordered[1]) 
+                            GL.glVertex3fv(analysis_positions_ordered[1])
+                            GL.glVertex3fv(analysis_positions_ordered[2]) 
+                            GL.glEnd()
+                        GL.glLineWidth(1.0) # Reset line width
+
+                        # Calculate and prepare text for display
+                        analysis_text = ""
+                        text_position = None
+                        
+                        if len(analysis_positions_ordered) == 2:
+                            distance = calculate_distance(analysis_positions_ordered[0], analysis_positions_ordered[1])
+                            if distance is not None:
+                                analysis_text = f"{distance:.3f} m"
+                                mid_point = (analysis_positions_ordered[0] + analysis_positions_ordered[1]) / 2
+                                text_position = [mid_point[0], mid_point[1] + 0.02, mid_point[2]]
+                                
+                        elif len(analysis_positions_ordered) == 3:
+                            # Angle at the vertex (second selected marker)
+                            angle = calculate_angle(analysis_positions_ordered[0], analysis_positions_ordered[1], analysis_positions_ordered[2])
+                            if angle is not None:
+                                analysis_text = f"{angle:.1f}\xb0" # Degree symbol
+                                text_position = [analysis_positions_ordered[1][0], analysis_positions_ordered[1][1] + 0.03, analysis_positions_ordered[1][2]]
+
+                        # Render the analysis text if available
+                        if analysis_text and text_position:
+                            GL.glPushMatrix()
+                            GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT | GL.GL_DEPTH_BUFFER_BIT)
+                            GL.glDisable(GL.GL_DEPTH_TEST) # Draw text on top
+                            GL.glColor3f(0.0, 1.0, 0.0) # Green text
+                            GL.glRasterPos3f(text_position[0], text_position[1], text_position[2])
+                            for char in analysis_text:
+                                try:
+                                    GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord(char))
+                                except Exception as glut_error:
+                                    pass 
+                            GL.glPopAttrib()
+                            GL.glPopMatrix()
+                            
+                except Exception as analysis_error:
+                     logger.error(f"Error during analysis visualization: {analysis_error}", exc_info=True)
+            # --- Analysis Mode Visualization End ---
+
             # Trajectory rendering
             if self.current_marker is not None and hasattr(self, 'show_trajectory') and self.show_trajectory:
                 trajectory_points = []
@@ -1117,12 +1200,19 @@ class MarkerGLRenderer(MarkerGLFrame):
                 if 0 <= marker_idx < len(self.marker_names):
                     selected_marker = self.marker_names[marker_idx]
                     
-                    # Handle pattern selection mode
-                    if self.pattern_selection_mode:
+                    # --- Mode-Dependent Handling ---
+                    # Handle ANALYSIS mode selection (using left-click, hence in pick_marker)
+                    if self.analysis_mode_active:
+                        self.parent.handle_analysis_marker_selection(selected_marker)
+                        # In analysis mode, we don't update self.current_marker or call _notify_marker_selected
+                        # Highlighting is handled by analysis_selection list during redraw.
+
+                    # Handle PATTERN selection mode (using right-click, logic remains here for now)
+                    elif self.pattern_selection_mode:
                         # Notify the parent (TRCViewer) to handle the selection change
                         self.parent.handle_pattern_marker_selection(selected_marker)
-                        
-                    # Handle normal marker selection mode
+                            
+                    # Handle NORMAL marker selection mode
                     else:
                         # If the already selected marker is clicked again, deselect it
                         if self.current_marker == selected_marker:
@@ -1213,3 +1303,12 @@ class MarkerGLRenderer(MarkerGLFrame):
         # Check if GL is initialized before attempting to redraw
         if self.gl_initialized:
              self.redraw()
+
+    def set_analysis_state(self, is_active: bool, selected_markers: list):
+        """Sets the analysis mode state and the list of selected markers."""
+        self.analysis_mode_active = is_active
+        # Make a copy to avoid direct modification issues if parent list changes elsewhere
+        self.analysis_selection = list(selected_markers) 
+        logger.debug(f"Renderer analysis state updated: Active={self.analysis_mode_active}, Selection={self.analysis_selection}")
+        # No redraw here, redraw will be triggered by the caller (TRCViewer) if needed
+        # Or redraw might be called automatically if other state changes concurrently

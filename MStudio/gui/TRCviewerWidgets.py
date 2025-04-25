@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from MStudio.utils.viewToggles import toggle_coordinates, toggle_analysis_mode
+from MStudio.utils.viewToggles import toggle_coordinates
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"
@@ -72,11 +72,11 @@ def create_widgets(self):
     )
     self.trajectory_button.pack(side='left', padx=5)
 
-    # Analysis button (placeholder command)
+    # Analysis button (connect to the method in TRCViewer)
     self.analysis_button = ctk.CTkButton(
         button_frame,
         text="Analysis",
-        command=lambda: toggle_analysis_mode(self),
+        command=self.toggle_analysis_mode,
         **button_style
     )
     self.analysis_button.pack(side='left', padx=5)
