@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 
 def test_import_main():
     try:
@@ -6,7 +7,8 @@ def test_import_main():
     except ImportError as e:
         pytest.fail(f"Importing MStudio.main failed: {e}")
 
-def test_main_smoke():
+@patch('MStudio.main.TRCViewer')
+def test_main_smoke(mock_trc_viewer):
     from MStudio.main import main
     # Just check that main() can be called without crashing (no arguments)
     try:
