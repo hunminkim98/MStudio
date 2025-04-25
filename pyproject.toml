@@ -33,7 +33,8 @@ dependencies = [
     "anytree",
     "filterpy",
     "scipy",
-    "statsmodels"
+    "statsmodels",
+    "opencv-python"
 ]
 
 [project.scripts]
