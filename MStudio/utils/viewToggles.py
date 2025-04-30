@@ -98,38 +98,40 @@ def toggle_coordinates(self):
     if hasattr(self, 'gl_renderer'):
         if hasattr(self.gl_renderer, 'set_coordinate_system'):
             self.gl_renderer.set_coordinate_system(self.is_z_up)
-        
-        # request the screen to be forcefully updated - with a slight delay
-        self.after(50, lambda: _force_update_opengl(self))
+            
+    # request the screen to be forcefully updated - with a slight delay
+    self.after(50, lambda: _force_update_opengl(self))
 
 
 def _force_update_opengl(self):
     """Forcefully update the OpenGL renderer's screen."""
     if not hasattr(self, 'gl_renderer'):
         return
-        
-    try:
-        # reset the current frame to force the update
-        if self.data is not None:
-            self.gl_renderer.set_frame_data(
-                data=self.data,
-                frame_idx=self.frame_idx,
-                marker_names=self.marker_names,
-                current_marker=getattr(self, 'current_marker', None), # Use getattr for safety
-                show_marker_names=getattr(self, 'show_names', False), # Use getattr
-                show_trajectory=getattr(self, 'show_trajectory', False), # Use getattr
-                coordinate_system="z-up" if self.is_z_up else "y-up",
-                skeleton_pairs=self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
-            )
-            
-            # update the screen command
-            self.gl_renderer._force_redraw()
-            
-            # request the screen to be forcefully updated again (for safety)
-            self.after(100, lambda: self.gl_renderer.redraw())
-            
-    except Exception as e:
-        logger.error("Error in _force_update_opengl within viewToggles: %s", e, exc_info=True)
+    
+    # NOTE: 2025-04-30: Fixed bug when change coordinate system, the skeleton reset.
+    # --- Step 1: Ensure skeleton state is correct FIRST --- 
+    if hasattr(self, 'on_model_change') and hasattr(self, 'model_var'):
+        current_model = self.model_var.get()
+        if current_model != 'No skeleton': # Avoid unnecessary calls if no skeleton is selected
+            self.on_model_change(current_model) 
+    # ---------------------------------------------------------
+
+    # --- Step 2: Update renderer data with correct skeleton info ---
+    # Call update_data on the renderer with the expected arguments
+    if hasattr(self.gl_renderer, 'update_data') and self.data is not None:
+        self.gl_renderer.update_data(
+            data=self.data, 
+            frame_idx=self.frame_idx
+        )
+
+    # --- Step 3: Trigger redraw ---
+    # Existing redraw logic
+    if hasattr(self.gl_renderer, '_force_redraw'):
+        self.gl_renderer._force_redraw()
+
+    # Existing delayed redraw as fallback
+    if hasattr(self.gl_renderer, 'redraw'):
+        self.after(100, lambda: self.gl_renderer.redraw())
 
 
 # TODO for analysis mode:

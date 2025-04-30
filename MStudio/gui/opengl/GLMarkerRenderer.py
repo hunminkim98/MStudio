@@ -789,6 +789,9 @@ class MarkerGLRenderer(MarkerGLFrame):
                                     GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA) 
                                     GL.glDepthMask(GL.GL_FALSE) # Disable depth writing for transparency
                                     
+                                    # Disable face culling to ensure the arc is visible from both sides
+                                    GL.glDisable(GL.GL_CULL_FACE)
+                                    
                                     # Set color to semi-transparent green (match highlight color)
                                     GL.glColor4f(1.0, 1.0, 0.0, 0.3) # yellow with 30% alpha
                                     
@@ -799,6 +802,9 @@ class MarkerGLRenderer(MarkerGLFrame):
                                     for point in arc_points:
                                         GL.glVertex3fv(point)
                                     GL.glEnd()
+                                    
+                                    # Re-enable face culling
+                                    GL.glEnable(GL.GL_CULL_FACE)
                                     
                                     # Optional: Draw outline of the arc (thinner line)
                                     GL.glLineWidth(1.0)

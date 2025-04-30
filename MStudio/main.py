@@ -32,9 +32,7 @@ if __name__ == "__main__":
 
 
 # TODO:
-# 1. Add skeleton lines for trunk.
-# 2. Drag and select multiple markers. <- Should change the logic of the left click.
-# 3. Choice the view by clicking the plane (inspired from OpenSim GUI)
-# 4. Marker size, color, opacity.
-# 5. Add an arc for visualizing the range of motion.
+# 1. Drag and select multiple markers. <- Should change the logic of the left click.
+# 2. Choice the view by clicking the plane (inspired from OpenSim GUI)
+# 3. Marker size, color, opacity.
 
