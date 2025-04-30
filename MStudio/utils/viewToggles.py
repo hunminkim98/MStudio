@@ -108,7 +108,6 @@ def _force_update_opengl(self):
     if not hasattr(self, 'gl_renderer'):
         return
     
-    # NOTE: 2025-04-30: Fixed bug when change coordinate system, the skeleton reset.
     # --- Step 1: Ensure skeleton state is correct FIRST --- 
     if hasattr(self, 'on_model_change') and hasattr(self, 'model_var'):
         current_model = self.model_var.get()

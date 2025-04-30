@@ -29,6 +29,13 @@ COORDINATE_X_ROTATION_Z_UP = -90  # X-axis rotation angle in Z-up coordinate sys
 COORDINATE_SYSTEM_Y_UP = "y-up"
 COORDINATE_SYSTEM_Z_UP = "z-up"
 
+# Scale factor for reference line length in analysis mode
+REF_LINE_SCALE = 0.33
+
+# Font constants for text rendering (smaller sizes)
+SMALL_FONT = GLUT.GLUT_BITMAP_HELVETICA_12
+LARGE_FONT = GLUT.GLUT_BITMAP_HELVETICA_18
+
 # Picking Texture Class
 class PickingTexture:
     """Picking texture class for marker selection"""
@@ -359,7 +366,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         GL.glColor3f(1.0, 0.0, 0.0)  # Red
         GL.glRasterPos3f(axis_length + text_offset, offset_y, 0)
         try:
-            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('X'))
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord('X'))
         except:
             pass  # Skip label rendering if GLUT is unavailable
         
@@ -367,7 +374,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         GL.glColor3f(1.0, 1.0, 0.0)  # Yellow
         GL.glRasterPos3f(0, axis_length + text_offset + offset_y, 0)
         try:
-            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Y'))
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord('Y'))
         except:
             pass
         
@@ -375,7 +382,7 @@ class MarkerGLRenderer(MarkerGLFrame):
         GL.glColor3f(0.0, 0.0, 1.0)  # Blue
         GL.glRasterPos3f(0, offset_y, axis_length + text_offset)
         try:
-            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord('Z'))
+            GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord('Z'))
         except:
             pass
         
@@ -727,8 +734,9 @@ class MarkerGLRenderer(MarkerGLFrame):
                                 GL.glRasterPos3f(current_text_pos[0], current_text_pos[1], current_text_pos[2])
                                 for char in line:
                                     try:
-                                        GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(char)) # Smaller font
-                                    except Exception: pass
+                                        GLUT.glutBitmapCharacter(SMALL_FONT, ord(char)) # Smaller font
+                                    except Exception:
+                                        pass
                                     
                             GL.glPopAttrib()
                             GL.glPopMatrix()
@@ -746,6 +754,45 @@ class MarkerGLRenderer(MarkerGLFrame):
                             GL.glVertex3fv(analysis_positions_ordered[0])
                             GL.glVertex3fv(analysis_positions_ordered[1])
                             GL.glEnd()
+                            # Draw reference horizontal line and arc for segment angle
+                            pA = analysis_positions_ordered[0]
+                            pB = analysis_positions_ordered[1]
+                            v = pA - pB
+                            norm_v = np.linalg.norm(v)
+                            if norm_v > 0:
+                                u = np.array([1.0, 0.0, 0.0])
+                                # reference line
+                                GL.glLineWidth(1.5)
+                                GL.glColor3f(0.3, 0.7, 0.3)
+                                GL.glBegin(GL.GL_LINES)
+                                GL.glVertex3fv(pB)
+                                GL.glVertex3fv(pB + u * norm_v * REF_LINE_SCALE)
+                                GL.glEnd()
+                                # arc
+                                radius = norm_v * 0.2
+                                p_ref = pB + u * radius
+                                p_seg = pB + (v / norm_v) * radius
+                                pts = calculate_arc_points(vertex=pB, p1=p_ref, p3=p_seg, radius=radius, num_segments=20)
+                                if pts:
+                                    GL.glEnable(GL.GL_BLEND)
+                                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                                    GL.glDepthMask(GL.GL_FALSE)
+                                    GL.glDisable(GL.GL_CULL_FACE)
+                                    GL.glColor4f(1.0, 0.6, 0.0, 0.5)
+                                    GL.glBegin(GL.GL_TRIANGLE_FAN)
+                                    GL.glVertex3fv(pB)
+                                    for pt in pts:
+                                        GL.glVertex3fv(pt)
+                                    GL.glEnd()
+                                    GL.glEnable(GL.GL_CULL_FACE)
+                                    GL.glLineWidth(1.0)
+                                    GL.glColor4f(1.0, 0.6, 0.0, 0.8)
+                                    GL.glBegin(GL.GL_LINE_STRIP)
+                                    for pt in pts:
+                                        GL.glVertex3fv(pt)
+                                    GL.glEnd()
+                                    GL.glDepthMask(GL.GL_TRUE)
+                            GL.glLineWidth(1.0)
                         elif len(analysis_positions_ordered) == 3:
                             GL.glBegin(GL.GL_LINES)
                             # Draw lines based on selection order: 0->1 and 1->2
@@ -757,22 +804,31 @@ class MarkerGLRenderer(MarkerGLFrame):
                         GL.glLineWidth(1.0) # Reset line width
 
                         # Calculate and prepare text for display
-                        analysis_text = ""
-                        text_position = None
+                        dist_text = None
+                        dist_pos = None
+                        angle_text = None
+                        angle_pos = None
                         
                         if len(analysis_positions_ordered) == 2:
                             distance = calculate_distance(analysis_positions_ordered[0], analysis_positions_ordered[1])
                             if distance is not None:
-                                analysis_text = f"{distance:.3f} m"
-                                mid_point = (analysis_positions_ordered[0] + analysis_positions_ordered[1]) / 2
-                                text_position = [mid_point[0], mid_point[1] + 0.02, mid_point[2]]
-                                
+                                pA = analysis_positions_ordered[0]
+                                pB = analysis_positions_ordered[1]
+                                # distance text at midpoint
+                                mid_pt = (pA + pB) / 2
+                                dist_text = f"{distance:.3f} m"
+                                dist_pos = [mid_pt[0], mid_pt[1] + 0.02, mid_pt[2]]
+                                # compute angle relative to horizontal
+                                angle_val = calculate_angle(np.array([pB[0]+1.0, pB[1], pB[2]]), pB, pA)
+                                if angle_val is not None:
+                                    angle_text = f"{angle_val:.1f}\u00B0"
+                                    angle_pos = [pB[0], pB[1] + 0.03, pB[2]]
                         elif len(analysis_positions_ordered) == 3:
                             # Angle at the vertex (second selected marker)
                             angle = calculate_angle(analysis_positions_ordered[0], analysis_positions_ordered[1], analysis_positions_ordered[2])
                             if angle is not None:
-                                analysis_text = f"{angle:.1f}\xb0" # Degree symbol
-                                text_position = [analysis_positions_ordered[1][0], analysis_positions_ordered[1][1] + 0.03, analysis_positions_ordered[1][2]]
+                                angle_text = f"{angle:.1f}\u00B0"
+                                angle_pos = [analysis_positions_ordered[1][0], analysis_positions_ordered[1][1] + 0.03, analysis_positions_ordered[1][2]]
                                 
                                 # Calculate and draw the arc
                                 arc_radius = min(np.linalg.norm(analysis_positions_ordered[0]-analysis_positions_ordered[1]), 
@@ -818,17 +874,25 @@ class MarkerGLRenderer(MarkerGLFrame):
                                     # GL.glDisable(GL.GL_BLEND) # Optionally disable blend if not needed afterwards
                                     
                         # Render the analysis text if available
-                        if analysis_text and text_position:
+                        if (dist_text and dist_pos) or (angle_text and angle_pos):
                             GL.glPushMatrix()
                             GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT | GL.GL_DEPTH_BUFFER_BIT)
-                            GL.glDisable(GL.GL_DEPTH_TEST) # Draw text on top
-                            GL.glColor3f(0.0, 1.0, 0.0) # Green text
-                            GL.glRasterPos3f(text_position[0], text_position[1], text_position[2])
-                            for char in analysis_text:
-                                try:
-                                    GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_18, ord(char))
-                                except Exception as glut_error:
-                                    pass 
+                            GL.glDisable(GL.GL_DEPTH_TEST)
+                            GL.glColor3f(0.0, 1.0, 0.0)
+                            if dist_text and dist_pos:
+                                GL.glRasterPos3f(dist_pos[0], dist_pos[1], dist_pos[2])
+                                for ch in dist_text:
+                                    try:
+                                        GLUT.glutBitmapCharacter(LARGE_FONT, ord(ch))
+                                    except:
+                                        pass
+                            if angle_text and angle_pos:
+                                GL.glRasterPos3f(angle_pos[0], angle_pos[1], angle_pos[2])
+                                for ch in angle_text:
+                                    try:
+                                        GLUT.glutBitmapCharacter(LARGE_FONT, ord(ch))
+                                    except:
+                                        pass
                             GL.glPopAttrib()
                             GL.glPopMatrix()
                             
@@ -837,33 +901,44 @@ class MarkerGLRenderer(MarkerGLFrame):
             # --- Analysis Mode Visualization End ---
 
             # Trajectory rendering
-            if self.current_marker is not None and hasattr(self, 'show_trajectory') and self.show_trajectory:
-                trajectory_points = []
-                
-                for i in range(0, self.frame_idx + 1):
-                    try:
-                        x = self.data.loc[i, f'{self.current_marker}_X']
-                        y = self.data.loc[i, f'{self.current_marker}_Y']
-                        z = self.data.loc[i, f'{self.current_marker}_Z']
-                        
-                        if np.isnan(x) or np.isnan(y) or np.isnan(z):
-                            continue
-                        
-                        # Use original data directly (regardless of Y-up/Z-up)
-                        trajectory_points.append([x, y, z])
+            if hasattr(self, 'show_trajectory') and self.show_trajectory:
+                # Choose marker for trajectory: override current_marker in analysis mode
+                marker_to_trace = self.current_marker
+                if getattr(self, 'analysis_mode_active', False):
+                    sel = self.analysis_selection
+                    if len(sel) == 1:
+                        marker_to_trace = sel[0]
+                    elif len(sel) == 2:
+                        marker_to_trace = sel[1]
+                    elif len(sel) >= 3:
+                        marker_to_trace = sel[1]
+                if marker_to_trace is not None:
+                    trajectory_points = []
+                    
+                    for i in range(0, self.frame_idx + 1):
+                        try:
+                            x = self.data.loc[i, f'{marker_to_trace}_X']
+                            y = self.data.loc[i, f'{marker_to_trace}_Y']
+                            z = self.data.loc[i, f'{marker_to_trace}_Z']
                             
-                    except KeyError:
-                        continue
-                
-                if trajectory_points:
-                    GL.glLineWidth(0.8)
-                    GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
-                    GL.glBegin(GL.GL_LINE_STRIP)
+                            if np.isnan(x) or np.isnan(y) or np.isnan(z):
+                                continue
+                            
+                            # Use original data directly (regardless of Y-up/Z-up)
+                            trajectory_points.append([x, y, z])
+                                
+                        except KeyError:
+                            continue
                     
-                    for point in trajectory_points:
-                        GL.glVertex3fv(point)
-                    
-                    GL.glEnd()
+                    if trajectory_points:
+                        GL.glLineWidth(0.8)
+                        GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
+                        GL.glBegin(GL.GL_LINE_STRIP)
+                        
+                        for point in trajectory_points:
+                            GL.glVertex3fv(point)
+                        
+                        GL.glEnd()
             
             # Marker name rendering
             if self.show_marker_names and valid_markers:
@@ -893,7 +968,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                         # Render marker name
                         for c in marker_str:
                             try:
-                                GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(c))
+                                GLUT.glutBitmapCharacter(SMALL_FONT, ord(c))
                             except:
                                 pass
                     
@@ -914,7 +989,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                                 # Render marker name
                                 for c in marker_str:
                                     try:
-                                        GLUT.glutBitmapCharacter(GLUT.GLUT_BITMAP_HELVETICA_12, ord(c))
+                                        GLUT.glutBitmapCharacter(SMALL_FONT, ord(c))
                                     except:
                                         pass
                                 

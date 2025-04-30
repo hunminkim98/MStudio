@@ -1193,8 +1193,32 @@ class TRCViewer(ctk.CTk):
         self.is_analysis_mode = not self.is_analysis_mode
         logger.info(f"Analysis mode {'enabled' if self.is_analysis_mode else 'disabled'}.")
 
+        # --- Analysis mode: add/remove Neck and Hip keypoints ---
+        if self.data is not None:
+            # Define keypoints and their corresponding left/right markers
+            pairs = [('Neck','RShoulder','LShoulder'),('Hip','RHip','LHip')]
+            for name, left, right in pairs:
+                xyz = ['X','Y','Z']
+                cols = [f"{name}_{ax}" for ax in xyz]
+                if self.is_analysis_mode:
+                    # Add averaged keypoint columns if left/right exist
+                    if all(f"{m}_{ax}" in self.data.columns for m in (left, right) for ax in xyz):
+                        for col, ax in zip(cols, xyz):
+                            if col not in self.data.columns:
+                                self.data[col] = (self.data[f"{left}_{ax}"] + self.data[f"{right}_{ax}"])/2
+                        if name not in self.marker_names:
+                            self.marker_names.append(name)
+                else:
+                    # Remove keypoint columns and marker name
+                    to_drop = [c for c in cols if c in self.data.columns]
+                    if to_drop:
+                        self.data.drop(columns=to_drop, inplace=True)
+                    if name in self.marker_names:
+                        self.marker_names.remove(name)
+        # ----------------------------------------------------------
+
+        # Clear analysis markers when exiting the mode
         if not self.is_analysis_mode:
-            # Clear analysis markers when exiting the mode
             self.analysis_markers.clear()
             # Update renderer state if needed (e.g., remove highlights)
             if hasattr(self, 'gl_renderer'):
