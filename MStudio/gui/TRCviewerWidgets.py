@@ -42,7 +42,7 @@ def create_widgets(self):
 
     self.open_button = ctk.CTkButton(
         left_button_frame,
-        text="Open TRC File",
+        text="Open File",
         command=self.open_file,
         **button_style
     )

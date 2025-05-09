@@ -263,6 +263,83 @@ class TRCViewer(ctk.CTk):
     ####### Skeleton model manager ##########
     #########################################
 
+    def update_keypoint_names(self):
+        """
+        Update keypoint names based on the selected skeleton model.
+        This is particularly useful for 2D data (JSON files) where keypoints are initially named generically.
+        """
+        # Check if we have data and if the marker names are generic (indicating 2D data from JSON)
+        if self.data is None or not self.marker_names:
+            return
+            
+        # Check if marker names are generic (e.g., "Keypoint_0", "Keypoint_1", etc.)
+        is_generic_naming = all(name.startswith("Keypoint_") for name in self.marker_names)
+        
+        if not is_generic_naming:
+            # If not using generic naming, don't modify the names
+            return
+            
+        # Get the number of keypoints
+        num_keypoints = len(self.marker_names)
+        
+        # If no skeleton is selected, keep using the generic keypoint names
+        if self.current_model is None:
+            return
+            
+        # Get all nodes from the selected skeleton model
+        skeleton_nodes = []
+        if self.current_model is not None:
+            # Add the root node
+            skeleton_nodes.append(self.current_model)
+            # Add all descendants
+            skeleton_nodes.extend(self.current_model.descendants)
+            
+        # Create a mapping from node ID to node name
+        id_to_name = {}
+        for node in skeleton_nodes:
+            if hasattr(node, 'id') and node.id is not None:
+                id_to_name[node.id] = node.name
+                
+        # Create a new DataFrame with updated column names
+        new_data = self.data.copy()
+        new_column_names = {}
+        
+        # Create a new list of marker names
+        new_marker_names = []
+        
+        # Update marker names and DataFrame column names
+        for i, old_name in enumerate(self.marker_names):
+            if i < num_keypoints:
+                # If the keypoint index is in the skeleton model, use the skeleton name
+                if i in id_to_name:
+                    new_name = id_to_name[i]
+                else:
+                    # Keep the generic name if not found in the skeleton
+                    new_name = old_name
+                    
+                # Add to the new marker names list
+                new_marker_names.append(new_name)
+                
+                # Update column names in the DataFrame
+                for axis in ['X', 'Y', 'Z']:
+                    old_col = f"{old_name}_{axis}"
+                    new_col = f"{new_name}_{axis}"
+                    if old_col in new_data.columns:
+                        new_column_names[old_col] = new_col
+        
+        # Rename columns in the DataFrame
+        new_data.rename(columns=new_column_names, inplace=True)
+        
+        # Update the data and marker names
+        self.data = new_data
+        self.marker_names = new_marker_names
+        
+        # Update the original data as well to maintain consistency
+        if hasattr(self, 'original_data') and self.original_data is not None:
+            original_data_copy = self.original_data.copy()
+            original_data_copy.rename(columns=new_column_names, inplace=True)
+            self.original_data = original_data_copy
+
     def on_model_change(self, choice):
         try:
             # Save the current frame
@@ -277,12 +354,17 @@ class TRCViewer(ctk.CTk):
                 self.show_skeleton = False
             else:
                 self.show_skeleton = True
+                # Update keypoint names based on the selected skeleton model
+                self.update_keypoint_names()
+                # Update skeleton pairs after keypoint names have been updated
                 self.update_skeleton_pairs()
 
             # Deliver skeleton pairs and show skeleton to OpenGL renderer
             if hasattr(self, 'gl_renderer'):
                 self.gl_renderer.set_skeleton_pairs(self.skeleton_pairs)
                 self.gl_renderer.set_show_skeleton(self.show_skeleton)
+                # Update marker names in the renderer
+                self.gl_renderer.set_marker_names(self.marker_names)
 
             # Re-detect outliers with new skeleton pairs
             self.detect_outliers()
@@ -1290,4 +1372,4 @@ class TRCViewer(ctk.CTk):
         if hasattr(self, 'gl_renderer'):
             self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
             # Trigger redraw in the renderer to show color changes
-            self.gl_renderer.redraw() 
+            self.gl_renderer.redraw()
