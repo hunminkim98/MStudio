@@ -1,7 +1,13 @@
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from MStudio.utils.viewToggles import toggle_coordinates
+from MStudio.utils.viewToggles import (
+    toggle_coordinates,
+    toggle_marker_names,
+    toggle_trajectory,
+    toggle_animation,
+    toggle_analysis_mode
+)
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"
@@ -59,7 +65,7 @@ def create_widgets(self):
     self.names_button = ctk.CTkButton(
         button_frame,
         text="Hide Names",
-        command=self.toggle_marker_names,
+        command=lambda: toggle_marker_names(self),
         **button_style
     )
     self.names_button.pack(side='left', padx=5)
@@ -67,16 +73,16 @@ def create_widgets(self):
     self.trajectory_button = ctk.CTkButton(
         button_frame,
         text="Show Trajectory",
-        command=self.toggle_trajectory,
+        command=lambda: toggle_trajectory(self),
         **button_style
     )
     self.trajectory_button.pack(side='left', padx=5)
 
-    # Analysis button (connect to the method in TRCViewer)
+    # Analysis button (connect to the function from viewToggles)
     self.analysis_button = ctk.CTkButton(
         button_frame,
         text="Analysis",
-        command=self.toggle_analysis_mode,
+        command=lambda: toggle_analysis_mode(self),
         **button_style
     )
     self.analysis_button.pack(side='left', padx=5)
@@ -145,7 +151,7 @@ def create_widgets(self):
     self.play_pause_button = ctk.CTkButton(
         button_frame,
         text="▶",
-        command=self.toggle_animation,
+        command=lambda: toggle_animation(self),
         **control_style
     )
     self.play_pause_button.pack(side='left', padx=2)

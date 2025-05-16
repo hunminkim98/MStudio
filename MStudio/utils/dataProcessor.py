@@ -215,12 +215,17 @@ def interpolate_with_pattern(self):
     """
     Pattern-based interpolation using reference markers to interpolate target marker.
     This method uses spatial relationships between markers to estimate missing positions.
+    Handles 1, 2, or 3+ reference markers.
     """
     try: 
         reference_markers = list(self.pattern_markers)
-        if len(reference_markers) < 3:
-            messagebox.showerror("Error", "Please select at least 3 reference markers for robust pattern-based interpolation.")
+        num_ref_markers = len(reference_markers)
+
+        if num_ref_markers == 0:
+            messagebox.showerror("Error", "Please select at least 1 reference marker for pattern-based interpolation.")
             return
+        
+        effective_mode = num_ref_markers # Will be 1, 2, or 3 (representing 3+)
 
         start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
         end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
@@ -231,13 +236,10 @@ def interpolate_with_pattern(self):
             target_cols = [f'{self.current_marker}_{c}' for c in 'XYZ']
             ref_cols = [f'{m}_{c}' for m in reference_markers for c in 'XYZ']
             
-            # Get data as NumPy arrays. Use .copy() for target data as we'll modify it.
             target_data_np = self.data[target_cols].values.copy() 
             ref_data_np = self.data[ref_cols].values
             num_frames_total = len(target_data_np)
-            num_ref_markers = len(reference_markers)
             
-            # Get original dtypes from DataFrame to cast back later
             original_dtypes = {c: self.data[f'{self.current_marker}_{c}'].dtype for c in 'XYZ'}
             
         except KeyError as e:
@@ -248,107 +250,124 @@ def interpolate_with_pattern(self):
              logger.error("NumPy data extraction failed: %s", e, exc_info=True)
              return
              
-        # search for valid frames in entire dataset (using NumPy)
-        logger.info("Searching for valid target marker data...")
-        # Check rows where NONE of the XYZ coords are NaN
+        logger.info("Searching for a valid reference frame for target and all selected reference markers...")
         valid_target_mask = ~np.isnan(target_data_np).any(axis=1)
-        all_valid_frames = np.where(valid_target_mask)[0]
+        
+        # Reshape ref_data_np to check NaNs per marker: (num_frames, num_ref_markers, 3)
+        ref_data_reshaped_for_nan_check = ref_data_np.reshape(num_frames_total, num_ref_markers, 3)
+        valid_ref_mask_per_marker = ~np.isnan(ref_data_reshaped_for_nan_check).any(axis=2) # True if marker is valid
+        valid_all_refs_mask = valid_ref_mask_per_marker.all(axis=1) # True if all ref markers are valid for that frame
+        
+        combined_valid_mask = valid_target_mask & valid_all_refs_mask
+        all_valid_frames = np.where(combined_valid_mask)[0]
         
         if not all_valid_frames.size > 0:
-            logger.error("Error: No valid data found for target marker in entire dataset")
-            messagebox.showerror("Error", "No valid data found for target marker in entire dataset")
+            logger.error("Error: No frame found where target and ALL selected reference markers have valid data simultaneously.")
+            messagebox.showerror("Error", "No frame found where target and ALL selected reference markers have valid data simultaneously.")
             return
             
-        logger.info("Found %d valid frames for target marker", len(all_valid_frames))
-        logger.info("Valid frames range: %d to %d", min(all_valid_frames), max(all_valid_frames))
-        
-        # find the closest valid frame
         closest_frame = min(all_valid_frames, 
                           key=lambda x: min(abs(x - start_frame), abs(x - end_frame)))
-        logger.info("Using frame %d as reference frame", closest_frame)
+        logger.info(f"Using frame {closest_frame} as reference for initial state calculation.")
         
-        try:
-            # Reshape ref_data_np row for this frame into (num_ref_markers, 3)
-            P0 = ref_data_np[closest_frame].reshape(num_ref_markers, 3)
-            if np.isnan(P0).any():
-                messagebox.showerror("Error", f"Reference markers have NaN values in the chosen reference frame ({closest_frame}). Cannot proceed.")
-                return
-            p0_centroid = P0.mean(axis=0)
-            P0_centered = P0 - p0_centroid
-            
-            # Target position from target_data_np
-            target_pos_init = target_data_np[closest_frame]
-            if np.isnan(target_pos_init).any():
-                 messagebox.showerror("Error", f"Target marker has NaN values in the chosen reference frame ({closest_frame}). Cannot proceed.")
-                 return
-            target_rel = target_pos_init - p0_centroid
-        except KeyError as e:
-            messagebox.showerror("Error", f"Marker data not found in reference frame {closest_frame}: {e}")
-            return
-        except Exception as e:
-            messagebox.showerror("Error", f"Error during initial state calculation: {e}")
-            logger.error("Error calculating initial state: %s", e, exc_info=True)
-            return
-            
-        logger.info("Initial state calculated.")
-        logger.info(f"  P0 Centroid: {p0_centroid}")
-        logger.info(f"  Target Relative Vector: {target_rel}")
-        
-        # Interpolate missing frames using Kabsch/Procrustes
-        logger.info("Starting frame interpolation using rigid body transformation:")
-        interpolated_count = 0
-        # Iterate through the selected frame range
-        for frame in range(start_frame, end_frame + 1):
-            # Check if target marker needs interpolation (using NumPy array)
-            if np.isnan(target_data_np[frame]).any():
-                
-                # --- Current Frame Calculation (using NumPy) ---
-                try:
-                    # Reshape ref_data_np row for the current frame
-                    Q = ref_data_np[frame].reshape(num_ref_markers, 3)
-                    # Check if *any* reference marker is NaN in the current frame
-                    if np.isnan(Q).any():
-                        logger.warning(f"Skipping frame {frame}: NaN value found in reference markers.")
-                        continue # Skip this frame if reference data is missing
-                    
-                    q_centroid = Q.mean(axis=0)
-                    Q_centered = Q - q_centroid
-                except KeyError as e:
-                    logger.warning(f"Skipping frame {frame}: Marker data not found: {e}")
-                    continue
-                except Exception as e:
-                    logger.error(f"Error processing frame {frame}: {e}", exc_info=True)
-                    continue
-                    
-                # --- Find Optimal Rotation and Transform Target ---
-                try:
-                    # Find rotation that aligns initial centered points (P0_centered) to current centered points (Q_centered)
-                    R_opt, _ = Rotation.align_vectors(P0_centered, Q_centered)
-                    
-                    # Apply rotation to the initial relative target vector and add current centroid
-                    target_est = R_opt.apply(target_rel) + q_centroid
-                    
-                except Exception as e:
-                    logger.error(f"Error during alignment/transformation for frame {frame}: {e}", exc_info=True)
-                    continue # Skip frame if alignment fails
-                
-                try:
-                    target_data_np[frame, 0] = np.array(target_est[0]).astype(original_dtypes['X'])
-                    target_data_np[frame, 1] = np.array(target_est[1]).astype(original_dtypes['Y'])
-                    target_data_np[frame, 2] = np.array(target_est[2]).astype(original_dtypes['Z'])
-                    interpolated_count += 1
-                except Exception as e:
-                     logger.error(f"Error updating NumPy array for frame {frame}: {e}", exc_info=True)
+        # --- Initial State Calculation (conditional) ---
+        target_pos_init = target_data_np[closest_frame]
+        ref_markers_at_closest_frame = ref_data_np[closest_frame].reshape(num_ref_markers, 3)
 
-                if frame % 100 == 0: # Log every 100 frames
+        if num_ref_markers == 1:
+            _1marker_ref_pos_init = ref_markers_at_closest_frame[0]
+            _1marker_offset_vector = target_pos_init - _1marker_ref_pos_init
+            logger.info(f"1-Marker Mode Initialized: Offset Vector: {_1marker_offset_vector}")
+            effective_mode = 1
+        elif num_ref_markers == 2:
+            _2marker_P1_init, _2marker_P2_init = ref_markers_at_closest_frame[0], ref_markers_at_closest_frame[1]
+            _2marker_v_ref_init = _2marker_P2_init - _2marker_P1_init
+            _2marker_norm_v_ref_init = np.linalg.norm(_2marker_v_ref_init)
+            if np.isclose(_2marker_norm_v_ref_init, 0):
+                logger.warning("2-Marker Mode: Reference markers are coincident at initial frame. Falling back to 1-marker logic using the first selected reference marker.")
+                effective_mode = 1
+                _1marker_ref_pos_init = _2marker_P1_init 
+                _1marker_offset_vector = target_pos_init - _1marker_ref_pos_init
+                logger.info(f"Fallback to 1-Marker Mode Initialized: Offset Vector: {_1marker_offset_vector}")
+            else:
+                effective_mode = 2
+                _2marker_v_target_rel_to_P1_init = target_pos_init - _2marker_P1_init
+                logger.info(f"2-Marker Mode Initialized: v_ref_init={_2marker_v_ref_init}, v_target_rel_to_P1_init={_2marker_v_target_rel_to_P1_init}, norm_v_ref_init={_2marker_norm_v_ref_init}")
+        else: # num_ref_markers >= 3
+            effective_mode = 3 # Representing 3+
+            _3plus_P0_init_coords = ref_markers_at_closest_frame
+            _3plus_p0_centroid = _3plus_P0_init_coords.mean(axis=0)
+            _3plus_P0_centered = _3plus_P0_init_coords - _3plus_p0_centroid
+            _3plus_target_rel_to_centroid = target_pos_init - _3plus_p0_centroid
+            logger.info(f">=3-Marker Mode Initialized: Centroid={_3plus_p0_centroid}, Target Relative to Centroid={_3plus_target_rel_to_centroid}")
+            
+        logger.info("Starting frame interpolation using effective_mode: %d", effective_mode)
+        interpolated_count = 0
+        
+        for frame in range(start_frame, end_frame + 1):
+            if np.isnan(target_data_np[frame]).any(): # If target marker needs interpolation
+                current_ref_positions_flat = ref_data_np[frame]
+                
+                # Check NaNs for *actually used* reference markers based on original num_ref_markers
+                if np.isnan(current_ref_positions_flat[:num_ref_markers*3]).any():
+                     logger.warning(f"Skipping frame {frame}: NaN in current data for one of the {num_ref_markers} originally selected reference markers.")
+                     continue
+                
+                all_current_ref_positions = current_ref_positions_flat.reshape(num_ref_markers, 3)
+                target_est = None
+
+                if effective_mode == 1:
+                    current_ref_marker_pos = all_current_ref_positions[0] # Uses the first selected marker
+                    target_est = current_ref_marker_pos + _1marker_offset_vector
+                elif effective_mode == 2:
+                    P1_curr, P2_curr = all_current_ref_positions[0], all_current_ref_positions[1]
+                    v_ref_curr = P2_curr - P1_curr
+                    norm_v_ref_curr = np.linalg.norm(v_ref_curr)
+
+                    if np.isclose(norm_v_ref_curr, 0):
+                        logger.warning(f"Frame {frame}: In 2-Marker mode, current reference markers are coincident. Skipping interpolation for this frame.")
+                        continue
+                    if np.isclose(_2marker_norm_v_ref_init, 0): # Should have been caught by fallback, but as safeguard
+                        logger.error(f"Frame {frame}: In 2-Marker mode, initial reference vector norm is zero. This should not happen. Skipping.")
+                        continue
+
+                    scale = norm_v_ref_curr / _2marker_norm_v_ref_init 
+                    try:
+                        # Reshape for align_vectors which expects (N,3)
+                        R_opt, _ = Rotation.align_vectors(_2marker_v_ref_init.reshape(1,-1), v_ref_curr.reshape(1,-1))
+                        target_est = P1_curr + R_opt.apply(scale * _2marker_v_target_rel_to_P1_init)
+                    except Exception as e:
+                        logger.error(f"Error during 2-marker alignment/transformation for frame {frame}: {e}", exc_info=True)
+                        continue
+                elif effective_mode >= 3: # Handles 3+ markers
+                    Q_curr_coords = all_current_ref_positions
+                    q_centroid = Q_curr_coords.mean(axis=0)
+                    Q_centered = Q_curr_coords - q_centroid
+                    try:
+                        R_opt, _ = Rotation.align_vectors(_3plus_P0_centered, Q_centered)
+                        target_est = R_opt.apply(_3plus_target_rel_to_centroid) + q_centroid
+                    except Exception as e:
+                        logger.error(f"Error during >=3-marker alignment/transformation for frame {frame}: {e}", exc_info=True)
+                        continue
+                
+                if target_est is not None:
+                    try:
+                        target_data_np[frame, 0] = np.array(target_est[0]).astype(original_dtypes['X'])
+                        target_data_np[frame, 1] = np.array(target_est[1]).astype(original_dtypes['Y'])
+                        target_data_np[frame, 2] = np.array(target_est[2]).astype(original_dtypes['Z'])
+                        interpolated_count += 1
+                    except Exception as e:
+                         logger.error(f"Error updating NumPy array for frame {frame} with estimated value: {e}", exc_info=True)
+
+                if frame % 100 == 0 and target_est is not None:
                     logger.debug(f"  Frame {frame}: Interpolated position: {target_est}")
             
             elif frame % 100 == 0: 
-                logger.debug("Skipping frame %d (valid data exists)", frame)
+                logger.debug(f"Skipping frame {frame} (target data already valid)")
         
         logger.info("Interpolation loop completed.")
         logger.info(f"Total frames processed in range: {end_frame - start_frame + 1}")
-        logger.info(f"Total frames interpolated: {interpolated_count}")
+        logger.info(f"Total frames interpolated with new values: {interpolated_count}")
 
         try:
              self.data[target_cols] = target_data_np
@@ -363,16 +382,18 @@ def interpolate_with_pattern(self):
         
         # update UI
         self.update_plot()
-        self.show_marker_plot(self.current_marker)
+        # Ensure marker plot is updated only if a marker is selected and graph is visible
+        if hasattr(self, 'current_marker') and self.current_marker and hasattr(self, 'graph_frame') and self.graph_frame.winfo_ismapped():
+            self.show_marker_plot(self.current_marker)
         
     except Exception as e:
-        logger.error("FATAL ERROR during interpolation: %s", e, exc_info=True)
-        messagebox.showerror("Interpolation Error", f"Error during pattern-based interpolation: {str(e)}")
+        logger.error("FATAL ERROR during pattern-based interpolation: %s", e, exc_info=True)
+        messagebox.showerror("Interpolation Error", f"An unexpected error occurred during pattern-based interpolation: {str(e)}")
     finally:
-        # reset mouse events and UI state
-        logger.info("Resetting mouse events and UI state")
-        self.disconnect_mouse_events()
-        self.connect_mouse_events()
+        # reset mouse events and UI state (optional, depending on desired UX)
+        logger.info("Pattern-based interpolation process finished.")
+        # self.disconnect_mouse_events() # Consider if this is always needed
+        # self.connect_mouse_events()    # Or if it disrupts other interactions
 
 def on_pattern_selection_confirm(self):
     """Process pattern selection confirmation"""
@@ -397,3 +418,4 @@ def on_pattern_selection_confirm(self):
         if hasattr(self, 'pattern_window'):
             delattr(self, 'pattern_window')
         self._selected_markers_list = None
+

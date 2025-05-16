@@ -15,6 +15,7 @@ __email__ = "hunminkim98@gmail.com"
 __status__ = "Development"
 
 import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -137,17 +138,56 @@ def _force_update_opengl(self):
 # 1. Distance (and dotted line?) visualization between two selected markers
 # 2. Joint angle (and arc)visualization for three selected markers
 def toggle_analysis_mode(self):
-    """Toggles the analysis mode on and off."""
+    """Toggles the analysis mode on/off."""
     self.is_analysis_mode = not self.is_analysis_mode
-    if self.is_analysis_mode:
-        logger.info("Analysis mode activated.")
-        # Potentially change button appearance or disable other interactions
-        self.analysis_button.configure(fg_color="#00A6FF") # Example: Highlight button
+    logger.info(f"Analysis mode {'enabled' if self.is_analysis_mode else 'disabled'}.")
+
+    # --- Analysis mode: add/remove Neck and Hip keypoints ---
+    if self.data is not None:
+        # Define keypoints and their corresponding left/right markers
+        pairs = [('Neck','RShoulder','LShoulder'),('Hip','RHip','LHip')]
+        for name, left, right in pairs:
+            xyz = ['X','Y','Z']
+            cols = [f"{name}_{ax}" for ax in xyz]
+            if self.is_analysis_mode:
+                # Add averaged keypoint columns if left/right exist
+                if all(f"{m}_{ax}" in self.data.columns for m in (left, right) for ax in xyz):
+                    for col, ax in zip(cols, xyz):
+                        if col not in self.data.columns:
+                            self.data[col] = (self.data[f"{left}_{ax}"] + self.data[f"{right}_{ax}"])/2
+                    if name not in self.marker_names:
+                        self.marker_names.append(name)
+            else:
+                # Remove keypoint columns and marker name
+                to_drop = [c for c in cols if c in self.data.columns]
+                if to_drop:
+                    self.data.drop(columns=to_drop, inplace=True)
+                if name in self.marker_names:
+                    self.marker_names.remove(name)
+    # ----------------------------------------------------------
+
+    # Clear analysis markers when exiting the mode
+    if not self.is_analysis_mode:
+        self.analysis_markers.clear()
+        # Update renderer state if needed (e.g., remove highlights)
+        if hasattr(self, 'gl_renderer'):
+            # We need a way to tell the renderer about the mode change and selected markers
+            # Let's assume a method `set_analysis_state` exists or will be added
+            self.gl_renderer.set_analysis_state(self.is_analysis_mode, self.analysis_markers)
+            self.gl_renderer.redraw() # Redraw to remove highlights/text
     else:
-        logger.info("Analysis mode deactivated.")
-        # Restore button appearance and re-enable other interactions
-        button_style = {
-            "fg_color": "#333333",
-            "hover_color": "#444444"
-        }
-        self.analysis_button.configure(**button_style) # Example: Restore default style
+        # Inform the user how to use the mode (Optional)
+        # messagebox.showinfo("Analysis Mode", "Analysis mode enabled. Left-click markers in the 3D view to select for analysis (up to 3).")
+        # Ensure renderer is aware of the mode change
+         if hasattr(self, 'gl_renderer'):
+            self.gl_renderer.set_analysis_state(self.is_analysis_mode, self.analysis_markers)
+            self.gl_renderer.redraw()
+
+    # Visually update the button state
+    if hasattr(self, 'analysis_button'):
+        if self.is_analysis_mode:
+            # Indicate active state (e.g., change color, text)
+            self.analysis_button.configure(fg_color="#00529B") # Example: Blue color when active
+        else:
+            # Indicate inactive state (e.g., default color)
+            self.analysis_button.configure(fg_color=["#3B3B3B", "#3B3B3B"]) # Example: Default button color
