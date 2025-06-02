@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 ## AUTHORSHIP INFORMATION
-__author__ = "Your Name / HunMin Kim" # Adjust authorship as needed
+__author__ = "HunMin Kim"
 __copyright__ = ""
 __credits__ = [""]
 __license__ = ""
