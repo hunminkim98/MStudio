@@ -1,25 +1,49 @@
-# MStudio
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)\
-A comprehensive toolkit for editing and managing 2D and 3D markers in motion capture and biomechanical studies. Designed to be compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim), and [Sports2D](https://github.com/davidpagnon/Sports2D), providing seamless integration for marker data processing and analysis.
+<div align="center">
 
-> **Note:** This is an initial release. Automated tests are minimal and only basic smoke tests are included. More comprehensive tests will be added in future updates.
+# 🎯 MStudio
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-0.1.2-green.svg)](https://pypi.org/project/MStudio/)
+
+**Professional Motion Capture Data Visualization & Editing Tool**
+
+*Seamlessly visualize, analyze, and edit 3D marker data from motion capture systems*
+
+[🚀 Quick Start](#-quick-start) • [📖 Features](#-features) • [💾 Installation](#-installation) • [🎮 Usage](#-usage) • [🤝 Support](#-support)
+
+</div>
 
 ---
 
-## 📦 Installation
+## 🌟 What is MStudio?
 
-**Step 1. Create a virtual environment using Anaconda (recommended):**
+MStudio is a powerful, user-friendly application designed for researchers, biomechanists, and motion capture professionals. It provides an intuitive interface to:
+
+- **Visualize** 3D marker trajectories in real-time
+- **Analyze** movement patterns and joint angles
+- **Edit** and filter motion capture data
+- **Export** processed data for further analysis
+
+Compatible with popular tools like [Pose2Sim](https://github.com/perfanalytics/pose2sim) and [Sports2D](https://github.com/davidpagnon/Sports2D).
+
+---
+
+## � Installation
+
+### Option 1: Install from PyPI (Recommended)
+
 ```bash
+# Create a virtual environment (recommended)
 conda create -n mstudio python=3.10 -y
 conda activate mstudio
-```
 
-**Step 2. Install MStudio from PyPI:**
-```bash
+# Install MStudio
 pip install mstudio
 ```
 
-**From source:**
+### Option 2: Install from Source
+
 ```bash
 git clone https://github.com/hunminkim98/MStudio.git
 cd MStudio
@@ -30,103 +54,173 @@ pip install .
 
 ## 🚀 Quick Start
 
-### The Easiest Way to Run MStudio (Recommended!)
+### Launch MStudio
 
-Just open your terminal and run:
 ```bash
 mstudio
 ```
 
-That's it! This is the safest way to launch the app.
+That's it! The application will open with an intuitive interface ready for your motion capture data.
 
-> **Heads up!**
-> If you try to run `main.py` directly (like `python MStudio/main.py`), you might get an error like:
-> `ModuleNotFoundError: No module named 'MStudio'`
-> To avoid this, always use the command above from the root folder.
+### Load Your First Dataset
 
----
+1. **File → Open** or drag & drop your TRC/C3D file
+2. **Play** the animation using the spacebar
+3. **Explore** your data with mouse controls:
+   - **Left click + drag**: Rotate view
+   - **Right click + drag**: Pan
+   - **Scroll wheel**: Zoom
 
-### Want to Run main.py Directly?
+### Basic Workflow
 
-If you're actively developing and want to quickly test changes, you can add these lines at the very top of `MStudio/main.py`:
-
-```python
-import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+```mermaid
+graph LR
+    A[Load Data] --> B[Visualize]
+    B --> C[Analyze]
+    C --> D[Filter/Edit]
+    D --> E[Export]
+    E --> F[Use in Research]
 ```
 
-Now you can run:
+## 📖 Features
 
-```bash
-python MStudio/main.py
-```
+<table>
+<tr>
+<td width="50%">
 
----
+### 🎯 **3D Visualization**
+- **Real-time 3D rendering** of marker data
+- **Interactive camera controls** (rotate, pan, zoom)
+- **Coordinate system switching** (Y-up/Z-up)
+- **Marker label toggle** for clarity
+- **Smooth 60 FPS animation** playback
 
-## 📚 Documentation & Support
-- [Issue Tracker](https://github.com/hunminkim98/MStudio/issues)
+### 🦴 **Skeleton Models**
+Support for multiple skeleton formats:
+- **BODY_25B/25** (OpenPose)
+- **BODY_135** (Full body)
+- **BLAZEPOSE** (MediaPipe)
+- **HALPE** (26/68/136 keypoints)
+- **COCO** (17/133 keypoints)
+- **MPII** (16 keypoints)
 
----
+</td>
+<td width="50%">
 
-## Features
+### 📊 **Analysis Tools**
+- **Trajectory visualization** with customizable paths
+- **Distance measurement** between any 2 markers
+- **Segment angle calculation** (relative to horizontal reference)
+- **Joint angle calculation** using 3-point method
+- **Outlier detection** with visual highlighting
+- **Frame-by-frame navigation** with timeline scrubbing
+- **Multi-axis coordinate plots**
 
-### 🎯 3D Marker Visualization
-
-- Interactive 3D viewport with real-time marker display
-
-- Customizable marker colors and sizes (TODO)
-
-- Toggle marker labels visibility
-
-- Coordinate system switching (Z-up/Y-up)
-
-- Zoom and pan controls
-
-### 🦴 Skeleton 
-
-- Multiple pre-defined skeleton models:
-
-  - BODY_25B
-  - BODY_25
-  - BODY_135
-  - BLAZEPOSE
-  - HALPE (26/68/136)
-  - COCO (17/133)
-  - MPII
-- Toggle skeleton visibility
-- Color-coded connections for outlier detection
-### 📊 Data Analysis Tools
-- Marker trajectory visualization
-- Multi-axis coordinate plots
-- Frame-by-frame navigation
-- Timeline scrubbing with time/frame display modes
-- Outlier detection and highlighting
-- **Analysis Mode:**
-  - Activate via the "Analysis" button.
-  - Left-click markers in the 3D view to select up to 3 markers.
-  - Visualize Euclidean distance (m) between 2 selected markers directly in the 3D view.
-  - Visualize joint angle (°) formed by 3 selected markers (using the second selected marker as the vertex) directly in the 3D view.
-  - Selected markers are highlighted (green, thicker) for clear identification.
-### 🔧 Data Processing
-- Multiple filtering options:
+### 🔧 **Data Processing**
+- **Advanced filtering**:
   - Butterworth filter
   - Butterworth on speed
   - Median filter
-- Customizable filter parameters
-- Pattern-based marker interpolation
-- Interactive data selection and editing
-### 💾 File Operations
-- Import TRC/C3D files
-- Export to TRC/C3D files
-- Original data preservation
+- **Smart interpolation** with pattern matching
+- **Interactive editing** tools
+- **Original data preservation**
+
+</td>
+</tr>
+</table>
+
+
+
+## 🎮 Usage
+
+### Step-by-Step Tutorial
+
+#### 1. **Load Your Data**
+```bash
+# Launch MStudio
+mstudio
+
+# In the application:
+# File → Open → Select your .trc or .c3d file
+# Or simply drag & drop your file into the window
+```
+
+#### 2. **Basic Navigation**
+| Action | Control |
+|--------|---------|
+| **Play/Pause Animation** | `Spacebar` or `Enter` |
+| **Stop Animation** | `Esc` |
+| **Next/Previous Frame** | `→` / `←` Arrow keys |
+| **Rotate View** | Left click + drag |
+| **Pan View** | Right click + drag |
+| **Zoom** | Mouse wheel |
+
+#### 3. **Analysis Mode**
+1. Click the **"Analysis"** button to activate
+2. **Select markers** by left-clicking in the 3D view:
+   - **2 markers**: Shows distance measurement and segment angle (relative to virtual horizontal line)
+     - Left-click to cycle through reference axes (X, Y, Z)
+   - **3 markers**: Shows joint angle (middle marker = vertex)
+3. Results display directly in the 3D viewport
+
+#### 4. **Data Processing**
+- **Filter data**: Use the filter panel to apply Butterworth, median, or speed-based filters
+- **Interpolate gaps**: Select problematic markers and use pattern-based interpolation
+- **Export results**: File → Save As → Choose TRC or C3D format
 
 ---
 
-## Future Enhancements / TODO
+## 🤝 Support
 
-- [v] Add skeleton lines for trunk.
-- [ ] Drag and select multiple markers (requires changing left-click logic).
-- [ ] Choose the view by clicking the plane (inspired by OpenSim GUI).
-- [ ] Customize marker size, color, and opacity.
-- [v] Add an arc for visualizing the range of motion.
+### Getting Help
+- 📖 **Documentation**: [GitHub Wiki](https://github.com/hunminkim98/MStudio/wiki) *(Coming Soon)*
+- 🐛 **Bug Reports**: [Issue Tracker](https://github.com/hunminkim98/MStudio/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/hunminkim98/MStudio/discussions)
+- 📧 **Contact**: hunminkim98@gmail.com
+
+### Contributing
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) *(Coming Soon)*.
+
+### Supported File Formats
+- **Input**: TRC, C3D
+- **Output**: TRC, C3D
+- **Skeleton Models**: OpenPose, MediaPipe, COCO, HALPE, MPII
+
+---
+
+## 🔮 Roadmap
+
+### ✅ **Completed Features**
+- [x] **3D Visualization**: Real-time marker rendering with smooth 60 FPS animation
+- [x] **Skeleton Support**: Multiple skeleton models (OpenPose, MediaPipe, COCO, etc.)
+- [x] **Analysis Tools**: Distance measurement, joint angles, segment angles
+- [x] **Data Processing**: Advanced filtering and interpolation
+- [x] **File Support**: TRC/C3D import/export functionality
+
+### 🚧 **In Development**
+- [ ] **Multi-Selection**: Drag-and-drop selection for multiple markers
+- [ ] **View Planes**: Click-to-set orthogonal views (inspired by OpenSim)
+- [ ] **Customization**: Adjustable marker size, color, and opacity
+- [ ] **Performance**: Enhanced rendering for large datasets
+
+### 🎯 **Planned Features**
+- [ ] **Multi-Person Support**: Simultaneous visualization and analysis of multiple subjects
+- [ ] **Analysis Reports**: Export comprehensive analysis results to PDF format
+- [ ] **Gait Analysis Mode**: Specialized tools and metrics for gait analysis
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- Compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim) and [Sports2D](https://github.com/davidpagnon/Sports2D)
+- Built with Python, OpenGL, and CustomTkinter
+- Inspired by the biomechanics and motion capture community
+
+---
 

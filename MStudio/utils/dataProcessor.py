@@ -42,7 +42,7 @@ def filter_selected_data(self):
         # If no selection, use entire range
         if self.selection_data.get('start') is None or self.selection_data.get('end') is None:
             start_frame = 0
-            end_frame = len(self.data) - 1
+            end_frame = len(self.data_manager.data) - 1
         else:
             start_frame = int(min(self.selection_data['start'], self.selection_data['end']))
             end_frame = int(max(self.selection_data['start'], self.selection_data['end']))
@@ -93,20 +93,27 @@ def filter_selected_data(self):
         # Get frame rate and apply filter
         frame_rate = float(self.fps_var.get())
         
+        current_marker = self.state_manager.selection_state.current_marker
         for coord in ['X', 'Y', 'Z']:
-            col_name = f'{self.current_marker}_{coord}'
-            series = self.data[col_name]
-            
+            col_name = f'{current_marker}_{coord}'
+            series = self.data_manager.data[col_name]
+
             # Apply Pose2Sim filter
             filtered_series = filter1d(series.copy(), config_dict, filter_type, frame_rate)
-            
+
             # Update data only within the selected range, casting to original dtype to avoid warnings
-            original_dtype = self.data[col_name].dtype
-            self.data.loc[start_frame:end_frame, col_name] = filtered_series.loc[start_frame:end_frame].astype(original_dtype)
+            original_dtype = self.data_manager.data[col_name].dtype
+
+            # Handle case where filter1d returns numpy array instead of pandas Series
+            if isinstance(filtered_series, np.ndarray):
+                # Convert numpy array back to pandas Series with original index
+                filtered_series = pd.Series(filtered_series, index=series.index)
+
+            self.data_manager.data.loc[start_frame:end_frame, col_name] = filtered_series.loc[start_frame:end_frame].astype(original_dtype)
 
         # Update plots
         self.detect_outliers()
-        self.show_marker_plot(self.current_marker)
+        self.show_marker_plot(current_marker)
 
         # Restore view states
         for ax, view_state in zip(self.marker_axes, view_states):
@@ -123,7 +130,7 @@ def filter_selected_data(self):
 
         # No need to focus on edit_window as it's integrated now
         # Just update the edit button if needed when not in edit mode
-        if not self.is_editing and hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
+        if not self.state_manager.editing_state.is_editing and hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
             self.edit_button.configure(fg_color="#555555")
 
     except Exception as e:
@@ -167,12 +174,13 @@ def interpolate_selected_data(self):
                 messagebox.showerror("Error", "Please enter a valid order number")
                 return
 
+        current_marker = self.state_manager.selection_state.current_marker
         for coord in ['X', 'Y', 'Z']:
-            col_name = f'{self.current_marker}_{coord}'
-            original_series = self.data[col_name] # No need for copy() if we update self.data directly
+            col_name = f'{current_marker}_{coord}'
+            original_series = self.data_manager.data[col_name] # No need for copy() if we update self.data directly
 
             # 1. Identify NaN indices *within* the selected range
-            nan_indices_in_range = self.data.loc[start_frame:end_frame, col_name].isnull()
+            nan_indices_in_range = self.data_manager.data.loc[start_frame:end_frame, col_name].isnull()
             target_indices = nan_indices_in_range[nan_indices_in_range].index
 
             if not target_indices.empty: # Proceed only if there are NaNs in the selected range
@@ -190,7 +198,7 @@ def interpolate_selected_data(self):
                     fully_interpolated_series = original_series.interpolate(method=method, limit_direction='both', **interp_kwargs)
 
                     # 3. Selective update: Update the original data only at the target NaN indices
-                    self.data.loc[target_indices, col_name] = fully_interpolated_series.loc[target_indices]
+                    self.data_manager.data.loc[target_indices, col_name] = fully_interpolated_series.loc[target_indices]
                     
                 except Exception as e:
                     messagebox.showerror("Interpolation Error", f"Error interpolating {coord} with method '{method}': {e}")
@@ -199,7 +207,7 @@ def interpolate_selected_data(self):
                     return # Stop if one coordinate fails
 
         self.detect_outliers()
-        self.show_marker_plot(self.current_marker)
+        self.show_marker_plot(current_marker)
 
         for ax, view_state in zip(self.marker_axes, view_states):
             ax.set_xlim(view_state['xlim'])
@@ -217,8 +225,8 @@ def interpolate_with_pattern(self):
     This method uses spatial relationships between markers to estimate missing positions.
     Handles 1, 2, or 3+ reference markers.
     """
-    try: 
-        reference_markers = list(self.pattern_markers)
+    try:
+        reference_markers = list(self.state_manager.selection_state.pattern_markers)
         num_ref_markers = len(reference_markers)
 
         if num_ref_markers == 0:
@@ -233,14 +241,15 @@ def interpolate_with_pattern(self):
         
         # --- Pre-extract data into NumPy arrays for performance ---
         try:
-            target_cols = [f'{self.current_marker}_{c}' for c in 'XYZ']
+            current_marker = self.state_manager.selection_state.current_marker
+            target_cols = [f'{current_marker}_{c}' for c in 'XYZ']
             ref_cols = [f'{m}_{c}' for m in reference_markers for c in 'XYZ']
-            
-            target_data_np = self.data[target_cols].values.copy() 
-            ref_data_np = self.data[ref_cols].values
+
+            target_data_np = self.data_manager.data[target_cols].values.copy()
+            ref_data_np = self.data_manager.data[ref_cols].values
             num_frames_total = len(target_data_np)
-            
-            original_dtypes = {c: self.data[f'{self.current_marker}_{c}'].dtype for c in 'XYZ'}
+
+            original_dtypes = {c: self.data_manager.data[f'{current_marker}_{c}'].dtype for c in 'XYZ'}
             
         except KeyError as e:
              messagebox.showerror("Error", f"Marker data column not found: {e}")
@@ -370,21 +379,22 @@ def interpolate_with_pattern(self):
         logger.info(f"Total frames interpolated with new values: {interpolated_count}")
 
         try:
-             self.data[target_cols] = target_data_np
+             self.data_manager.data[target_cols] = target_data_np
              logger.info("DataFrame updated with interpolated data.")
         except Exception as e:
              messagebox.showerror("Error", f"Failed to update DataFrame with results: {e}")
              logger.error("DataFrame update failed: %s", e, exc_info=True)
 
         # end pattern-based mode and initialize
-        self.pattern_selection_mode = False
-        self.pattern_markers.clear()
+        self.state_manager.editing_state.pattern_selection_mode = False
+        self.state_manager.selection_state.pattern_markers.clear()
         
         # update UI
         self.update_plot()
         # Ensure marker plot is updated only if a marker is selected and graph is visible
-        if hasattr(self, 'current_marker') and self.current_marker and hasattr(self, 'graph_frame') and self.graph_frame.winfo_ismapped():
-            self.show_marker_plot(self.current_marker)
+        current_marker = self.state_manager.selection_state.current_marker
+        if current_marker and hasattr(self, 'graph_frame') and self.graph_frame.winfo_ismapped():
+            self.show_marker_plot(current_marker)
         
     except Exception as e:
         logger.error("FATAL ERROR during pattern-based interpolation: %s", e, exc_info=True)
@@ -399,9 +409,9 @@ def on_pattern_selection_confirm(self):
     """Process pattern selection confirmation"""
     try:
         logger.info("Pattern selection confirmation:")
-        logger.info("Selected markers: %s", self.pattern_markers)
-        
-        if not self.pattern_markers:
+        logger.info("Selected markers: %s", self.state_manager.selection_state.pattern_markers)
+
+        if not self.state_manager.selection_state.pattern_markers:
             logger.error("Error: No markers selected")
             messagebox.showwarning("No Selection", "Please select at least one pattern marker")
             return

@@ -56,7 +56,7 @@ def create_widgets(self):
 
     self.coord_button = ctk.CTkButton(
         button_frame,
-        text="Switch to Y-up" if self.is_z_up else "Switch to Z-up",
+        text="Switch to Y-up" if self.state_manager.view_state.is_z_up else "Switch to Z-up",
         command=lambda: toggle_coordinates(self),
         **button_style
     )
@@ -181,6 +181,7 @@ def create_widgets(self):
         button_frame,
         text="Loop",
         variable=self.loop_var,
+        command=self._on_loop_checkbox_changed,  # BUG FIX: Connect to callback
         text_color="#FFFFFF",
         **checkbox_style
     )

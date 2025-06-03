@@ -1,9 +1,12 @@
+import logging
+import os
+from typing import Optional, Dict, List, Tuple, Any
+
 import numpy as np
 import customtkinter as ctk
 from tkinter import messagebox
 import matplotlib.pyplot as plt
 import matplotlib
-import os
 
 from MStudio.gui.TRCviewerWidgets import create_widgets
 from MStudio.gui.markerPlot import show_marker_plot
@@ -13,7 +16,10 @@ from MStudio.gui.markerPlotUI import build_marker_plot_buttons
 
 from MStudio.utils.dataLoader import open_file
 from MStudio.utils.dataSaver import save_as
-from MStudio.utils.skeletons import *
+from MStudio.utils.skeletons import (
+    BODY_25B, BODY_25, BODY_135, BLAZEPOSE, HALPE_26, HALPE_68,
+    HALPE_136, COCO_133, COCO, MPII, COCO_17
+)
 from MStudio.utils.viewToggles import (
     toggle_marker_names,
     toggle_trajectory,
@@ -21,8 +27,23 @@ from MStudio.utils.viewToggles import (
     toggle_analysis_mode,
 )
 from MStudio.utils.viewReset import reset_main_view, reset_graph_view
-from MStudio.utils.dataProcessor import *
+from MStudio.utils.dataProcessor import (
+    filter_selected_data,
+    interpolate_selected_data,
+    interpolate_with_pattern,
+    on_pattern_selection_confirm
+)
 from MStudio.utils.mouseHandler import MouseHandler
+from MStudio.utils.performance_utils import PerformanceTimer, memoize, animation_optimized
+
+# Core components
+from MStudio.core.data_manager import DataManager
+from MStudio.core.animation_controller import AnimationController
+from MStudio.core.outlier_detector import OutlierDetector
+from MStudio.core.state_manager import StateManager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 ## AUTHORSHIP INFORMATION
 __author__ = "HunMin Kim"
@@ -51,7 +72,7 @@ else:
 # 3. Add information about the author and the version of the software.
 # 4. project.toml file
 
-class TRCViewer(ctk.CTk): 
+class TRCViewer(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("MStudio")
@@ -60,25 +81,28 @@ class TRCViewer(ctk.CTk):
         screen_height = self.winfo_screenheight()
         self.geometry(f"{screen_width}x{screen_height}")
 
-        # coordinate system setting variable
-        self.coordinate_system = "y-up"  # Default is y-up because Pose2Sim and OpenSim use y-up coordinate system
+        # Initialize core components
+        self.data_manager = DataManager()
+        self.animation_controller = AnimationController(self)
+        self.outlier_detector = OutlierDetector()
+        self.state_manager = StateManager()
 
-        # --- Data Related Attributes ---
-        self.marker_names = []
-        self.data = None
-        self.original_data = None
-        self.num_frames = 0
-        self.frame_idx = 0
-        self.outliers = {}
+        # Initialize performance manager for animation optimization
+        from MStudio.utils.performance_utils import AnimationPerformanceManager
+        self.performance_manager = AnimationPerformanceManager()
+
+        # Setup callbacks for core components
+        self._setup_core_callbacks()
+
+        # --- Frame tracking (now managed by animation_controller) ---
+        self.frame_idx = 0  # Synchronized with animation_controller
 
         # --- Main 3D Plot Attributes ---
         self.canvas = None
         self.gl_renderer = None # OpenGL renderer related attributes
-        self.is_z_up = False   # coordinate system state (True = Z-up, False = Y-up)
         self.view_limits = None
         self.pan_enabled = False
         self.last_mouse_pos = None
-        self.show_trajectory = False 
         self.trajectory_length = 10
         self.trajectory_line = None
 
@@ -108,8 +132,7 @@ class TRCViewer(ctk.CTk):
         self.interp_method_var = ctk.StringVar(value='linear')
         self.order_var = ctk.StringVar(value='3')
 
-        # --- Pattern-Based Interpolation Attributes ---
-        self.pattern_markers = set()
+        # --- Legacy selection attributes (will be moved to state_manager) ---
         self._selected_markers_list = None
 
         # --- Skeleton Model Attributes ---
@@ -127,42 +150,106 @@ class TRCViewer(ctk.CTk):
             'MPII': MPII,
             'COCO_17': COCO_17
         }
-        self.current_model = None
-        self.skeleton_pairs = []
-        self.show_skeleton = False 
-
-        # --- Animation Attributes ---
-        self.is_playing = False
-        self.playback_speed = 1.0
-        self.animation_job = None
-        self.fps_var = ctk.StringVar(value="60")
 
         # --- Timeline Attributes ---
         self.current_frame_line = None
+        self.fps_var = ctk.StringVar(value="60")
 
         # --- Mouse Handling ---
         self.mouse_handler = MouseHandler(self)
 
-        # --- Editing State ---
+        # --- Editing State (legacy - will be moved to state_manager) ---
         self.edit_window = None
-        self.is_editing = False # Add editing state flag
         self.edit_controls_frame = None # Placeholder for edit controls frame
 
-        # --- Analysis Mode ---
-        self.is_analysis_mode = False
-        self.analysis_markers = [] # List to store selected markers for analysis
-
         # --- Key Bindings ---
-        self.bind('<space>', lambda e: self.toggle_animation())
-        self.bind('<Return>', lambda e: self.toggle_animation())
-        self.bind('<Escape>', lambda e: self.stop_animation())
-        self.bind('<Left>', lambda e: self.prev_frame())
-        self.bind('<Right>', lambda e: self.next_frame())
+        self.bind('<space>', lambda _: self.toggle_animation())
+        self.bind('<Return>', lambda _: self.toggle_animation())
+        self.bind('<Escape>', lambda _: self.stop_animation())
+        self.bind('<Left>', lambda _: self.prev_frame())
+        self.bind('<Right>', lambda _: self.next_frame())
 
         # --- Widget and Plot Creation ---
         self.create_widgets()
         self.create_plot()
         self.update_plot()
+
+    def _setup_core_callbacks(self) -> None:
+        """Setup callbacks for core component communication."""
+        # Animation controller callbacks
+        self.animation_controller.set_frame_update_callback(self._on_frame_changed)
+        self.animation_controller.set_animation_state_callback(self._on_animation_state_changed)
+
+        # State manager callbacks
+        self.state_manager.register_view_callback(self._on_view_state_changed)
+        self.state_manager.register_selection_callback(self._on_selection_state_changed)
+        self.state_manager.register_editing_callback(self._on_editing_state_changed)
+
+    def _on_frame_changed(self, frame_idx: int) -> None:
+        """Callback for when the current frame changes - optimized for animation performance."""
+        self.frame_idx = frame_idx  # Update legacy attribute
+
+        # During animation, use optimized update path
+        if self.animation_controller.is_playing:
+            self._update_display_during_animation()
+        else:
+            # Full update when not animating (manual frame changes)
+            self._update_display_after_frame_change()
+
+    def _on_animation_state_changed(self, is_playing: bool) -> None:
+        """Callback for when animation state changes."""
+        # OPTIMIZATION: Update performance manager state
+        self.performance_manager.set_animation_active(is_playing)
+
+        # Apply animation optimizations to renderer
+        if hasattr(self, 'gl_renderer'):
+            self.performance_manager.optimize_for_animation(self.gl_renderer)
+
+        # Update UI elements based on animation state
+        if hasattr(self, 'play_pause_button'):
+            self.play_pause_button.configure(text="⏸" if is_playing else "▶")
+        if hasattr(self, 'stop_button'):
+            self.stop_button.configure(state='normal' if is_playing else 'disabled')
+
+        # When animation starts or stops, ensure timeline is properly updated
+        if hasattr(self, 'timeline_ax'):
+            if is_playing:
+                # Starting animation - ensure current frame line exists for optimization
+                if not hasattr(self, '_current_frame_line') or self._current_frame_line is None:
+                    self.update_timeline()
+            else:
+                # Stopping animation - redraw the timeline to ensure proper yellow line display
+                self.update_timeline()
+
+    def _on_view_state_changed(self, _view_state) -> None:
+        """Callback for when view state changes."""
+        # Update UI elements and renderer based on view state
+        self.update_plot()
+
+    def _on_selection_state_changed(self, _selection_state) -> None:
+        """Callback for when selection state changes."""
+        # Update UI elements based on selection state
+        self.update_plot()
+
+    def _on_editing_state_changed(self, _editing_state) -> None:
+        """Callback for when editing state changes."""
+        # Update UI elements based on editing state
+        pass
+
+    # --- Direct access to core components (optimized) ---
+    # Remove redundant property wrappers for better performance
+    # Access data_manager, animation_controller, etc. directly
+
+    # Legacy properties kept for critical backward compatibility only
+    @property
+    def current_file(self):
+        """Get current file path."""
+        return getattr(self, '_current_file', None)
+
+    @current_file.setter
+    def current_file(self, value):
+        """Set current file path."""
+        self._current_file = value
 
 
     #########################################
@@ -190,35 +277,8 @@ class TRCViewer(ctk.CTk):
 
 
     def calculate_data_limits(self):
-        try:
-            x_coords = [col for col in self.data.columns if col.endswith('_X')]
-            y_coords = [col for col in self.data.columns if col.endswith('_Y')]
-            z_coords = [col for col in self.data.columns if col.endswith('_Z')]
-
-            x_min = self.data[x_coords].min().min()
-            x_max = self.data[x_coords].max().max()
-            y_min = self.data[y_coords].min().min()
-            y_max = self.data[y_coords].max().max()
-            z_min = self.data[z_coords].min().min()
-            z_max = self.data[z_coords].max().max()
-
-            margin = 0.1
-            x_range = x_max - x_min
-            y_range = y_max - y_min
-            z_range = z_max - z_min
-
-            self.data_limits = {
-                'x': (x_min - x_range * margin, x_max + x_range * margin),
-                'y': (y_min - y_range * margin, y_max + y_range * margin),
-                'z': (z_min - z_range * margin, z_max + z_range * margin)
-            }
-
-            self.initial_limits = self.data_limits.copy()
-
-        except Exception as e:
-            logger.error("Error calculating data limits: %s", e, exc_info=True)
-            self.data_limits = None
-            self.initial_limits = None
+        """Calculate data limits using the DataManager."""
+        self.data_manager.calculate_data_limits()
 
     
     # ---------- Right panel resize ----------
@@ -235,8 +295,55 @@ class TRCViewer(ctk.CTk):
             self.right_panel.configure(width=new_width)
 
 
-    def stop_resize(self, event):
+    def do_resize_optimized(self, event):
+        """Optimized resize method with throttling to prevent flickering."""
+        if not self.sizer_dragging:
+            return
+
+        # Cancel any pending resize timer
+        if hasattr(self, '_sizer_resize_timer') and self._sizer_resize_timer:
+            self.after_cancel(self._sizer_resize_timer)
+
+        # Use throttled resize to prevent excessive updates during continuous resizing
+        import time
+        current_time = time.time() * 1000  # Convert to milliseconds
+
+        if current_time - self._sizer_last_resize_time >= self._sizer_throttle_ms:
+            # Immediate resize for responsive feel
+            self._perform_sizer_resize(event)
+            self._sizer_last_resize_time = current_time
+        else:
+            # Throttled resize - schedule for later
+            self._sizer_resize_timer = self.after(self._sizer_throttle_ms,
+                                                lambda: self._perform_sizer_resize(event))
+
+    def _perform_sizer_resize(self, event):
+        """Perform the actual sizer resize operation."""
+        try:
+            dx = event.x_root - self.initial_sizer_x
+            new_width = max(200, min(self.initial_panel_width - dx, self.winfo_width() - 200))
+
+            # Use configure with explicit width to minimize layout recalculations
+            self.right_panel.configure(width=new_width)
+
+            # Force immediate layout update to prevent visual lag
+            self.right_panel.update_idletasks()
+
+        except Exception as e:
+            # Fallback to standard resize if optimization fails
+            self.do_resize(event)
+
+    def stop_resize(self, _event):
         self.sizer_dragging = False
+
+        # Cancel any pending resize operations
+        if hasattr(self, '_sizer_resize_timer') and self._sizer_resize_timer:
+            self.after_cancel(self._sizer_resize_timer)
+            self._sizer_resize_timer = None
+
+        # Force final layout update
+        if hasattr(self, 'right_panel'):
+            self.right_panel.update_idletasks()
 
 
     #########################################
@@ -244,7 +351,12 @@ class TRCViewer(ctk.CTk):
     #########################################
 
     def toggle_marker_names(self):
-        toggle_marker_names(self)
+        """Toggle marker name visibility using StateManager."""
+        self.state_manager.toggle_marker_names()
+        # Update button text for backward compatibility
+        if hasattr(self, 'names_button'):
+            text = "Hide Names" if self.state_manager.view_state.show_names else "Show Names"
+            self.names_button.configure(text=text)
 
 
     #########################################
@@ -257,7 +369,12 @@ class TRCViewer(ctk.CTk):
     # 3. Users can choose the length of the trajectory
 
     def toggle_trajectory(self):
-        toggle_trajectory(self)
+        """Toggle trajectory visibility using StateManager."""
+        self.state_manager.toggle_trajectory()
+        # Update button text for backward compatibility
+        if hasattr(self, 'trajectory_button'):
+            text = "Hide Trajectory" if self.state_manager.view_state.show_trajectory else "Show Trajectory"
+            self.trajectory_button.configure(text=text)
 
         
     #########################################
@@ -266,80 +383,10 @@ class TRCViewer(ctk.CTk):
 
     def update_keypoint_names(self):
         """
-        Update keypoint names based on the selected skeleton model.
-        This is particularly useful for 2D data (JSON files) where keypoints are initially named generically.
+        Update keypoint names based on the selected skeleton model using DataManager.
         """
-        # Check if we have data and if the marker names are generic (indicating 2D data from JSON)
-        if self.data is None or not self.marker_names:
-            return
-            
-        # Check if marker names are generic (e.g., "Keypoint_0", "Keypoint_1", etc.)
-        is_generic_naming = all(name.startswith("Keypoint_") for name in self.marker_names)
-        
-        if not is_generic_naming:
-            # If not using generic naming, don't modify the names
-            return
-            
-        # Get the number of keypoints
-        num_keypoints = len(self.marker_names)
-        
-        # If no skeleton is selected, keep using the generic keypoint names
-        if self.current_model is None:
-            return
-            
-        # Get all nodes from the selected skeleton model
-        skeleton_nodes = []
-        if self.current_model is not None:
-            # Add the root node
-            skeleton_nodes.append(self.current_model)
-            # Add all descendants
-            skeleton_nodes.extend(self.current_model.descendants)
-            
-        # Create a mapping from node ID to node name
-        id_to_name = {}
-        for node in skeleton_nodes:
-            if hasattr(node, 'id') and node.id is not None:
-                id_to_name[node.id] = node.name
-                
-        # Create a new DataFrame with updated column names
-        new_data = self.data.copy()
-        new_column_names = {}
-        
-        # Create a new list of marker names
-        new_marker_names = []
-        
-        # Update marker names and DataFrame column names
-        for i, old_name in enumerate(self.marker_names):
-            if i < num_keypoints:
-                # If the keypoint index is in the skeleton model, use the skeleton name
-                if i in id_to_name:
-                    new_name = id_to_name[i]
-                else:
-                    # Keep the generic name if not found in the skeleton
-                    new_name = old_name
-                    
-                # Add to the new marker names list
-                new_marker_names.append(new_name)
-                
-                # Update column names in the DataFrame
-                for axis in ['X', 'Y', 'Z']:
-                    old_col = f"{old_name}_{axis}"
-                    new_col = f"{new_name}_{axis}"
-                    if old_col in new_data.columns:
-                        new_column_names[old_col] = new_col
-        
-        # Rename columns in the DataFrame
-        new_data.rename(columns=new_column_names, inplace=True)
-        
-        # Update the data and marker names
-        self.data = new_data
-        self.marker_names = new_marker_names
-        
-        # Update the original data as well to maintain consistency
-        if hasattr(self, 'original_data') and self.original_data is not None:
-            original_data_copy = self.original_data.copy()
-            original_data_copy.rename(columns=new_column_names, inplace=True)
-            self.original_data = original_data_copy
+        if self.data_manager.update_keypoint_names(self.state_manager.current_skeleton_model):
+            logger.info("Keypoint names updated successfully")
 
     def on_model_change(self, choice):
         try:
@@ -347,14 +394,14 @@ class TRCViewer(ctk.CTk):
             current_frame = self.frame_idx
 
             # Update the model
-            self.current_model = self.available_models[choice]
+            self.state_manager.current_skeleton_model = self.available_models[choice]
 
             # Update skeleton settings
-            if self.current_model is None:
-                self.skeleton_pairs = []
-                self.show_skeleton = False
+            if self.state_manager.current_skeleton_model is None:
+                self.state_manager.skeleton_pairs = []
+                self.state_manager.view_state.show_skeleton = False
             else:
-                self.show_skeleton = True
+                self.state_manager.view_state.show_skeleton = True
                 # Update keypoint names based on the selected skeleton model
                 self.update_keypoint_names()
                 # Update skeleton pairs after keypoint names have been updated
@@ -362,10 +409,10 @@ class TRCViewer(ctk.CTk):
 
             # Deliver skeleton pairs and show skeleton to OpenGL renderer
             if hasattr(self, 'gl_renderer'):
-                self.gl_renderer.set_skeleton_pairs(self.skeleton_pairs)
-                self.gl_renderer.set_show_skeleton(self.show_skeleton)
+                self.gl_renderer.set_skeleton_pairs(self.state_manager.skeleton_pairs)
+                self.gl_renderer.set_show_skeleton(self.state_manager.view_state.show_skeleton)
                 # Update marker names in the renderer
-                self.gl_renderer.set_marker_names(self.marker_names)
+                self.gl_renderer.set_marker_names(self.data_manager.marker_names)
 
             # Re-detect outliers with new skeleton pairs
             self.detect_outliers()
@@ -379,8 +426,9 @@ class TRCViewer(ctk.CTk):
             self.update_frame(current_frame)
 
             # If a marker is currently selected, update its plot
-            if hasattr(self, 'current_marker') and self.current_marker:
-                self.show_marker_plot(self.current_marker)
+            current_marker = self.state_manager.selection_state.current_marker
+            if current_marker:
+                self.show_marker_plot(current_marker)
 
         except Exception as e:
             logger.error("Error in on_model_change: %s", e, exc_info=True)
@@ -388,17 +436,18 @@ class TRCViewer(ctk.CTk):
 
     def update_skeleton_pairs(self):
         """update skeleton pairs"""
-        self.skeleton_pairs = []
-        if self.current_model is not None:
-            for node in self.current_model.descendants:
+        self.state_manager.skeleton_pairs = []
+        if self.state_manager.current_skeleton_model is not None:
+            for node in self.state_manager.current_skeleton_model.descendants:
                 if node.parent:
                     parent_name = node.parent.name
                     node_name = node.name
-                    
+
                     # check if marker names are in the data
-                    if (f"{parent_name}_X" in self.data.columns and 
-                        f"{node_name}_X" in self.data.columns):
-                        self.skeleton_pairs.append((parent_name, node_name))
+                    data = self.data_manager.data
+                    if (f"{parent_name}_X" in data.columns and
+                        f"{node_name}_X" in data.columns):
+                        self.state_manager.skeleton_pairs.append((parent_name, node_name))
 
 
     #########################################
@@ -410,47 +459,19 @@ class TRCViewer(ctk.CTk):
     # 2. Add a threshold for outlier detection
 
     def detect_outliers(self):
-        if not self.skeleton_pairs:
+        """Detect outliers using the optimized OutlierDetector."""
+        if not self.state_manager.skeleton_pairs or not self.data_manager.has_data():
+            self.outliers = {}
             return
 
-        self.outliers = {marker: np.zeros(len(self.data), dtype=bool) for marker in self.marker_names}
+        with PerformanceTimer("Outlier detection"):
+            # Use the optimized outlier detector
+            self.outliers = self.outlier_detector.detect_outliers(
+                self.data_manager.data,
+                self.data_manager.marker_names,
+                self.state_manager.skeleton_pairs
+            )
 
-        for frame in range(len(self.data)):
-            for pair in self.skeleton_pairs:
-                try:
-                    p1 = np.array([
-                        self.data.loc[frame, f'{pair[0]}_X'],
-                        self.data.loc[frame, f'{pair[0]}_Y'],
-                        self.data.loc[frame, f'{pair[0]}_Z']
-                    ])
-                    p2 = np.array([
-                        self.data.loc[frame, f'{pair[1]}_X'],
-                        self.data.loc[frame, f'{pair[1]}_Y'],
-                        self.data.loc[frame, f'{pair[1]}_Z']
-                    ])
-
-                    current_length = np.linalg.norm(p2 - p1)
-
-                    if frame > 0:
-                        p1_prev = np.array([
-                            self.data.loc[frame-1, f'{pair[0]}_X'],
-                            self.data.loc[frame-1, f'{pair[0]}_Y'],
-                            self.data.loc[frame-1, f'{pair[0]}_Z']
-                        ])
-                        p2_prev = np.array([
-                            self.data.loc[frame-1, f'{pair[1]}_X'],
-                            self.data.loc[frame-1, f'{pair[1]}_Y'],
-                            self.data.loc[frame-1, f'{pair[1]}_Z']
-                        ])
-                        prev_length = np.linalg.norm(p2_prev - p1_prev)
-
-                        if abs(current_length - prev_length) / prev_length > 0.3:
-                            self.outliers[pair[0]][frame] = True
-                            self.outliers[pair[1]][frame] = True
-
-                except KeyError:
-                    continue
-                    
         # Deliver outliers to OpenGL renderer
         if hasattr(self, 'gl_renderer'):
             self.gl_renderer.set_outliers(self.outliers)
@@ -497,7 +518,7 @@ class TRCViewer(ctk.CTk):
         """Handle marker selection event"""
         
         # If the clicked marker is already selected, deselect it
-        if marker_name == self.current_marker:
+        if marker_name == self.state_manager.selection_state.current_marker:
             marker_name = None
 
         # Save current view state
@@ -511,7 +532,7 @@ class TRCViewer(ctk.CTk):
                 'trans_y': self.gl_renderer.trans_y
             }
         
-        self.current_marker = marker_name
+        self.state_manager.set_current_marker(marker_name)
         
         # Update selection state in markers list
         if hasattr(self, 'markers_list') and self.markers_list:
@@ -584,7 +605,7 @@ class TRCViewer(ctk.CTk):
                 
                 self._selected_markers_list.configure(state='normal')
                 self._selected_markers_list.delete('1.0', 'end')
-                for marker in sorted(self.pattern_markers):
+                for marker in sorted(self.state_manager.selection_state.pattern_markers):
                     self._selected_markers_list.insert('end', f"• {marker}\n")
                 self._selected_markers_list.configure(state='disabled')
         except Exception as e:
@@ -599,92 +620,168 @@ class TRCViewer(ctk.CTk):
     ############## Updaters #################
     #########################################
 
-    def update_timeline(self):
-        if self.data is None:
+    def update_timeline(self, current_frame_only=False):
+        """Optimized timeline update with optional current frame only mode for animation."""
+        if not self.data_manager.has_data():
             return
-            
+
+        light_yellow = '#FFEB3B'
+
+        # Fast path for animation - only update current frame indicator
+        if current_frame_only and hasattr(self, 'timeline_ax'):
+            self._update_current_frame_indicator_only(light_yellow)
+            return
+
+        # Full timeline redraw
         self.timeline_ax.clear()
-        frames = np.arange(self.num_frames)
+        frames = np.arange(self.data_manager.num_frames)
         fps = float(self.fps_var.get())
         times = frames / fps
-        
+
         # add horizontal baseline (y=0)
         self.timeline_ax.axhline(y=0, color='white', alpha=0.3, linewidth=1)
-        
+
         display_mode = self.timeline_display_var.get()
-        light_yellow = '#FFEB3B'
-        
+
         if display_mode == "time":
-            # major ticks every 10 seconds
-            major_time_ticks = np.arange(0, times[-1] + 10, 10)
-            for time in major_time_ticks:
-                if time <= times[-1]:
-                    frame = int(time * fps)
-                    self.timeline_ax.axvline(frame, color='white', alpha=0.3, linewidth=1)
-                    self.timeline_ax.text(frame, -0.7, f"{time:.0f}s", 
-                                        color='white', fontsize=8, 
-                                        horizontalalignment='center',
-                                        verticalalignment='top')
-            
-            # minor ticks every 1 second
-            minor_time_ticks = np.arange(0, times[-1] + 1, 1)
-            for time in minor_time_ticks:
-                if time <= times[-1] and time % 10 != 0:  # not overlap with 10-second ticks
-                    frame = int(time * fps)
-                    self.timeline_ax.axvline(frame, color='white', alpha=0.15, linewidth=0.5)
-                    self.timeline_ax.text(frame, -0.7, f"{time:.0f}s", 
-                                        color='white', fontsize=6, alpha=0.5,
-                                        horizontalalignment='center',
-                                        verticalalignment='top')
-            
+            self._draw_time_ticks(times, fps)
             current_time = self.frame_idx / fps
             current_display = f"{current_time:.2f}s"
         else:  # frame mode
-            # major ticks every 100 frames
-            major_frame_ticks = np.arange(0, self.num_frames, 100)
-            for frame in major_frame_ticks:
-                self.timeline_ax.axvline(frame, color='white', alpha=0.3, linewidth=1)
-                self.timeline_ax.text(frame, -0.7, f"{frame}", 
-                                    color='white', fontsize=6, alpha=0.5,
-                                    horizontalalignment='center',
-                                    verticalalignment='top')
-            
+            self._draw_frame_ticks()
             current_display = f"{self.frame_idx}"
-        
+
         # current frame display (light yellow line)
-        self.timeline_ax.axvline(self.frame_idx, color=light_yellow, alpha=0.8, linewidth=1.5)
-        
+        # Always create the line during full timeline redraw
+        self._current_frame_line = self.timeline_ax.axvline(self.frame_idx, color=light_yellow, alpha=0.8, linewidth=1.5)
+
         # update label
         self.current_info_label.configure(text=current_display)
-        
+
         # timeline settings
-        self.timeline_ax.set_xlim(0, self.num_frames - 1)
+        self.timeline_ax.set_xlim(0, self.data_manager.num_frames - 1)
         self.timeline_ax.set_ylim(-1, 1)
-        
+
         # hide y-axis
         self.timeline_ax.set_yticks([])
-        
+
         # border style
         self.timeline_ax.spines['top'].set_visible(False)
         self.timeline_ax.spines['right'].set_visible(False)
         self.timeline_ax.spines['left'].set_visible(False)
         self.timeline_ax.spines['bottom'].set_color('white')
         self.timeline_ax.spines['bottom'].set_alpha(0.3)
-        self.timeline_ax.spines['bottom'].set_color('white')
-        self.timeline_ax.spines['bottom'].set_alpha(0.3)
-        
+
         # hide x-axis ticks (we draw them manually)
         self.timeline_ax.set_xticks([])
         # adjust figure margins (to avoid text clipping)
         self.timeline_fig.subplots_adjust(bottom=0.2)
-        
+
         self.timeline_canvas.draw_idle()
+
+    def _draw_time_ticks(self, times, fps):
+        """Helper method to draw time-based ticks on timeline."""
+        # major ticks every 10 seconds
+        major_time_ticks = np.arange(0, times[-1] + 10, 10)
+        for time in major_time_ticks:
+            if time <= times[-1]:
+                frame = int(time * fps)
+                self.timeline_ax.axvline(frame, color='white', alpha=0.3, linewidth=1)
+                self.timeline_ax.text(frame, -0.7, f"{time:.0f}s",
+                                    color='white', fontsize=8,
+                                    horizontalalignment='center',
+                                    verticalalignment='top')
+
+        # minor ticks every 1 second
+        minor_time_ticks = np.arange(0, times[-1] + 1, 1)
+        for time in minor_time_ticks:
+            if time <= times[-1] and time % 10 != 0:  # not overlap with 10-second ticks
+                frame = int(time * fps)
+                self.timeline_ax.axvline(frame, color='white', alpha=0.15, linewidth=0.5)
+                self.timeline_ax.text(frame, -0.7, f"{time:.0f}s",
+                                    color='white', fontsize=6, alpha=0.5,
+                                    horizontalalignment='center',
+                                    verticalalignment='top')
+
+    def _draw_frame_ticks(self):
+        """Helper method to draw frame-based ticks on timeline."""
+        # major ticks every 100 frames
+        major_frame_ticks = np.arange(0, self.data_manager.num_frames, 100)
+        for frame in major_frame_ticks:
+            self.timeline_ax.axvline(frame, color='white', alpha=0.3, linewidth=1)
+            self.timeline_ax.text(frame, -0.7, f"{frame}",
+                                color='white', fontsize=6, alpha=0.5,
+                                horizontalalignment='center',
+                                verticalalignment='top')
+
+    def _update_current_frame_indicator_only(self, light_yellow):
+        """Optimized method to update only the current frame indicator during animation."""
+        if not hasattr(self, 'timeline_ax'):
+            return
+
+        # OPTIMIZATION: Use efficient line position update instead of remove/add
+        if hasattr(self, '_current_frame_line') and self._current_frame_line:
+            try:
+                # Check if the line is still valid and in the axes
+                if self._current_frame_line in self.timeline_ax.lines:
+                    # Simply update the x-position of existing line (much faster)
+                    self._current_frame_line.set_xdata([self.frame_idx, self.frame_idx])
+
+                    # Update frame display label
+                    self._update_frame_display_label()
+
+                    # Use draw_idle for better performance during animation
+                    self.timeline_canvas.draw_idle()
+                    return  # Skip expensive remove/add operations
+                else:
+                    # Line is no longer in axes, need to recreate
+                    self._current_frame_line = None
+            except (ValueError, AttributeError):
+                # Line is invalid, fall back to recreation
+                self._current_frame_line = None
+
+        # Fallback: Create new line only if needed
+        # Remove only the tracked current frame line (not all yellow lines)
+        if hasattr(self, '_current_frame_line') and self._current_frame_line:
+            try:
+                self._current_frame_line.remove()
+            except ValueError:
+                pass  # Line already removed
+
+        # Add new current frame line
+        self._current_frame_line = self.timeline_ax.axvline(
+            self.frame_idx, color=light_yellow, alpha=0.8, linewidth=1.5
+        )
+
+        # Update frame display label
+        self._update_frame_display_label()
+
+        # Use draw_idle for better performance during animation
+        self.timeline_canvas.draw_idle()
+
+    def _update_frame_display_label(self):
+        """Helper method to update the frame display label."""
+        if hasattr(self, 'current_info_label'):
+            display_mode = self.timeline_display_var.get()
+            if display_mode == "time":
+                fps = float(self.fps_var.get())
+                current_time = self.frame_idx / fps
+                current_display = f"{current_time:.2f}s"
+            else:
+                current_display = f"{self.frame_idx}"
+            self.current_info_label.configure(text=current_display)
 
 
     def update_frame_from_timeline(self, x_pos):
-        if x_pos is not None and self.data is not None:
-            frame = int(max(0, min(x_pos, self.num_frames - 1)))
+        """Update frame position from timeline interaction (dragging/clicking)."""
+        if x_pos is not None and self.data_manager.has_data():
+            frame = int(max(0, min(x_pos, self.data_manager.num_frames - 1)))
+
+            # Sync both the main frame_idx and AnimationController
             self.frame_idx = frame
+            self.animation_controller.set_frame(frame, from_external=True)
+
+            # Update display
             self._update_display_after_frame_change()
 
             # update vertical line if marker graph is displayed
@@ -693,41 +790,47 @@ class TRCViewer(ctk.CTk):
             if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
 
+            # Update timeline to reflect the new position
+            self.update_timeline()
+
 
     def update_plot(self):
         """
-        Update method for 3D marker visualization.
-        Previously used the external plotUpdater.py module,
-        but now directly calls the OpenGL renderer.
+        Update method for 3D marker visualization with performance optimizations.
         """
-        if hasattr(self, 'gl_renderer'):
-            # Deliver data
-            if self.data is not None:
-                # Check coordinate system
-                coordinate_system = "z-up" if self.is_z_up else "y-up"
-                
-                # Deliver outliers
-                if hasattr(self, 'outliers') and self.outliers:
-                    self.gl_renderer.set_outliers(self.outliers)
-                
-                # Deliver current frame data
-                try:
-                    self.gl_renderer.set_frame_data(
-                        self.data, 
-                        self.frame_idx, 
-                        self.marker_names,
-                        getattr(self, 'current_marker', None),
-                        getattr(self, 'show_names', False),
-                        getattr(self, 'show_trajectory', False),
-                        getattr(self, 'show_skeleton', False),
-                        coordinate_system,
-                        self.skeleton_pairs if hasattr(self, 'skeleton_pairs') else None
-                    )
-                except Exception as e:
-                    logger.error("Error setting OpenGL data: %s", e, exc_info=True)
-            
+        if not hasattr(self, 'gl_renderer') or self.gl_renderer is None:
+            return
+
+        # Use DataManager to check if we have data
+        if not self.data_manager.has_data():
+            return
+
+        try:
+            # Get current state from StateManager
+            coordinate_system = self.state_manager.view_state.coordinate_system
+
+            # Deliver outliers if available
+            if hasattr(self, 'outliers') and self.outliers:
+                self.gl_renderer.set_outliers(self.outliers)
+
+            # Deliver current frame data using optimized access
+            self.gl_renderer.set_frame_data(
+                self.data_manager.data,
+                self.frame_idx,
+                self.data_manager.marker_names,
+                self.state_manager.selection_state.current_marker,
+                self.state_manager.view_state.show_names,
+                self.state_manager.view_state.show_trajectory,
+                self.state_manager.view_state.show_skeleton,
+                coordinate_system,
+                self.state_manager.skeleton_pairs
+            )
+
             # Update OpenGL renderer screen
             self.gl_renderer.update_plot()
+
+        except Exception as e:
+            logger.error("Error updating plot: %s", e, exc_info=True)
 
 
     def _update_marker_plot_vertical_line_data(self):
@@ -742,19 +845,41 @@ class TRCViewer(ctk.CTk):
         self.update_plot()
         self.update_timeline()
 
+    def _update_display_during_animation(self):
+        """Optimized update method for smooth animation playback."""
+        # Only update the 3D plot during animation - skip expensive timeline redraw
+        self.update_plot()
+
+        # Update only the current frame indicator on timeline (much faster)
+        self.update_timeline(current_frame_only=True)
+
+        # Update marker plot vertical line efficiently if needed
+        if hasattr(self, 'marker_lines') and self.marker_lines:
+            self._update_marker_plot_vertical_line_data()
+            # Use draw_idle for better performance during animation
+            if hasattr(self, 'marker_canvas') and self.marker_canvas:
+                self.marker_canvas.draw_idle()
+
 
     def update_frame(self, value):
-        if self.data is not None:
-            self.frame_idx = int(float(value))
+        """Update frame from external input (e.g., slider, keyboard)."""
+        if self.data_manager.has_data():
+            frame = int(float(value))
+
+            # Sync both the main frame_idx and AnimationController
+            self.frame_idx = frame
+            self.animation_controller.set_frame(frame, from_external=True)
+
+            # Update display
             self._update_display_after_frame_change()
 
             # update vertical line if marker graph is displayed
             self._update_marker_plot_vertical_line_data()
             if hasattr(self, 'marker_canvas') and self.marker_canvas:
                 self.marker_canvas.draw()
-        
-        # Update marker graph vertical line if it exists
-        self._update_marker_plot_vertical_line_data()
+
+            # Update timeline to reflect the new position
+            self.update_timeline()
 
 
     def update_fps_label(self):
@@ -765,7 +890,7 @@ class TRCViewer(ctk.CTk):
 
     def _update_marker_plot_vertical_line_data(self):
         """Updates the vertical line data in the marker plot."""
-        if self.data is None or not hasattr(self, 'marker_canvas') or self.marker_canvas is None:
+        if not self.data_manager.has_data() or not hasattr(self, 'marker_canvas') or self.marker_canvas is None:
             return
 
         if hasattr(self, 'marker_lines') and self.marker_lines:
@@ -835,19 +960,16 @@ class TRCViewer(ctk.CTk):
             if hasattr(self, 'marker_axes'):
                 del self.marker_axes
 
-            self.data = None
-            self.original_data = None
-            self.marker_names = []
-            self.num_frames = 0
+            # Clear data through managers
+            self.data_manager.clear_data()
+            self.state_manager.reset_all_states()
+
             self.frame_idx = 0
             self.outliers = {}
-            self.current_marker = None
             self.marker_axes = []
             self.marker_lines = []
 
             self.view_limits = None
-            self.data_limits = None
-            self.initial_limits = None
 
             self.selection_data = {
                 'start': None,
@@ -859,8 +981,6 @@ class TRCViewer(ctk.CTk):
 
             # frame_slider related code
             self.title_label.configure(text="")
-            self.show_names = False
-            self.show_skeleton = False
             self.current_file = None
 
             # timeline initialization
@@ -884,7 +1004,7 @@ class TRCViewer(ctk.CTk):
 
     def clear_pattern_selection(self):
         """Initialize pattern markers"""
-        self.pattern_markers.clear()
+        self.state_manager.selection_state.pattern_markers.clear()
         self.update_selected_markers_list()
         self.update_plot()
 
@@ -894,33 +1014,21 @@ class TRCViewer(ctk.CTk):
     #########################################
 
     def toggle_animation(self):
-        toggle_animation(self)
+        """Toggle animation play/pause using the AnimationController."""
+        # Before toggling, sync the AnimationController with current UI frame position
+        if not self.animation_controller.is_playing:
+            # Starting animation - sync with current UI frame
+            self.animation_controller.set_frame(self.frame_idx)
 
+        self.animation_controller.toggle_play_pause()
 
     def prev_frame(self):
-        """Move to the previous frame when left arrow key is pressed."""
-        if self.data is not None and self.frame_idx > 0:
-            self.frame_idx -= 1
-            self._update_display_after_frame_change()
-            
-            # Update marker graph vertical line if it exists
-            self._update_marker_plot_vertical_line_data()
-            if hasattr(self, 'marker_canvas') and self.marker_canvas:
-                self.marker_canvas.draw()
-            # self.update_frame_counter()
-
+        """Move to the previous frame using the AnimationController."""
+        self.animation_controller.prev_frame()
 
     def next_frame(self):
-        """Move to the next frame when right arrow key is pressed."""
-        if self.data is not None and self.frame_idx < self.num_frames - 1:
-            self.frame_idx += 1
-            self._update_display_after_frame_change()
-            
-            # Update marker graph vertical line if it exists
-            self._update_marker_plot_vertical_line_data()
-            if hasattr(self, 'marker_canvas') and self.marker_canvas:
-                self.marker_canvas.draw()
-            # self.update_frame_counter()
+        """Move to the next frame using the AnimationController."""
+        self.animation_controller.next_frame()
 
 
     def change_timeline_mode(self, mode):
@@ -938,63 +1046,31 @@ class TRCViewer(ctk.CTk):
         self.update_timeline()
 
 
-    # ---------- animation ----------
+    # ---------- animation (legacy methods for backward compatibility) ----------
     def animate(self):
-        if self.is_playing:
-            if self.frame_idx < self.num_frames - 1:
-                self.frame_idx += 1
-            else:
-                if self.loop_var.get():
-                    self.frame_idx = 0
-                else:
-                    self.stop_animation()
-                    return
-
-            self._update_display_after_frame_change()
-
-            # Update marker graph vertical line if it exists (Added)
-            self._update_marker_plot_vertical_line_data()
-
-            # remove speed slider related code and use default FPS
-            base_fps = float(self.fps_var.get())
-            delay = int(1000 / base_fps)
-            delay = max(1, delay)
-
-            self.animation_job = self.after(delay, self.animate)
-
+        """Legacy method - animation is now handled by AnimationController."""
+        pass  # This is now handled by the AnimationController
 
     def play_animation(self):
-        self.is_playing = True
-        self.play_pause_button.configure(text="⏸")
-        self.stop_button.configure(state='normal')
-        self.animate()
-
+        """Start animation using the AnimationController."""
+        # Sync with current UI frame position before starting
+        self.animation_controller.set_frame(self.frame_idx)
+        self.animation_controller.play()
 
     def pause_animation(self):
-        self.is_playing = False
-        self.play_pause_button.configure(text="▶")
-        if self.animation_job:
-            self.after_cancel(self.animation_job)
-            self.animation_job = None
-
+        """Pause animation using the AnimationController."""
+        self.animation_controller.pause()
 
     def stop_animation(self):
-        # if playing, stop
-        if self.is_playing:
-            self.is_playing = False
-            self.play_pause_button.configure(text="▶")
-            if self.animation_job:
-                self.after_cancel(self.animation_job)
-                self.animation_job = None
-        
-        # go back to first frame
-        self.frame_idx = 0
-        self._update_display_after_frame_change()
-        # Update marker graph vertical line if it exists (Added)
-        self._update_marker_plot_vertical_line_data()
-        if hasattr(self, 'marker_canvas'):
-            self.marker_canvas.draw() # Use draw() here as it's a single event
-        self.stop_button.configure(state='disabled')
+        """Stop animation using the AnimationController."""
+        self.animation_controller.stop()
+
+    def _on_loop_checkbox_changed(self):
+        """Callback for when the loop checkbox state changes."""
+        # BUG FIX: Connect loop checkbox to animation controller
+        loop_enabled = self.loop_var.get()
+        self.animation_controller.set_loop(loop_enabled)
+        logger.info(f"Loop checkbox changed: {'enabled' if loop_enabled else 'disabled'}")
 
 
     #########################################
@@ -1005,10 +1081,11 @@ class TRCViewer(ctk.CTk):
     # 1. Create a new file for edit mode
     def toggle_edit_mode(self):
         """Toggles the editing mode for the marker plot."""
-        if not self.current_marker: # Ensure a marker plot is shown
+        current_marker = self.state_manager.selection_state.current_marker
+        if not current_marker: # Ensure a marker plot is shown
             return
 
-        self.is_editing = not self.is_editing
+        self.state_manager.set_editing_mode(not self.state_manager.editing_state.is_editing)
         # Re-render plot area with different controls based on edit state
         if hasattr(self, 'graph_frame') and self.graph_frame and self.graph_frame.winfo_ismapped():
             # Get the button frame (bottom frame of graph area)
@@ -1025,10 +1102,11 @@ class TRCViewer(ctk.CTk):
                 build_marker_plot_buttons(self, button_frame)
                 
                 # Update pattern selection mode based on interpolation method
-                if self.is_editing and self.interp_method_var.get() == 'pattern-based':
-                    self.pattern_selection_mode = True
+                is_editing = self.state_manager.editing_state.is_editing
+                if is_editing and self.interp_method_var.get() == 'pattern-based':
+                    self.state_manager.editing_state.pattern_selection_mode = True
                 else:
-                    self.pattern_selection_mode = False
+                    self.state_manager.editing_state.pattern_selection_mode = False
                     
                 # Force update of the UI
                 self.graph_frame.update_idletasks()
@@ -1104,11 +1182,12 @@ class TRCViewer(ctk.CTk):
         start_frame = min(int(self.selection_data['start']), int(self.selection_data['end']))
         end_frame = max(int(self.selection_data['start']), int(self.selection_data['end']))
 
+        current_marker = self.state_manager.selection_state.current_marker
         for coord in ['X', 'Y', 'Z']:
-            col_name = f'{self.current_marker}_{coord}'
-            self.data.loc[start_frame:end_frame, col_name] = np.nan
+            col_name = f'{current_marker}_{coord}'
+            self.data_manager.data.loc[start_frame:end_frame, col_name] = np.nan
 
-        self.show_marker_plot(self.current_marker)
+        self.show_marker_plot(current_marker)
 
         for ax, view_state in zip(self.marker_axes, view_states):
             ax.set_xlim(view_state['xlim'])
@@ -1122,29 +1201,27 @@ class TRCViewer(ctk.CTk):
 
         # Update button state *only if* the edit button exists (i.e., not in edit mode)
         # and the widget itself hasn't been destroyed
-        if not self.is_editing and hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
+        is_editing = self.state_manager.editing_state.is_editing
+        if not is_editing and hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
             self.edit_button.configure(fg_color="#555555")
 
 
     # ---------- Restore original data ----------
     def restore_original_data(self):
-        if self.original_data is not None:
-            self.data = self.original_data.copy(deep=True)
+        """Restore data to original state using DataManager."""
+        if self.data_manager.restore_original_data():
             self.detect_outliers()
             # Check if a marker plot is currently displayed before trying to update it
-            if hasattr(self, 'current_marker') and self.current_marker:
-                self.show_marker_plot(self.current_marker)
+            current_marker = self.state_manager.selection_state.current_marker
+            if current_marker:
+                self.show_marker_plot(current_marker)
             self.update_plot()
 
             # Update button state *only if* the edit button exists (i.e., not in edit mode)
             if hasattr(self, 'edit_button') and self.edit_button and self.edit_button.winfo_exists():
                  self.edit_button.configure(fg_color="#3B3B3B") # Reset to default color, not gray
 
-            # Consider exiting edit mode upon restoring?
-            # if self.is_editing:
-            #     self.toggle_edit_mode()
-
-            # print("Data has been restored to the original state.")
+            logger.info("Data has been restored to the original state.")
         else:
             messagebox.showinfo("Restore Data", "No original data to restore.")
 
@@ -1227,18 +1304,18 @@ class TRCViewer(ctk.CTk):
         # Special handling for pattern-based interpolation
         if choice == 'pattern-based':
             # Clear any existing pattern markers on the main app
-            self.pattern_markers.clear()
+            self.state_manager.selection_state.pattern_markers.clear()
             # Set pattern selection mode on the main app
-            self.pattern_selection_mode = True
+            self.state_manager.editing_state.pattern_selection_mode = True
             # **Update the renderer's mode**
             if hasattr(self, 'gl_renderer'):
-                self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
+                self.gl_renderer.set_pattern_selection_mode(True, self.state_manager.selection_state.pattern_markers)
             messagebox.showinfo("Pattern Selection", 
                 "Left-click markers in the 3D view to select/deselect them as reference patterns.\n"
                 "Selected markers will be shown in red.")
         else:
             # Disable pattern selection mode on the main app
-            self.pattern_selection_mode = False
+            self.state_manager.editing_state.pattern_selection_mode = False
             # **Update the renderer's mode**
             if hasattr(self, 'gl_renderer'):
                 self.gl_renderer.set_pattern_selection_mode(False)
@@ -1251,14 +1328,16 @@ class TRCViewer(ctk.CTk):
 
     def handle_pattern_marker_selection(self, marker_name):
         """Handles the selection/deselection of a marker for pattern-based interpolation."""
-        if not self.pattern_selection_mode:
+        pattern_selection_mode = self.state_manager.editing_state.pattern_selection_mode
+        if not pattern_selection_mode:
             return # Should not happen if called correctly, but as a safeguard
 
-        if marker_name in self.pattern_markers:
-            self.pattern_markers.remove(marker_name)
+        pattern_markers = self.state_manager.selection_state.pattern_markers
+        if marker_name in pattern_markers:
+            pattern_markers.remove(marker_name)
             logger.info(f"Removed {marker_name} from pattern markers.")
         else:
-            self.pattern_markers.add(marker_name)
+            pattern_markers.add(marker_name)
             logger.info(f"Added {marker_name} to pattern markers.")
 
         # Update the UI list showing selected markers
@@ -1266,25 +1345,26 @@ class TRCViewer(ctk.CTk):
         
         # Update the renderer state (important for visual feedback)
         if hasattr(self, 'gl_renderer'):
-            self.gl_renderer.set_pattern_selection_mode(True, self.pattern_markers)
+            self.gl_renderer.set_pattern_selection_mode(True, self.state_manager.selection_state.pattern_markers)
             # Trigger redraw in the renderer to show color changes
-            self.gl_renderer.redraw() 
+            self.gl_renderer.redraw()
 
 
     def handle_analysis_marker_selection(self, marker_name):
         """Handles marker selection/deselection in analysis mode."""
-        if not self.is_analysis_mode:
+        if not self.state_manager.editing_state.is_analysis_mode:
             logger.warning("handle_analysis_marker_selection called when not in analysis mode.")
             return
 
-        if marker_name in self.analysis_markers:
-            self.analysis_markers.remove(marker_name)
+        analysis_markers = self.state_manager.selection_state.analysis_markers
+        if marker_name in analysis_markers:
+            analysis_markers.remove(marker_name)
             logger.info(f"Removed {marker_name} from analysis markers.")
         else:
-            if len(self.analysis_markers) < 3:
+            if len(analysis_markers) < 3:
                 # Append marker. Order might be important for angle calculation (e.g., vertex is middle).
-                self.analysis_markers.append(marker_name) 
-                logger.info(f"Added {marker_name} to analysis markers: {self.analysis_markers}")
+                analysis_markers.append(marker_name)
+                logger.info(f"Added {marker_name} to analysis markers: {analysis_markers}")
             else:
                 # Notify user that the limit is reached
                 logger.warning(f"Cannot select more than 3 markers for analysis. Click existing marker to deselect.")
@@ -1294,5 +1374,5 @@ class TRCViewer(ctk.CTk):
         # Update the renderer state with the new list and trigger redraw
         if hasattr(self, 'gl_renderer'):
             # Ensure the renderer knows the current mode state and the updated list
-            self.gl_renderer.set_analysis_state(self.is_analysis_mode, self.analysis_markers)
+            self.gl_renderer.set_analysis_state(self.state_manager.editing_state.is_analysis_mode, self.state_manager.selection_state.analysis_markers)
             self.gl_renderer.redraw() # Redraw to show selection changes

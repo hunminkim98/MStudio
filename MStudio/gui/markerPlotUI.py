@@ -22,7 +22,7 @@ def build_marker_plot_buttons(viewer, parent_frame):
         "text_color": "#FFFFFF", "corner_radius": 6, "border_width": 1, "border_color": "#555555"
     }
 
-    if viewer.is_editing:
+    if viewer.state_manager.editing_state.is_editing:
         # --- Build Edit Controls (Multi-row) ---
         parent_frame.configure(height=90) # Increase height for edit mode with interpolation
 

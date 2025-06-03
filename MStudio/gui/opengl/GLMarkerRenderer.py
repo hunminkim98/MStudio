@@ -29,8 +29,11 @@ COORDINATE_X_ROTATION_Z_UP = -90  # X-axis rotation angle in Z-up coordinate sys
 COORDINATE_SYSTEM_Y_UP = "y-up"
 COORDINATE_SYSTEM_Z_UP = "z-up"
 
-# Scale factor for reference line length in analysis mode
+# Scale factor for reference line length in analysis mode (deprecated)
 REF_LINE_SCALE = 0.33
+
+# Fixed reference line length in world units (meters)
+REF_LINE_FIXED_LENGTH = 0.15
 
 # Font constants for text rendering (smaller sizes)
 SMALL_FONT = GLUT.GLUT_BITMAP_HELVETICA_12
@@ -64,22 +67,25 @@ class PickingTexture:
         self.height = height
         
         try:
-            # Create FBO
-            self.fbo = GL.glGenFramebuffers(1)
+            # Create FBO with proper type handling
+            fbo_raw = GL.glGenFramebuffers(1)
+            self.fbo = int(fbo_raw)  # Convert to standard int to avoid numpy type issues
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
-            
-            # Create texture for ID information
-            self.texture = GL.glGenTextures(1)
+
+            # Create texture for ID information with proper type handling
+            texture_raw = GL.glGenTextures(1)
+            self.texture = int(texture_raw)  # Convert to standard int to avoid numpy type issues
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB32F, width, height, 
+            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB32F, width, height,
                            0, GL.GL_RGB, GL.GL_FLOAT, None)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-            GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, 
+            GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
                                     GL.GL_TEXTURE_2D, self.texture, 0)
-            
-            # Create texture for depth information
-            self.depth_texture = GL.glGenTextures(1)
+
+            # Create texture for depth information with proper type handling
+            depth_texture_raw = GL.glGenTextures(1)
+            self.depth_texture = int(depth_texture_raw)  # Convert to standard int to avoid numpy type issues
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.depth_texture)
             GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_DEPTH_COMPONENT, width, height,
                            0, GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT, None)
@@ -112,23 +118,41 @@ class PickingTexture:
             return False
     
     def cleanup(self):
-        """Clean up resources"""
+        """Clean up resources with proper OpenGL type handling"""
         try:
+            # Ensure we have a valid OpenGL context before cleanup
+            if not hasattr(GL, 'glGetError'):
+                logger.warning("OpenGL context not available during cleanup")
+                return
+
+            # Delete textures with proper parameter format
             if self.texture != 0:
-                GL.glDeleteTextures(self.texture)
+                # Convert to proper format for glDeleteTextures (count, array)
+                texture_id = int(self.texture)  # Ensure it's a standard int
+                GL.glDeleteTextures(1, [texture_id])
                 self.texture = 0
-                
+
             if self.depth_texture != 0:
-                GL.glDeleteTextures(self.depth_texture)
+                # Convert to proper format for glDeleteTextures (count, array)
+                depth_texture_id = int(self.depth_texture)  # Ensure it's a standard int
+                GL.glDeleteTextures(1, [depth_texture_id])
                 self.depth_texture = 0
-                
+
             if self.fbo != 0:
-                GL.glDeleteFramebuffers(1, [self.fbo])
+                # Convert to proper format for glDeleteFramebuffers (count, array)
+                fbo_id = int(self.fbo)  # Ensure it's a standard int
+                GL.glDeleteFramebuffers(1, [fbo_id])
                 self.fbo = 0
-                
+
             self.initialized = False
+
         except Exception as e:
             logger.error(f"Picking texture cleanup error: {e}")
+            # Force reset of IDs even if cleanup failed to prevent further issues
+            self.texture = 0
+            self.depth_texture = 0
+            self.fbo = 0
+            self.initialized = False
     
     def enable_writing(self):
         """Enable writing to the picking texture"""
@@ -241,11 +265,39 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.bind("<ButtonRelease-3>", self.on_right_mouse_release)
         self.bind("<B3-Motion>", self.on_right_mouse_move)
         self.bind("<MouseWheel>", self.on_scroll)
+        self.bind("<Motion>", self.on_mouse_motion)  # For hover detection
         self.bind("<Configure>", self.on_configure) # Add binding for Configure event
+
+        # Resize handling optimization variables
+        self._resize_timer = None
+        self._last_resize_time = 0
+        self._resize_throttle_ms = 16  # ~60 FPS throttling
+        self._last_viewport_size = (0, 0)
+        self._resize_in_progress = False
         
         # Marker picking related variables
         self.picking_texture = PickingTexture()
         self.dragging = False
+
+        # Reference line interaction variables
+        self.ref_line_hover = False
+        self.ref_line_click_tolerance = 15  # pixels
+        self.ref_line_start = None  # Will store reference line start point
+        self.ref_line_end = None    # Will store reference line end point
+
+        # Performance optimization for animation
+        self._context_active = False
+        self._pending_redraw = False
+        self._last_render_time = 0.0
+
+        # Skeleton rendering optimization
+        self._skeleton_cache = {}
+        self._skeleton_display_list = None
+        self._cached_frame_idx = -1
+        self._skeleton_cache_valid = False
+
+        # Cleanup flag to prevent multiple cleanup attempts
+        self._cleanup_performed = False
         
     def initialize(self):
         """
@@ -285,6 +337,10 @@ class MarkerGLRenderer(MarkerGLFrame):
                 GL.glDeleteLists(self.grid_list, 1)
             if hasattr(self, 'axes_list') and self.axes_list is not None:
                 GL.glDeleteLists(self.axes_list, 1)
+            if hasattr(self, '_skeleton_display_list') and self._skeleton_display_list is not None:
+                GL.glDeleteLists(self._skeleton_display_list, 1)
+                self._skeleton_display_list = None
+                self._skeleton_cache_valid = False
             
             # Now create display lists after the OpenGL context is fully initialized
             self._create_grid_display_list()
@@ -320,7 +376,9 @@ class MarkerGLRenderer(MarkerGLFrame):
         if hasattr(self, 'axes_list') and self.axes_list is not None:
             GL.glDeleteLists(self.axes_list, 1)
             
-        self.axes_list = GL.glGenLists(1)
+        # Create display list with proper type handling
+        axes_list_raw = GL.glGenLists(1)
+        self.axes_list = int(axes_list_raw)  # Convert to standard int to avoid numpy type issues
         GL.glNewList(self.axes_list, GL.GL_COMPILE)
         
         # Disable backface culling
@@ -423,12 +481,14 @@ class MarkerGLRenderer(MarkerGLFrame):
         is_z_up_local = getattr(self, 'is_z_up', False)
         
         try:
-            # Activate OpenGL context (for safety)
-            try:
-                self.tkMakeCurrent()
-            except Exception as context_error:
-                logger.error(f"Error setting OpenGL context: {context_error}")
-                return # Cannot proceed without context
+            # OPTIMIZATION: Minimize context switching during animation
+            if not self._context_active:
+                try:
+                    self.tkMakeCurrent()
+                    self._context_active = True
+                except Exception as context_error:
+                    logger.error(f"Error setting OpenGL context: {context_error}")
+                    return # Cannot proceed without context
             
             # --- Explicitly Reset Key OpenGL States --- START
             GL.glEnable(GL.GL_DEPTH_TEST)
@@ -495,15 +555,25 @@ class MarkerGLRenderer(MarkerGLFrame):
             marker_positions = {}
             valid_markers = []
             
-            # Collect valid marker data for the current frame
-            for marker in self.marker_names:
-                try:
-                    x = self.data.loc[self.frame_idx, f'{marker}_X']
-                    y = self.data.loc[self.frame_idx, f'{marker}_Y']
-                    z = self.data.loc[self.frame_idx, f'{marker}_Z']
-                    
-                    # Skip NaN values
-                    if pd.isna(x) or pd.isna(y) or pd.isna(z):
+            # OPTIMIZATION: Batch data access for better performance during animation
+            if hasattr(self.data, 'iloc'):
+                # Use iloc for faster integer-based indexing
+                frame_data = self.data.iloc[self.frame_idx]
+
+                # Collect valid marker data for the current frame
+                for marker in self.marker_names:
+                    try:
+                        # Batch access to marker coordinates
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if x_col in frame_data.index and y_col in frame_data.index and z_col in frame_data.index:
+                            x, y, z = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            # Skip NaN values
+                            if pd.isna(x) or pd.isna(y) or pd.isna(z):
+                                continue
+                        else:
+                            continue
+                    except (KeyError, IndexError):
                         continue
                     
                     # Adjust position according to the coordinate system
@@ -530,19 +600,18 @@ class MarkerGLRenderer(MarkerGLFrame):
                     
                     if marker_str == current_marker_str:
                         selected_position = pos
-                        
-                except KeyError:
-                    continue
             
-            # Marker rendering - separated into 2 stages: normal markers -> pattern markers
+            # Marker rendering - optimized with pre-computed pattern selection
             if positions:
+                # Pre-compute pattern selection status for better performance
+                pattern_selected_set = set(self.pattern_markers) if self.pattern_selection_mode else set()
+
                 # Stage 1: Normal markers (unselected markers or when not in pattern mode)
                 GL.glPointSize(5.0) # Normal size
                 GL.glBegin(GL.GL_POINTS)
                 for i, pos in enumerate(positions):
                     marker = valid_markers[i]
-                    is_pattern_selected = self.pattern_selection_mode and marker in self.pattern_markers
-                    if not is_pattern_selected:
+                    if marker not in pattern_selected_set:
                         GL.glColor3fv(colors[i])
                         GL.glVertex3fv(pos)
                 GL.glEnd()
@@ -567,8 +636,10 @@ class MarkerGLRenderer(MarkerGLFrame):
                 GL.glVertex3fv(selected_position)
                 GL.glEnd()
             
-            # Skeleton line rendering
+            # Skeleton line rendering - OPTIMIZED with caching
             if hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_pairs'):
+                # Cache skeleton geometry for current frame to optimize camera interactions
+                self._cache_skeleton_geometry()
                 # --- Enable Blending and Smoothing (needed for normal lines) ---
                 GL.glEnable(GL.GL_BLEND)
                 GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
@@ -760,14 +831,31 @@ class MarkerGLRenderer(MarkerGLFrame):
                             v = pA - pB
                             norm_v = np.linalg.norm(v)
                             if norm_v > 0:
-                                u = np.array([1.0, 0.0, 0.0])
-                                # reference line
-                                GL.glLineWidth(1.5)
-                                GL.glColor3f(0.3, 0.7, 0.3)
+                                # Get reference vector from state manager
+                                if hasattr(self.parent, 'state_manager'):
+                                    u = self.parent.state_manager.get_reference_vector()
+                                else:
+                                    u = np.array([1.0, 0.0, 0.0])  # Default to X-axis
+
+                                # Store reference line endpoints for click detection (fixed length)
+                                self.ref_line_start = pB.copy()
+                                self.ref_line_end = pB + u * REF_LINE_FIXED_LENGTH
+
+                                # reference line with hover effect
+                                line_width = 2.5 if self.ref_line_hover else 1.5
+                                line_color = [0.5, 0.9, 0.5] if self.ref_line_hover else [0.3, 0.7, 0.3]
+
+                                GL.glLineWidth(line_width)
+                                GL.glColor3fv(line_color)
                                 GL.glBegin(GL.GL_LINES)
-                                GL.glVertex3fv(pB)
-                                GL.glVertex3fv(pB + u * norm_v * REF_LINE_SCALE)
+                                GL.glVertex3fv(self.ref_line_start)
+                                GL.glVertex3fv(self.ref_line_end)
                                 GL.glEnd()
+
+                                # Add axis label at the end of reference line
+                                if hasattr(self.parent, 'state_manager'):
+                                    current_axis = self.parent.state_manager.editing_state.reference_axis
+                                    self._render_axis_label(self.ref_line_end, current_axis)
                                 # arc
                                 radius = norm_v * 0.2
                                 p_ref = pB + u * radius
@@ -818,8 +906,13 @@ class MarkerGLRenderer(MarkerGLFrame):
                                 mid_pt = (pA + pB) / 2
                                 dist_text = f"{distance:.3f} m"
                                 dist_pos = [mid_pt[0], mid_pt[1] + 0.02, mid_pt[2]]
-                                # compute angle relative to horizontal
-                                angle_val = calculate_angle(np.array([pB[0]+1.0, pB[1], pB[2]]), pB, pA)
+                                # compute angle relative to reference axis
+                                if hasattr(self.parent, 'state_manager'):
+                                    u = self.parent.state_manager.get_reference_vector()
+                                else:
+                                    u = np.array([1.0, 0.0, 0.0])  # Default to X-axis
+                                ref_point = pB + u
+                                angle_val = calculate_angle(ref_point, pB, pA)
                                 if angle_val is not None:
                                     angle_text = f"{angle_val:.1f}\u00B0"
                                     angle_pos = [pB[0], pB[1] + 0.03, pB[2]]
@@ -1007,8 +1100,13 @@ class MarkerGLRenderer(MarkerGLFrame):
                     import traceback
                     traceback.print_exc()
             
-            # Swap buffers (refresh screen)
-            self.tkSwapBuffers()
+            # OPTIMIZATION: Non-blocking buffer swap for smooth animation
+            # Use frame rate limiting to prevent excessive rendering
+            import time
+            current_time = time.time()
+            if current_time - self._last_render_time >= 1.0/120.0:  # Max 120 FPS
+                self.tkSwapBuffers()
+                self._last_render_time = current_time
         
         except Exception as e:
             # Log error for debugging
@@ -1026,12 +1124,12 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.initialized = True
         self.redraw()
     
-    def set_frame_data(self, data, frame_idx, marker_names, current_marker=None, 
+    def set_frame_data(self, data, frame_idx, marker_names, current_marker=None,
                        show_marker_names=False, show_trajectory=False, show_skeleton=False,
                        coordinate_system="z-up", skeleton_pairs=None):
         """
         Integrated data update method called from TRCViewer
-        
+
         Args:
             data: Full marker data
             frame_idx: Current frame index
@@ -1043,21 +1141,25 @@ class MarkerGLRenderer(MarkerGLFrame):
             coordinate_system: Coordinate system ("z-up" or "y-up")
             skeleton_pairs: List of skeleton pairs
         """
+        # OPTIMIZATION: Invalidate skeleton cache if frame changes
+        if hasattr(self, '_cached_frame_idx') and self._cached_frame_idx != frame_idx:
+            self._skeleton_cache_valid = False
+
         self.data = data
         self.frame_idx = frame_idx
         self.marker_names = marker_names
-        
+
         # Maintain selected marker information - update only if current_marker is not None
         # Or update if there is no current marker (self.current_marker is None)
         if current_marker is not None:
             self.current_marker = current_marker
-        
+
         self.show_marker_names = show_marker_names
         self.show_trajectory = show_trajectory
         self.show_skeleton = show_skeleton
         self.coordinate_system = coordinate_system
         self.skeleton_pairs = skeleton_pairs
-        
+
         # Update frame count if data exists
         if data is not None:
             self.num_frames = len(data)
@@ -1086,8 +1188,10 @@ class MarkerGLRenderer(MarkerGLFrame):
     
     def set_show_trajectory(self, show):
         """Set trajectory display"""
+        logger.debug(f"Setting show_trajectory to {show}")
         self.show_trajectory = show
-        self.redraw()
+        # Force complete redraw to ensure state change is reflected
+        self._force_complete_redraw()
         
     def update_plot(self):
         """
@@ -1154,37 +1258,65 @@ class MarkerGLRenderer(MarkerGLFrame):
             # Check OpenGL state
             if not self.gl_initialized:
                 return
-                
+
             # Activate context
             self.tkMakeCurrent()
-            
+
             # Clear and redraw the entire screen
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             GL.glLoadIdentity()
-            
+
             # Set up 3D scene
             GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
             GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
             GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
-            
+
             # Call display lists
             if hasattr(self, 'grid_list') and self.grid_list is not None:
                 GL.glCallList(self.grid_list)
             if hasattr(self, 'axes_list') and self.axes_list is not None:
                 GL.glCallList(self.axes_list)
-            
+
             # Complete scene update
             self.redraw()
-            
+
             # Force buffer swap
             self.tkSwapBuffers()
-            
+
             # TK update
             self.update()
             self.update_idletasks()
-            
+
         except Exception as e:
             pass
+
+    def _force_complete_redraw(self):
+        """Force complete redraw with state validation for toggle operations."""
+        try:
+            # Check OpenGL state
+            if not self.gl_initialized:
+                return
+
+            # Activate context
+            self.tkMakeCurrent()
+
+            # Clear all buffers completely
+            GL.glClearColor(0.0, 0.0, 0.0, 0.0)
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+            # Force immediate redraw with current state
+            self.redraw()
+
+            # Force buffer swap to ensure changes are visible
+            self.tkSwapBuffers()
+
+            # Schedule additional redraw to ensure state changes are fully applied
+            self.after_idle(self.redraw)
+
+        except Exception as e:
+            logger.error(f"Error in force complete redraw: {e}")
+            # Fallback to regular redraw
+            self.redraw()
     
     def reset_view(self):
         """
@@ -1216,17 +1348,19 @@ class MarkerGLRenderer(MarkerGLFrame):
     def set_show_marker_names(self, show):
         """
         Set whether to display marker names
-        
+
         Args:
             show: True to display marker names, False otherwise
         """
+        logger.debug(f"Setting show_marker_names to {show}")
         self.show_marker_names = show
-        self.redraw()
+        # Force complete redraw to ensure state change is reflected
+        self._force_complete_redraw()
         
     def set_data_limits(self, x_range, y_range, z_range):
         """
         Sets the range of the data.
-        
+
         Args:
             x_range: X-axis range (min, max)
             y_range: Y-axis range (min, max)
@@ -1243,13 +1377,22 @@ class MarkerGLRenderer(MarkerGLFrame):
         """Called when the left mouse button is pressed"""
         self.last_x, self.last_y = event.x, event.y
         self.dragging = False
-        
-        # Perform picking
+
+        # Check for reference line click first (in analysis mode with 2 markers)
+        if (self.analysis_mode_active and len(self.analysis_selection) == 2 and
+            self._is_mouse_over_reference_line(event.x, event.y)):
+            self._handle_reference_line_click()
+            return
+
+        # Perform marker picking
         if self.data is not None and len(self.marker_names) > 0:
             self.pick_marker(event.x, event.y)
 
-    def on_mouse_release(self, event):
+    def on_mouse_release(self, _event):
         """Called when the left mouse button is released"""
+        # Reset context state when mouse interaction ends
+        self._context_active = False
+
         # Consider it a click if not in dragging state
         if not self.dragging and self.data is not None:
             pass  # Picking is handled in press
@@ -1257,17 +1400,20 @@ class MarkerGLRenderer(MarkerGLFrame):
     def on_mouse_move(self, event):
         """Called when dragging with the left mouse button (rotation)"""
         dx, dy = event.x - self.last_x, event.y - self.last_y
-        
+
         # Switch to dragging state only when significant drag occurs
         if abs(dx) > 3 or abs(dy) > 3:
             self.dragging = True
-        
+
         # Perform only rotation during drag
         if self.dragging:
             self.last_x, self.last_y = event.x, event.y
             self.rot_y += dx * 0.5
             self.rot_x += dy * 0.5
-            self.redraw()
+
+            # OPTIMIZATION: Use immediate redraw for smooth camera controls
+            # Skip frame rate limiting for mouse interactions
+            self._immediate_redraw()
 
     def on_right_mouse_press(self, event):
         """Handle right mouse button press event (start view translation or pattern selection mode)"""
@@ -1278,9 +1424,12 @@ class MarkerGLRenderer(MarkerGLFrame):
             
     def on_right_mouse_release(self, event):
         """Handle right mouse button release event (end view translation or select pattern marker)"""
+        # Reset context state when mouse interaction ends
+        self._context_active = False
+
         if self.pattern_selection_mode:
              # Pattern selection mode: Attempt marker picking
-            self.pick_marker(event.x, event.y) 
+            self.pick_marker(event.x, event.y)
         elif self.dragging:
             # End view translation mode
             self.dragging = False
@@ -1289,18 +1438,833 @@ class MarkerGLRenderer(MarkerGLFrame):
         """Called when dragging with the right mouse button (translation)"""
         dx, dy = event.x - self.last_x, event.y - self.last_y
         self.last_x, self.last_y = event.x, event.y
-        
+
         # Calculate screen translation (move as a ratio of screen size)
         self.trans_x += dx * 0.005
         self.trans_y -= dy * 0.005  # Invert coordinate system direction (screen y increases downwards)
-        
-        self.redraw()
+
+        # OPTIMIZATION: Use immediate redraw for smooth camera controls
+        self._immediate_redraw()
 
     def on_scroll(self, event):
         """Called when scrolling the mouse wheel (zoom)"""
         # On Windows: event.delta, other platforms may need different approaches
         self.zoom += event.delta * 0.001
-        self.redraw()
+
+        # OPTIMIZATION: Use immediate redraw for smooth camera controls
+        self._immediate_redraw()
+
+    def on_mouse_motion(self, event):
+        """Handle mouse motion for hover detection on reference line"""
+        if not self.analysis_mode_active or len(self.analysis_selection) != 2:
+            if self.ref_line_hover:
+                self.ref_line_hover = False
+                self.redraw()
+            return
+
+        # Check if mouse is hovering over reference line
+        was_hovering = self.ref_line_hover
+        self.ref_line_hover = self._is_mouse_over_reference_line(event.x, event.y)
+
+        # Redraw only if hover state changed
+        if was_hovering != self.ref_line_hover:
+            self.redraw()
+
+    def _immediate_redraw(self):
+        """Immediate redraw without frame rate limiting for mouse interactions."""
+        if not self.gl_initialized:
+            return
+
+        try:
+            # Force immediate context activation and rendering
+            self.tkMakeCurrent()
+            self._context_active = True
+
+            # Call the main rendering pipeline
+            self._update_plot_immediate()
+
+        except Exception as e:
+            logger.error(f"Immediate redraw error: {e}")
+
+    def _update_plot_immediate(self):
+        """Immediate plot update for mouse interactions - includes all scene elements."""
+        if not self.gl_initialized:
+            return
+
+        try:
+            # Basic viewport and projection setup
+            width = self.winfo_width()
+            height = self.winfo_height()
+            if width <= 0 or height <= 0:
+                return
+
+            # Set OpenGL states for immediate rendering
+            GL.glEnable(GL.GL_DEPTH_TEST)
+            GL.glDisable(GL.GL_LIGHTING)
+            GL.glEnable(GL.GL_BLEND)
+            GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+            GL.glEnable(GL.GL_POINT_SMOOTH)
+            GL.glEnable(GL.GL_LINE_SMOOTH)
+            GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+
+            GL.glViewport(0, 0, width, height)
+            GL.glMatrixMode(GL.GL_PROJECTION)
+            GL.glLoadIdentity()
+            aspect = float(width) / float(height)
+            GLU.gluPerspective(45, aspect, 0.1, 100.0)
+            GL.glMatrixMode(GL.GL_MODELVIEW)
+
+            # Clear and setup camera
+            GL.glClearColor(0.0, 0.0, 0.0, 0.0)
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            GL.glLoadIdentity()
+            GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
+            GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
+            GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
+
+            # Apply coordinate system rotation
+            if getattr(self, 'is_z_up', False):
+                GL.glRotatef(COORDINATE_X_ROTATION_Z_UP, 1.0, 0.0, 0.0)
+
+            # Draw grid and axes
+            if hasattr(self, 'grid_list') and self.grid_list is not None:
+                GL.glCallList(self.grid_list)
+            if hasattr(self, 'axes_list') and self.axes_list is not None:
+                GL.glCallList(self.axes_list)
+
+            # CRITICAL FIX: Render markers during immediate camera updates
+            self._render_markers_immediate()
+
+            # ENHANCEMENT: Render skeleton if enabled for complete scene visibility
+            self._render_skeleton_immediate()
+
+            # BUG FIX: Render additional visual elements during camera interactions
+            self._render_trajectories_immediate()
+            self._render_marker_names_immediate()
+            self._render_analysis_immediate()
+
+            # Force immediate buffer swap for responsive camera controls
+            self.tkSwapBuffers()
+
+        except Exception as e:
+            logger.error(f"Immediate plot update error: {e}")
+
+    def _render_markers_immediate(self):
+        """Render markers immediately for camera interactions - optimized version."""
+        # Skip if no data available
+        if self.data is None or not self.marker_names:
+            return
+
+        try:
+            # Quick marker data collection for immediate rendering
+            positions = []
+            colors = []
+            selected_position = None
+
+            # Use optimized data access
+            if hasattr(self.data, 'iloc'):
+                frame_data = self.data.iloc[self.frame_idx]
+                current_marker_str = str(self.current_marker) if self.current_marker is not None else ""
+
+                for marker in self.marker_names:
+                    try:
+                        # Batch access to marker coordinates
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if x_col in frame_data.index and y_col in frame_data.index and z_col in frame_data.index:
+                            x, y, z = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            # Skip NaN values
+                            if pd.isna(x) or pd.isna(y) or pd.isna(z):
+                                continue
+
+                            pos = [x, y, z]
+                            marker_str = str(marker)
+
+                            # Set color based on selection state
+                            if marker_str == current_marker_str:
+                                colors.append([1.0, 0.9, 0.4])  # Light yellow for selected
+                                selected_position = pos
+                            else:
+                                colors.append([1.0, 1.0, 1.0])  # White for normal
+
+                            positions.append(pos)
+
+                    except (KeyError, IndexError):
+                        continue
+
+            # Render normal markers
+            if positions:
+                GL.glPointSize(5.0)
+                GL.glBegin(GL.GL_POINTS)
+                for i, pos in enumerate(positions):
+                    GL.glColor3fv(colors[i])
+                    GL.glVertex3fv(pos)
+                GL.glEnd()
+
+            # Highlight selected marker
+            if selected_position:
+                GL.glPointSize(8.0)
+                GL.glBegin(GL.GL_POINTS)
+                GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
+                GL.glVertex3fv(selected_position)
+                GL.glEnd()
+
+        except Exception as e:
+            logger.error(f"Immediate marker rendering error: {e}")
+
+    def _render_skeleton_immediate(self):
+        """Render skeleton immediately for camera interactions - OPTIMIZED with caching."""
+        # Skip if skeleton is not enabled or no data available
+        if not (hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_pairs')):
+            return
+
+        if self.data is None or not self.marker_names:
+            return
+
+        try:
+            # OPTIMIZATION: Use cached display list if available and valid
+            if (self._skeleton_cache_valid and
+                self._cached_frame_idx == self.frame_idx and
+                self._skeleton_display_list is not None):
+
+                # Simply call the cached display list - MUCH faster than recalculating
+                GL.glCallList(self._skeleton_display_list)
+                return
+
+            # Fallback: If cache is invalid, use simplified immediate rendering
+            # This should rarely happen during camera interactions
+            marker_positions = {}
+
+            # Use optimized data access
+            if hasattr(self.data, 'iloc'):
+                frame_data = self.data.iloc[self.frame_idx]
+
+                for marker in self.marker_names:
+                    try:
+                        # Batch access to marker coordinates
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if all(col in frame_data.index for col in [x_col, y_col, z_col]):
+                            x, y, z = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            # Skip NaN values
+                            if not any(pd.isna(val) for val in [x, y, z]):
+                                marker_positions[marker] = [x, y, z]
+
+                    except (KeyError, IndexError):
+                        continue
+
+            # Render skeleton lines (simplified fallback version)
+            if marker_positions:
+                GL.glEnable(GL.GL_BLEND)
+                GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                GL.glEnable(GL.GL_LINE_SMOOTH)
+                GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+
+                # Draw skeleton lines
+                GL.glLineWidth(2.0)
+                GL.glColor4f(0.7, 0.7, 0.7, 0.8)  # Gray, semi-transparent
+                GL.glBegin(GL.GL_LINES)
+
+                for pair in self.skeleton_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+                        GL.glVertex3fv(p1)
+                        GL.glVertex3fv(p2)
+
+                GL.glEnd()
+
+                # Reset line width
+                GL.glLineWidth(1.0)
+                GL.glDisable(GL.GL_BLEND)
+
+        except Exception as e:
+            logger.error(f"Immediate skeleton rendering error: {e}")
+
+    def _cache_skeleton_geometry(self):
+        """Cache skeleton geometry for the current frame to optimize camera interactions."""
+        if not (hasattr(self, 'show_skeleton') and self.show_skeleton and hasattr(self, 'skeleton_pairs')):
+            self._skeleton_cache_valid = False
+            return
+
+        if self.data is None or not self.marker_names:
+            self._skeleton_cache_valid = False
+            return
+
+        # Check if cache is already valid for current frame
+        if (self._skeleton_cache_valid and
+            self._cached_frame_idx == self.frame_idx and
+            self._skeleton_display_list is not None):
+            return
+
+        try:
+            # Clear existing display list
+            if self._skeleton_display_list is not None:
+                GL.glDeleteLists(self._skeleton_display_list, 1)
+                self._skeleton_display_list = None
+
+            # Collect marker positions for current frame
+            marker_positions = {}
+            if hasattr(self.data, 'iloc'):
+                frame_data = self.data.iloc[self.frame_idx]
+
+                for marker in self.marker_names:
+                    try:
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if all(col in frame_data.index for col in [x_col, y_col, z_col]):
+                            x, y, z = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            if not any(pd.isna(val) for val in [x, y, z]):
+                                marker_positions[marker] = [x, y, z]
+
+                    except (KeyError, IndexError):
+                        continue
+
+            # Create display list for skeleton geometry with proper type handling
+            if marker_positions:
+                skeleton_list_raw = GL.glGenLists(1)
+                self._skeleton_display_list = int(skeleton_list_raw)  # Convert to standard int to avoid numpy type issues
+                GL.glNewList(self._skeleton_display_list, GL.GL_COMPILE)
+
+                # Enable blending and smoothing
+                GL.glEnable(GL.GL_BLEND)
+                GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                GL.glEnable(GL.GL_LINE_SMOOTH)
+                GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+
+                # Pass 1: Normal skeleton lines
+                GL.glLineWidth(2.0)
+                GL.glColor4f(0.7, 0.7, 0.7, 0.8)
+                GL.glBegin(GL.GL_LINES)
+
+                for pair in self.skeleton_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+
+                        # Check outlier status if available
+                        outlier_status1 = False
+                        outlier_status2 = False
+                        if hasattr(self, 'outliers'):
+                            outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+                            outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+
+                        is_outlier = outlier_status1 or outlier_status2
+                        if not is_outlier:
+                            GL.glVertex3fv(p1)
+                            GL.glVertex3fv(p2)
+
+                GL.glEnd()
+
+                # Pass 2: Outlier skeleton lines
+                GL.glLineWidth(3.5)
+                GL.glColor4f(1.0, 0.0, 0.0, 1.0)
+                GL.glBegin(GL.GL_LINES)
+
+                for pair in self.skeleton_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+
+                        # Check outlier status if available
+                        outlier_status1 = False
+                        outlier_status2 = False
+                        if hasattr(self, 'outliers'):
+                            outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+                            outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+
+                        is_outlier = outlier_status1 or outlier_status2
+                        if is_outlier:
+                            GL.glVertex3fv(p1)
+                            GL.glVertex3fv(p2)
+
+                GL.glEnd()
+
+                # Add explicit torso lines
+                explicit_torso_pairs = [
+                    ("RHip", "RShoulder"),
+                    ("LHip", "LShoulder"),
+                    ("RHip", "LHip"),
+                    ("RShoulder", "LShoulder")
+                ]
+
+                GL.glLineWidth(2.0)
+                GL.glColor4f(0.7, 0.7, 0.7, 0.8)
+                GL.glBegin(GL.GL_LINES)
+
+                for pair in explicit_torso_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+                        GL.glVertex3fv(p1)
+                        GL.glVertex3fv(p2)
+
+                GL.glEnd()
+
+                # Reset OpenGL state
+                GL.glLineWidth(1.0)
+                GL.glDisable(GL.GL_BLEND)
+
+                GL.glEndList()
+
+                # Mark cache as valid
+                self._skeleton_cache_valid = True
+                self._cached_frame_idx = self.frame_idx
+
+        except Exception as e:
+            logger.error(f"Skeleton caching error: {e}")
+            self._skeleton_cache_valid = False
+
+    def _render_trajectories_immediate(self):
+        """Render trajectories immediately for camera interactions - optimized version."""
+        # Skip if trajectory is not enabled or no data available
+        if not (hasattr(self, 'show_trajectory') and self.show_trajectory):
+            return
+
+        if self.data is None or not self.marker_names:
+            return
+
+        try:
+            # Choose marker for trajectory: override current_marker in analysis mode
+            marker_to_trace = self.current_marker
+            if getattr(self, 'analysis_mode_active', False):
+                sel = self.analysis_selection
+                if len(sel) == 1:
+                    marker_to_trace = sel[0]
+                elif len(sel) == 2:
+                    marker_to_trace = sel[1]
+                elif len(sel) >= 3:
+                    marker_to_trace = sel[1]
+
+            if marker_to_trace is not None:
+                trajectory_points = []
+
+                for i in range(0, self.frame_idx + 1):
+                    try:
+                        x = self.data.loc[i, f'{marker_to_trace}_X']
+                        y = self.data.loc[i, f'{marker_to_trace}_Y']
+                        z = self.data.loc[i, f'{marker_to_trace}_Z']
+
+                        if np.isnan(x) or np.isnan(y) or np.isnan(z):
+                            continue
+
+                        trajectory_points.append([x, y, z])
+
+                    except KeyError:
+                        continue
+
+                if trajectory_points:
+                    GL.glLineWidth(0.8)
+                    GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
+                    GL.glBegin(GL.GL_LINE_STRIP)
+
+                    for point in trajectory_points:
+                        GL.glVertex3fv(point)
+
+                    GL.glEnd()
+
+        except Exception as e:
+            logger.error(f"Immediate trajectory rendering error: {e}")
+
+    def _render_marker_names_immediate(self):
+        """Render marker names immediately for camera interactions - optimized version."""
+        # Skip if marker names are not enabled or no data available
+        if not (hasattr(self, 'show_marker_names') and self.show_marker_names):
+            return
+
+        if self.data is None or not self.marker_names:
+            return
+
+        try:
+            # Quick marker position collection for name rendering
+            marker_positions = {}
+            valid_markers = []
+
+            # Use optimized data access
+            if hasattr(self.data, 'iloc'):
+                frame_data = self.data.iloc[self.frame_idx]
+                current_marker_str = str(self.current_marker) if self.current_marker is not None else ""
+
+                for marker in self.marker_names:
+                    try:
+                        # Batch access to marker coordinates
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if x_col in frame_data.index and y_col in frame_data.index and z_col in frame_data.index:
+                            x, y, z = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            # Skip NaN values
+                            if pd.isna(x) or pd.isna(y) or pd.isna(z):
+                                continue
+
+                            marker_positions[marker] = [x, y, z]
+                            valid_markers.append(marker)
+
+                    except (KeyError, IndexError):
+                        continue
+
+            # Render marker names (simplified version for immediate rendering)
+            if valid_markers and marker_positions:
+                try:
+                    # Save current OpenGL state
+                    GL.glPushMatrix()
+                    GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT)
+
+                    current_marker_str = str(self.current_marker) if self.current_marker is not None else ""
+
+                    # Render all normal marker names (white)
+                    for marker in valid_markers:
+                        marker_str = str(marker)
+                        if marker_str == current_marker_str:
+                            continue  # Render selected marker later
+
+                        pos = marker_positions[marker]
+
+                        # Render normal marker names in white
+                        GL.glColor3f(1.0, 1.0, 1.0)  # White
+                        GL.glRasterPos3f(pos[0], pos[1] + 0.03, pos[2])
+
+                        # Render marker name
+                        for c in marker_str:
+                            try:
+                                GLUT.glutBitmapCharacter(SMALL_FONT, ord(c))
+                            except:
+                                pass
+
+                    # Render selected marker name in yellow (separate pass)
+                    if self.current_marker is not None:
+                        for marker in valid_markers:
+                            marker_str = str(marker)
+                            if marker_str == current_marker_str:
+                                pos = marker_positions[marker]
+
+                                # Render selected marker name in yellow
+                                GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
+                                GL.glRasterPos3f(pos[0], pos[1] + 0.03, pos[2])
+
+                                # Render marker name
+                                for c in marker_str:
+                                    try:
+                                        GLUT.glutBitmapCharacter(SMALL_FONT, ord(c))
+                                    except:
+                                        pass
+                                break
+
+                    # Restore OpenGL state
+                    GL.glPopAttrib()
+                    GL.glPopMatrix()
+
+                except Exception as text_error:
+                    logger.error(f"Immediate text rendering error: {text_error}")
+
+        except Exception as e:
+            logger.error(f"Immediate marker names rendering error: {e}")
+
+    def _render_analysis_immediate(self):
+        """Render analysis mode visualizations immediately for camera interactions - complete version."""
+        # Skip if analysis mode is not active or no data available
+        if not (hasattr(self, 'analysis_mode_active') and self.analysis_mode_active):
+            return
+
+        if not (hasattr(self, 'analysis_selection') and len(self.analysis_selection) >= 1):
+            return
+
+        if self.data is None or not self.marker_names:
+            return
+
+        try:
+            # Quick marker position collection for analysis rendering
+            marker_positions = {}
+
+            # Use optimized data access
+            if hasattr(self.data, 'iloc'):
+                frame_data = self.data.iloc[self.frame_idx]
+
+                for marker in self.marker_names:
+                    try:
+                        # Batch access to marker coordinates
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if x_col in frame_data.index and y_col in frame_data.index and z_col in frame_data.index:
+                            x, y, z = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            # Skip NaN values
+                            if pd.isna(x) or pd.isna(y) or pd.isna(z):
+                                continue
+
+                            marker_positions[marker] = [x, y, z]
+
+                    except (KeyError, IndexError):
+                        continue
+
+            # Highlight selected analysis markers (Green, larger size)
+            GL.glPointSize(10.0)  # Larger size for analysis selection
+            GL.glColor3f(0.0, 1.0, 0.0)  # Green color
+            GL.glBegin(GL.GL_POINTS)
+
+            analysis_positions_raw = {}
+            valid_analysis_markers = []
+
+            for marker_name in self.analysis_selection:
+                if marker_name in marker_positions:
+                    pos = marker_positions[marker_name]
+                    analysis_positions_raw[marker_name] = np.array(pos)  # Store as numpy array
+                    GL.glVertex3fv(pos)
+                    valid_analysis_markers.append(marker_name)
+
+            GL.glEnd()
+            GL.glPointSize(5.0)  # Reset point size
+
+            # Complete analysis visualization based on selection count
+            num_valid_analysis = len(valid_analysis_markers)
+
+            # -- Velocity and Acceleration (1 Marker Selected) --
+            if num_valid_analysis == 1:
+                marker_name = valid_analysis_markers[0]
+                current_pos = analysis_positions_raw[marker_name]
+                frame_idx = self.frame_idx
+                frame_rate = float(self.parent.fps_var.get()) if hasattr(self.parent, 'fps_var') else 30.0
+
+                # Get positions for velocity and acceleration calculation
+                pos_data = {}
+                valid_indices = True
+                for i in range(frame_idx - 2, frame_idx + 3):  # Need i-2 to i+2 for accel calc
+                    if 0 <= i < self.num_frames:
+                        try:
+                            pos_data[i] = self.data.loc[i, [f'{marker_name}_{c}' for c in 'XYZ']].values
+                            if np.isnan(pos_data[i]).any():
+                                valid_indices = False
+                                break
+                        except KeyError:
+                            valid_indices = False
+                            break
+                    else:
+                        valid_indices = False
+                        break
+
+                # Calculate Velocity and Acceleration (if data is valid)
+                velocity = None
+                acceleration = None
+                if valid_indices:
+                    # Calculate velocity at current frame
+                    velocity = calculate_velocity(pos_data[frame_idx-1], current_pos, pos_data[frame_idx+1], frame_rate)
+
+                    # Calculate velocities at previous and next frames for acceleration
+                    vel_prev = calculate_velocity(pos_data[frame_idx-2], pos_data[frame_idx-1], current_pos, frame_rate)
+                    vel_next = calculate_velocity(current_pos, pos_data[frame_idx+1], pos_data[frame_idx+2], frame_rate)
+
+                    if vel_prev is not None and vel_next is not None:
+                        acceleration = calculate_acceleration(vel_prev, vel_next, frame_rate)
+
+                # Display Text
+                analysis_text_lines = []
+
+                if velocity is not None:
+                    speed = np.linalg.norm(velocity)
+                    analysis_text_lines.append(f"{speed:.2f} m/s")
+
+                if acceleration is not None:
+                    accel_mag = np.linalg.norm(acceleration)
+                    analysis_text_lines.append(f"{accel_mag:.2f} m/s²")
+
+                # Render text if available
+                if analysis_text_lines:
+                    text_color = (1.0, 1.0, 0.0)  # Yellow
+                    text_base_pos = [current_pos[0], current_pos[1] + 0.04, current_pos[2]]
+                    line_height_offset = 0.02
+
+                    GL.glPushMatrix()
+                    GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT | GL.GL_DEPTH_BUFFER_BIT)
+                    GL.glDisable(GL.GL_DEPTH_TEST)
+                    GL.glColor3fv(text_color)
+
+                    for i, line in enumerate(analysis_text_lines):
+                        current_text_pos = [text_base_pos[0], text_base_pos[1] - i * line_height_offset, text_base_pos[2]]
+                        GL.glRasterPos3f(current_text_pos[0], current_text_pos[1], current_text_pos[2])
+                        for char in line:
+                            try:
+                                GLUT.glutBitmapCharacter(SMALL_FONT, ord(char))
+                            except Exception:
+                                pass
+
+                    GL.glPopAttrib()
+                    GL.glPopMatrix()
+
+            # -- Distance / Angle (2 or 3 Markers Selected) --
+            elif num_valid_analysis >= 2:
+                # Get positions in the selection order
+                analysis_positions_ordered = [analysis_positions_raw[m] for m in valid_analysis_markers]
+
+                # Draw thicker lines between selected markers
+                GL.glLineWidth(3.0)  # Thicker line for analysis
+                GL.glColor3f(0.0, 1.0, 0.0)  # Green color for analysis lines
+
+                if len(analysis_positions_ordered) == 2:
+                    GL.glBegin(GL.GL_LINES)
+                    GL.glVertex3fv(analysis_positions_ordered[0])
+                    GL.glVertex3fv(analysis_positions_ordered[1])
+                    GL.glEnd()
+
+                    # Draw reference horizontal line and arc for segment angle
+                    pA = analysis_positions_ordered[0]
+                    pB = analysis_positions_ordered[1]
+                    v = pA - pB
+                    norm_v = np.linalg.norm(v)
+                    if norm_v > 0:
+                        # Get reference vector from state manager
+                        if hasattr(self.parent, 'state_manager'):
+                            u = self.parent.state_manager.get_reference_vector()
+                        else:
+                            u = np.array([1.0, 0.0, 0.0])  # Default to X-axis
+
+                        # Store reference line endpoints for click detection (fixed length)
+                        self.ref_line_start = pB.copy()
+                        self.ref_line_end = pB + u * REF_LINE_FIXED_LENGTH
+
+                        # reference line with hover effect
+                        line_width = 2.5 if self.ref_line_hover else 1.5
+                        line_color = [0.5, 0.9, 0.5] if self.ref_line_hover else [0.3, 0.7, 0.3]
+
+                        GL.glLineWidth(line_width)
+                        GL.glColor3fv(line_color)
+                        GL.glBegin(GL.GL_LINES)
+                        GL.glVertex3fv(self.ref_line_start)
+                        GL.glVertex3fv(self.ref_line_end)
+                        GL.glEnd()
+
+                        # Add axis label at the end of reference line
+                        if hasattr(self.parent, 'state_manager'):
+                            current_axis = self.parent.state_manager.editing_state.reference_axis
+                            self._render_axis_label(self.ref_line_end, current_axis)
+
+                        # arc
+                        radius = norm_v * 0.2
+                        p_ref = pB + u * radius
+                        p_seg = pB + (v / norm_v) * radius
+                        pts = calculate_arc_points(vertex=pB, p1=p_ref, p3=p_seg, radius=radius, num_segments=20)
+                        if pts:
+                            GL.glEnable(GL.GL_BLEND)
+                            GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                            GL.glDepthMask(GL.GL_FALSE)
+                            GL.glDisable(GL.GL_CULL_FACE)
+                            GL.glColor4f(1.0, 0.6, 0.0, 0.5)
+                            GL.glBegin(GL.GL_TRIANGLE_FAN)
+                            GL.glVertex3fv(pB)
+                            for pt in pts:
+                                GL.glVertex3fv(pt)
+                            GL.glEnd()
+                            GL.glEnable(GL.GL_CULL_FACE)
+                            GL.glLineWidth(1.0)
+                            GL.glColor4f(1.0, 0.6, 0.0, 0.8)
+                            GL.glBegin(GL.GL_LINE_STRIP)
+                            for pt in pts:
+                                GL.glVertex3fv(pt)
+                            GL.glEnd()
+                            GL.glDepthMask(GL.GL_TRUE)
+                        GL.glLineWidth(1.0)
+
+                elif len(analysis_positions_ordered) == 3:
+                    GL.glBegin(GL.GL_LINES)
+                    # Draw lines based on selection order: 0->1 and 1->2
+                    GL.glVertex3fv(analysis_positions_ordered[0])
+                    GL.glVertex3fv(analysis_positions_ordered[1])
+                    GL.glVertex3fv(analysis_positions_ordered[1])
+                    GL.glVertex3fv(analysis_positions_ordered[2])
+                    GL.glEnd()
+
+                GL.glLineWidth(1.0)  # Reset line width
+
+                # Calculate and prepare text for display
+                dist_text = None
+                dist_pos = None
+                angle_text = None
+                angle_pos = None
+
+                if len(analysis_positions_ordered) == 2:
+                    distance = calculate_distance(analysis_positions_ordered[0], analysis_positions_ordered[1])
+                    if distance is not None:
+                        pA = analysis_positions_ordered[0]
+                        pB = analysis_positions_ordered[1]
+                        # distance text at midpoint
+                        mid_pt = (pA + pB) / 2
+                        dist_text = f"{distance:.3f} m"
+                        dist_pos = [mid_pt[0], mid_pt[1] + 0.02, mid_pt[2]]
+                        # compute angle relative to reference axis
+                        if hasattr(self.parent, 'state_manager'):
+                            u = self.parent.state_manager.get_reference_vector()
+                        else:
+                            u = np.array([1.0, 0.0, 0.0])  # Default to X-axis
+                        ref_point = pB + u
+                        angle_val = calculate_angle(ref_point, pB, pA)
+                        if angle_val is not None:
+                            angle_text = f"{angle_val:.1f}\u00B0"
+                            angle_pos = [pB[0], pB[1] + 0.03, pB[2]]
+
+                elif len(analysis_positions_ordered) == 3:
+                    # Angle at the vertex (second selected marker)
+                    angle = calculate_angle(analysis_positions_ordered[0], analysis_positions_ordered[1], analysis_positions_ordered[2])
+                    if angle is not None:
+                        angle_text = f"{angle:.1f}\u00B0"
+                        angle_pos = [analysis_positions_ordered[1][0], analysis_positions_ordered[1][1] + 0.03, analysis_positions_ordered[1][2]]
+
+                        # Calculate and draw the arc
+                        arc_radius = min(np.linalg.norm(analysis_positions_ordered[0]-analysis_positions_ordered[1]),
+                                         np.linalg.norm(analysis_positions_ordered[2]-analysis_positions_ordered[1])) * 0.2
+                        arc_points = calculate_arc_points(vertex=analysis_positions_ordered[1],
+                                                          p1=analysis_positions_ordered[0],
+                                                          p3=analysis_positions_ordered[2],
+                                                          radius=max(0.01, arc_radius),
+                                                          num_segments=20)
+
+                        if arc_points:
+                            # Draw the filled, semi-transparent arc using TRIANGLE_FAN
+                            GL.glEnable(GL.GL_BLEND)
+                            GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+                            GL.glDepthMask(GL.GL_FALSE)
+                            GL.glDisable(GL.GL_CULL_FACE)
+                            GL.glColor4f(1.0, 1.0, 0.0, 0.3)  # yellow with 30% alpha
+
+                            GL.glBegin(GL.GL_TRIANGLE_FAN)
+                            GL.glVertex3fv(analysis_positions_ordered[1])
+                            for point in arc_points:
+                                GL.glVertex3fv(point)
+                            GL.glEnd()
+
+                            GL.glEnable(GL.GL_CULL_FACE)
+                            GL.glLineWidth(1.0)
+                            GL.glColor4f(1.0, 1.0, 0.0, 0.7)
+                            GL.glBegin(GL.GL_LINE_STRIP)
+                            for point in arc_points:
+                                GL.glVertex3fv(point)
+                            GL.glEnd()
+                            GL.glDepthMask(GL.GL_TRUE)
+
+                # Render the analysis text if available
+                if (dist_text and dist_pos) or (angle_text and angle_pos):
+                    GL.glPushMatrix()
+                    GL.glPushAttrib(GL.GL_CURRENT_BIT | GL.GL_ENABLE_BIT | GL.GL_DEPTH_BUFFER_BIT)
+                    GL.glDisable(GL.GL_DEPTH_TEST)
+                    GL.glColor3f(0.0, 1.0, 0.0)
+
+                    if dist_text and dist_pos:
+                        GL.glRasterPos3f(dist_pos[0], dist_pos[1], dist_pos[2])
+                        for ch in dist_text:
+                            try:
+                                GLUT.glutBitmapCharacter(LARGE_FONT, ord(ch))
+                            except:
+                                pass
+
+                    if angle_text and angle_pos:
+                        GL.glRasterPos3f(angle_pos[0], angle_pos[1], angle_pos[2])
+                        for ch in angle_text:
+                            try:
+                                GLUT.glutBitmapCharacter(LARGE_FONT, ord(ch))
+                            except:
+                                pass
+
+                    GL.glPopAttrib()
+                    GL.glPopMatrix()
+
+        except Exception as e:
+            logger.error(f"Immediate analysis rendering error: {e}")
 
     def pick_marker(self, x, y):
         """
@@ -1374,31 +2338,34 @@ class MarkerGLRenderer(MarkerGLFrame):
             # Render markers with unique ID colors
             GL.glBegin(GL.GL_POINTS)
             
-            for idx, marker in enumerate(self.marker_names):
-                try:
-                    # Get marker coordinates for the current frame
-                    x_val = self.data.loc[self.frame_idx, f'{marker}_X']
-                    y_val = self.data.loc[self.frame_idx, f'{marker}_Y']
-                    z_val = self.data.loc[self.frame_idx, f'{marker}_Z']
-                    
-                    # Skip NaN values
-                    if pd.isna(x_val) or pd.isna(y_val) or pd.isna(z_val):
+            # Optimized batch data access for better performance
+            frame_data = self.data.iloc[self.frame_idx] if hasattr(self.data, 'iloc') else None
+            if frame_data is not None:
+                for idx, marker in enumerate(self.marker_names):
+                    try:
+                        # Batch access to marker coordinates
+                        x_col, y_col, z_col = f'{marker}_X', f'{marker}_Y', f'{marker}_Z'
+                        if x_col in frame_data.index and y_col in frame_data.index and z_col in frame_data.index:
+                            x_val, y_val, z_val = frame_data[x_col], frame_data[y_col], frame_data[z_col]
+
+                            # Skip NaN values
+                            if pd.isna(x_val) or pd.isna(y_val) or pd.isna(z_val):
+                                continue
+
+                            # Set marker ID starting from 1 (0 is background)
+                            marker_id = idx + 1
+
+                            # Unique color encoding for each marker
+                            # R channel: Normalized value of marker ID
+                            r = float(marker_id) / float(len(self.marker_names) + 1)
+                            g = float(marker_id % 256) / 255.0  # Additional info
+                            b = 1.0  # Constant for marker identification
+
+                            GL.glColor3f(r, g, b)
+                            GL.glVertex3f(x_val, y_val, z_val)
+
+                    except (KeyError, IndexError):
                         continue
-                    
-                    # Set marker ID starting from 1 (0 is background)
-                    marker_id = idx + 1
-                    
-                    # Unique color encoding for each marker
-                    # R channel: Normalized value of marker ID
-                    r = float(marker_id) / float(len(self.marker_names) + 1)
-                    g = float(marker_id % 256) / 255.0  # Additional info
-                    b = 1.0  # Constant for marker identification
-                    
-                    GL.glColor3f(r, g, b)
-                    GL.glVertex3f(x_val, y_val, z_val)
-                    
-                except KeyError:
-                    continue
             
             GL.glEnd()
             
@@ -1526,16 +2493,342 @@ class MarkerGLRenderer(MarkerGLFrame):
             
             
     def on_configure(self, event):
-        """Handle widget resize/move/visibility changes."""
-        # Check if GL is initialized before attempting to redraw
-        if self.gl_initialized:
-             self.redraw()
+        """Handle widget resize/move/visibility changes with anti-flickering optimization."""
+        if not self.gl_initialized:
+            return
+
+        # Get current window dimensions
+        current_width = self.winfo_width()
+        current_height = self.winfo_height()
+
+        # Skip if dimensions are invalid
+        if current_width <= 0 or current_height <= 0:
+            return
+
+        current_size = (current_width, current_height)
+
+        # Check if this is actually a size change (not just a move/expose event)
+        if current_size == self._last_viewport_size:
+            return
+
+        self._last_viewport_size = current_size
+        self._resize_in_progress = True
+
+        # Cancel any pending resize timer
+        if self._resize_timer:
+            self.after_cancel(self._resize_timer)
+
+        # Use throttled resize to prevent excessive redraws during continuous resizing
+        import time
+        current_time = time.time() * 1000  # Convert to milliseconds
+
+        if current_time - self._last_resize_time >= self._resize_throttle_ms:
+            # Immediate resize for responsive feel
+            self._perform_optimized_resize(current_width, current_height)
+            self._last_resize_time = current_time
+        else:
+            # Throttled resize - schedule for later
+            self._resize_timer = self.after(self._resize_throttle_ms,
+                                          lambda: self._perform_optimized_resize(current_width, current_height))
+
+    def _perform_optimized_resize(self, width, height):
+        """Perform optimized resize operation with minimal flickering."""
+        try:
+            # Ensure OpenGL context is active
+            self.tkMakeCurrent()
+
+            # Update viewport with new dimensions
+            GL.glViewport(0, 0, width, height)
+
+            # Update projection matrix for new aspect ratio
+            GL.glMatrixMode(GL.GL_PROJECTION)
+            GL.glLoadIdentity()
+            aspect = float(width) / float(height) if height > 0 else 1.0
+            GLU.gluPerspective(45, aspect, 0.1, 100.0)
+            GL.glMatrixMode(GL.GL_MODELVIEW)
+
+            # Update picking texture size if initialized
+            if hasattr(self, 'picking_texture') and self.picking_texture.initialized:
+                try:
+                    self.picking_texture.cleanup()
+                    self.picking_texture.init(width, height)
+                except Exception as e:
+                    logger.warning(f"Error updating picking texture during resize: {e}")
+                    # Continue with resize operation even if picking texture update fails
+
+            # Use optimized redraw that minimizes state changes
+            self._optimized_resize_redraw()
+
+            # Mark resize as complete
+            self._resize_in_progress = False
+
+        except Exception as e:
+            logger.error(f"Error during optimized resize: {e}")
+            # Fallback to standard redraw
+            self.redraw()
+            self._resize_in_progress = False
+
+    def _optimized_resize_redraw(self):
+        """Optimized redraw specifically for resize operations with complete visualization."""
+        try:
+            # Clear buffers efficiently
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            GL.glLoadIdentity()
+
+            # Apply current camera transformations
+            GL.glTranslatef(self.trans_x, self.trans_y, self.zoom)
+            GL.glRotatef(self.rot_x, 1.0, 0.0, 0.0)
+            GL.glRotatef(self.rot_y, 0.0, 1.0, 0.0)
+
+            # Apply coordinate system rotation if needed
+            if getattr(self, 'is_z_up', False):
+                GL.glRotatef(COORDINATE_X_ROTATION_Z_UP, 1.0, 0.0, 0.0)
+
+            # Render all elements to maintain visual consistency during resize
+            # Grid and axes (using display lists for efficiency)
+            if hasattr(self, 'grid_list') and self.grid_list is not None:
+                GL.glCallList(self.grid_list)
+            if hasattr(self, 'axes_list') and self.axes_list is not None:
+                GL.glCallList(self.axes_list)
+
+            # Render complete scene during resize to maintain visual consistency
+            if self.data is not None and self.marker_names:
+                # Use immediate rendering methods for complete visualization
+                self._render_markers_immediate()
+                self._render_skeleton_immediate()
+                self._render_trajectories_immediate()
+                self._render_marker_names_immediate()
+                self._render_analysis_immediate()
+
+            # Force immediate buffer swap for smooth resize
+            self.tkSwapBuffers()
+
+        except Exception as e:
+            logger.error(f"Error during optimized resize redraw: {e}")
+
+
+
+    def _is_mouse_over_reference_line(self, mouse_x, mouse_y):
+        """Check if mouse is hovering over the reference line"""
+        if self.ref_line_start is None or self.ref_line_end is None:
+            return False
+
+        # Convert 3D line endpoints to screen coordinates
+        try:
+            start_screen = self._world_to_screen(self.ref_line_start)
+            end_screen = self._world_to_screen(self.ref_line_end)
+
+            if start_screen is None or end_screen is None:
+                return False
+
+            # Calculate distance from mouse to line segment
+            distance = self._point_to_line_distance(
+                [mouse_x, mouse_y], start_screen, end_screen
+            )
+
+            return distance <= self.ref_line_click_tolerance
+
+        except Exception as e:
+            logger.error(f"Error checking reference line hover: {e}")
+            return False
+
+    def _world_to_screen(self, world_pos):
+        """Convert 3D world coordinates to 2D screen coordinates"""
+        try:
+            # Get current matrices
+            modelview = GL.glGetDoublev(GL.GL_MODELVIEW_MATRIX)
+            projection = GL.glGetDoublev(GL.GL_PROJECTION_MATRIX)
+            viewport = GL.glGetIntegerv(GL.GL_VIEWPORT)
+
+            # Project to screen coordinates
+            screen_coords = GLU.gluProject(
+                world_pos[0], world_pos[1], world_pos[2],
+                modelview, projection, viewport
+            )
+
+            return [screen_coords[0], viewport[3] - screen_coords[1]]  # Flip Y coordinate
+
+        except Exception as e:
+            logger.error(f"Error converting world to screen coordinates: {e}")
+            return None
+
+    def _point_to_line_distance(self, point, line_start, line_end):
+        """Calculate distance from point to line segment"""
+        try:
+            # Vector from line start to end
+            line_vec = [line_end[0] - line_start[0], line_end[1] - line_start[1]]
+            line_length_sq = line_vec[0]**2 + line_vec[1]**2
+
+            if line_length_sq == 0:
+                # Line is a point
+                return ((point[0] - line_start[0])**2 + (point[1] - line_start[1])**2)**0.5
+
+            # Vector from line start to point
+            point_vec = [point[0] - line_start[0], point[1] - line_start[1]]
+
+            # Project point onto line
+            t = max(0, min(1, (point_vec[0] * line_vec[0] + point_vec[1] * line_vec[1]) / line_length_sq))
+
+            # Find closest point on line segment
+            closest = [line_start[0] + t * line_vec[0], line_start[1] + t * line_vec[1]]
+
+            # Return distance to closest point
+            return ((point[0] - closest[0])**2 + (point[1] - closest[1])**2)**0.5
+
+        except Exception as e:
+            logger.error(f"Error calculating point to line distance: {e}")
+            return float('inf')
+
+    def _handle_reference_line_click(self):
+        """Handle click on reference line to cycle through axes"""
+        try:
+            # Get state manager from parent
+            if hasattr(self.parent, 'state_manager'):
+                new_axis = self.parent.state_manager.cycle_reference_axis()
+                logger.info(f"Reference axis cycled to: {new_axis}")
+
+                # Trigger visual feedback and redraw
+                self._show_axis_change_feedback(new_axis)
+                self.redraw()
+            else:
+                logger.warning("State manager not found, cannot cycle reference axis")
+
+        except Exception as e:
+            logger.error(f"Error handling reference line click: {e}")
+
+    def _show_axis_change_feedback(self, new_axis):
+        """Show brief visual feedback when axis changes"""
+        # This could be enhanced with visual effects like brief color change
+        # For now, just log the change
+        logger.info(f"Visual feedback: Reference axis changed to {new_axis}")
+        # Future enhancement: Add brief animation or color change
+
+    def _render_axis_label(self, position, axis_name):
+        """Render axis label at the specified position"""
+        try:
+            # Set color for axis label (brighter when hovered)
+            if self.ref_line_hover:
+                GL.glColor3f(0.8, 1.0, 0.8)  # Bright green when hovered
+            else:
+                GL.glColor3f(0.6, 0.8, 0.6)  # Normal green
+
+            # Position label slightly offset from line end
+            label_pos = [position[0] + 0.02, position[1] + 0.02, position[2]]
+            GL.glRasterPos3fv(label_pos)
+
+            # Render axis name
+            for char in axis_name:
+                try:
+                    GLUT.glutBitmapCharacter(SMALL_FONT, ord(char))
+                except:
+                    pass  # Skip if GLUT not available
+
+        except Exception as e:
+            logger.error(f"Error rendering axis label: {e}")
 
     def set_analysis_state(self, is_active: bool, selected_markers: list):
         """Sets the analysis mode state and the list of selected markers."""
+        logger.debug(f"Setting analysis_mode_active to {is_active}, selection: {selected_markers}")
         self.analysis_mode_active = is_active
         # Make a copy to avoid direct modification issues if parent list changes elsewhere
-        self.analysis_selection = list(selected_markers) 
+        self.analysis_selection = list(selected_markers)
         logger.debug(f"Renderer analysis state updated: Active={self.analysis_mode_active}, Selection={self.analysis_selection}")
-        # No redraw here, redraw will be triggered by the caller (TRCViewer) if needed
-        # Or redraw might be called automatically if other state changes concurrently
+        # Force complete redraw to ensure state change is reflected
+        self._force_complete_redraw()
+
+    def cleanup_all_resources(self):
+        """
+        Comprehensive cleanup of all OpenGL resources.
+
+        This method should be called during application shutdown or when the renderer
+        is being destroyed to ensure all OpenGL resources are properly released.
+        """
+        if self._cleanup_performed:
+            return  # Prevent multiple cleanup attempts
+
+        try:
+            logger.info("Starting comprehensive OpenGL resource cleanup...")
+
+            # Check if widget and OpenGL context are still valid
+            context_available = False
+            if hasattr(self, 'tkMakeCurrent') and hasattr(self, 'winfo_exists'):
+                try:
+                    # Check if the widget still exists
+                    if self.winfo_exists():
+                        self.tkMakeCurrent()
+                        context_available = True
+                        logger.debug("OpenGL context activated for cleanup")
+                    else:
+                        logger.debug("Widget no longer exists, skipping OpenGL context activation")
+                except Exception as context_error:
+                    logger.debug(f"Could not activate OpenGL context for cleanup: {context_error}")
+                    # Continue cleanup without OpenGL context
+
+            # Clean up OpenGL resources only if context is available
+            if context_available:
+                # Clean up picking texture
+                if hasattr(self, 'picking_texture') and self.picking_texture:
+                    try:
+                        self.picking_texture.cleanup()
+                        logger.debug("Cleaned up picking texture")
+                    except Exception as e:
+                        logger.warning(f"Error cleaning up picking texture: {e}")
+
+                # Clean up display lists with proper error handling
+                display_lists = [
+                    ('grid_list', 'Grid display list'),
+                    ('axes_list', 'Axes display list'),
+                    ('_skeleton_display_list', 'Skeleton display list')
+                ]
+
+                for attr_name, description in display_lists:
+                    if hasattr(self, attr_name):
+                        display_list = getattr(self, attr_name)
+                        if display_list is not None and display_list != 0:
+                            try:
+                                list_id = int(display_list)  # Ensure it's a standard int
+                                GL.glDeleteLists(list_id, 1)
+                                setattr(self, attr_name, None)
+                                logger.debug(f"Cleaned up {description}")
+                            except Exception as e:
+                                logger.warning(f"Error cleaning up {description}: {e}")
+            else:
+                logger.debug("OpenGL context not available, skipping OpenGL resource cleanup")
+                # Just reset the references without OpenGL calls
+                if hasattr(self, 'picking_texture'):
+                    self.picking_texture = None
+                for attr_name in ['grid_list', 'axes_list', '_skeleton_display_list']:
+                    if hasattr(self, attr_name):
+                        setattr(self, attr_name, None)
+
+            # Reset all OpenGL-related flags and caches
+            self.gl_initialized = False
+            self.initialized = False
+            self._context_active = False
+            self._skeleton_cache_valid = False
+            self._skeleton_cache.clear()
+
+            # Cancel any pending resize operations
+            if hasattr(self, '_resize_timer') and self._resize_timer:
+                try:
+                    self.after_cancel(self._resize_timer)
+                    self._resize_timer = None
+                except Exception as e:
+                    logger.warning(f"Error canceling resize timer: {e}")
+
+            self._cleanup_performed = True
+            logger.info("OpenGL resource cleanup completed successfully")
+
+        except Exception as e:
+            logger.error(f"Error during comprehensive cleanup: {e}")
+            # Mark cleanup as performed even if there were errors to prevent infinite retry
+            self._cleanup_performed = True
+
+    def __del__(self):
+        """Destructor to ensure cleanup is performed."""
+        try:
+            if not self._cleanup_performed:
+                self.cleanup_all_resources()
+        except Exception as e:
+            # Don't raise exceptions in destructor
+            logger.warning(f"Error in destructor cleanup: {e}")

@@ -112,7 +112,7 @@ def save_as(viewer):
         bool: True if file was successfully saved, False otherwise
     """
     
-    if viewer.data is None:
+    if not viewer.data_manager.has_data():
         messagebox.showinfo("No Data", "There is no data to save.")
         return False
 
@@ -128,9 +128,9 @@ def save_as(viewer):
 
     try:
         if file_extension == '.trc':
-            save_to_trc(file_path, viewer.data, viewer.fps_var.get(), viewer.marker_names, viewer.num_frames)
+            save_to_trc(file_path, viewer.data_manager.data, viewer.fps_var.get(), viewer.data_manager.marker_names, viewer.data_manager.num_frames)
         elif file_extension == '.c3d':
-            save_to_c3d(file_path, viewer.data, viewer.fps_var.get(), viewer.marker_names, viewer.num_frames)
+            save_to_c3d(file_path, viewer.data_manager.data, viewer.fps_var.get(), viewer.data_manager.marker_names, viewer.data_manager.num_frames)
         else:
             messagebox.showerror("Unsupported Format", "Unsupported file format.")
             return False

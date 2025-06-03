@@ -38,7 +38,7 @@ dependencies = [
 ]
 
 [project.scripts]
-MStudio = "MStudio.main:main"
+mstudio = "MStudio.main:main"
 
 [tool.setuptools]
 packages = {find = { where = ["."], include = ["MStudio*"]}}

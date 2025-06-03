@@ -47,14 +47,15 @@ def create_plot(self):
         self.gl_renderer.pack(in_=self.canvas_frame, fill='both', expand=True)
         
         # Set marker data
-        if self.data is not None:
+        if self.data_manager.has_data():
             # Set data limits
-            if hasattr(self, 'data_limits') and self.data_limits is not None:
-                if 'x' in self.data_limits and 'y' in self.data_limits and 'z' in self.data_limits:
-                    x_range = self.data_limits['x']
-                    y_range = self.data_limits['y']
-                    z_range = self.data_limits['z']
-                    
+            data_limits = self.data_manager.data_limits
+            if data_limits is not None:
+                if 'x' in data_limits and 'y' in data_limits and 'z' in data_limits:
+                    x_range = data_limits['x']
+                    y_range = data_limits['y']
+                    z_range = data_limits['z']
+
                     if hasattr(self.gl_renderer, 'set_data_limits'):
                         self.gl_renderer.set_data_limits(x_range, y_range, z_range)
         
@@ -62,18 +63,15 @@ def create_plot(self):
         self.gl_renderer.initialize()
         
         # Set skeleton-related information
-        if hasattr(self, 'skeleton_pairs'):
-            self.gl_renderer.set_skeleton_pairs(self.skeleton_pairs)
-        if hasattr(self, 'show_skeleton'):
-            self.gl_renderer.set_show_skeleton(self.show_skeleton)
-        else:
-            self.gl_renderer.set_show_skeleton(False)
-        
+        skeleton_pairs = self.state_manager.skeleton_pairs
+        self.gl_renderer.set_skeleton_pairs(skeleton_pairs)
+
+        show_skeleton = self.state_manager.view_state.show_skeleton
+        self.gl_renderer.set_show_skeleton(show_skeleton)
+
         # Set coordinate system (Y-up or Z-up)
-        if hasattr(self, 'is_z_up'):
-            self.gl_renderer.set_coordinate_system(self.is_z_up)
-        else:
-            self.gl_renderer.set_coordinate_system(False)
+        is_z_up = self.state_manager.view_state.is_z_up
+        self.gl_renderer.set_coordinate_system(is_z_up)
         
         # Set outlier information
         if hasattr(self, 'outliers') and self.outliers:

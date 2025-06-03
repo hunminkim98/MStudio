@@ -75,7 +75,7 @@ class MouseHandler:
     def on_marker_mouse_press(self, event):
         if event.button == 1:
             # edit mode only
-            if event.inaxes in self.parent.marker_axes and self.parent.is_editing:
+            if event.inaxes in self.parent.marker_axes and self.parent.state_manager.editing_state.is_editing:
                 # remove existing selection
                 self.parent.clear_selection()
                 self.selection_in_progress = True
@@ -97,6 +97,8 @@ class MouseHandler:
     def on_timeline_click(self, event):
         if event.inaxes == self.parent.timeline_ax:
             self.timeline_dragging = True
+            # Store the animation state when dragging starts
+            self._was_playing_before_drag = self.parent.animation_controller.is_playing
             self.parent.update_frame_from_timeline(event.xdata)
 
     def on_timeline_drag(self, event):
@@ -104,4 +106,10 @@ class MouseHandler:
             self.parent.update_frame_from_timeline(event.xdata)
 
     def on_timeline_release(self, event):
-        self.timeline_dragging = False
+        if self.timeline_dragging:
+            self.timeline_dragging = False
+            # If animation was playing before drag, ensure it continues from new position
+            if hasattr(self, '_was_playing_before_drag') and self._was_playing_before_drag:
+                # Animation should continue from the new position
+                # The AnimationController will handle this automatically due to our from_external=True logic
+                pass

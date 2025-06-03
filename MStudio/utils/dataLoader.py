@@ -371,8 +371,11 @@ def open_file(viewer):
             viewer.title_label.configure(text=f"JSON Files: {len(json_files)} files")
             
             # Load the data from the JSON folder
-            coordinate_system = 'Z-up' if viewer.is_z_up else 'Y-up'
-            header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_json_folder(temp_dir, coordinate_system)
+            coordinate_system = 'Z-up' if viewer.state_manager.view_state.is_z_up else 'Y-up'
+            header_lines, data, marker_names, frame_rate = read_data_from_json_folder(temp_dir, coordinate_system)
+
+            # Set data through data_manager
+            viewer.data_manager.set_data(data, marker_names)
         
         # Process TRC or C3D file
         else:
@@ -386,23 +389,26 @@ def open_file(viewer):
             
             # Load the data based on the file extension
             if file_extension == '.trc':
-                header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_trc(file_path)
+                header_lines, data, marker_names, frame_rate = read_data_from_trc(file_path)
             elif file_extension == '.c3d':
-                header_lines, viewer.data, viewer.marker_names, frame_rate = read_data_from_c3d(file_path)
+                header_lines, data, marker_names, frame_rate = read_data_from_c3d(file_path)
             else:
                 raise Exception("Unsupported file format")
+
+            # Set data through data_manager
+            viewer.data_manager.set_data(data, marker_names)
         
-        # Reset the data
-        viewer.num_frames = viewer.data.shape[0]
-        viewer.original_data = viewer.data.copy(deep=True)
-        viewer.calculate_data_limits()
+        # Update animation controller with new data info
+        viewer.animation_controller.set_data_info(viewer.data_manager.num_frames, frame_rate)
+
+        # Reset frame and update UI
         viewer.fps_var.set(str(int(frame_rate)))
         viewer.update_fps_label()
         viewer.frame_idx = 0
         viewer.update_timeline()
-        
+
         # Set the skeleton model
-        viewer.current_model = viewer.available_models[viewer.model_var.get()]
+        viewer.state_manager.current_skeleton_model = viewer.available_models[viewer.model_var.get()]
         viewer.update_skeleton_pairs()
         viewer.detect_outliers()
         
@@ -427,9 +433,13 @@ def open_file(viewer):
         # Update the UI controls
         viewer.play_pause_button.configure(state='normal')
         viewer.loop_checkbox.configure(state='normal')
-        viewer.is_playing = False
+        viewer.animation_controller.pause()  # Ensure animation is stopped
         viewer.play_pause_button.configure(text="▶")
         viewer.stop_button.configure(state='disabled')
+
+        # BUG FIX: Synchronize loop state between UI and animation controller
+        loop_enabled = viewer.loop_var.get()
+        viewer.animation_controller.set_loop(loop_enabled)
         
         return True
                 
