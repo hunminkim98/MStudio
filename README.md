@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.2-green.svg)](https://pypi.org/project/MStudio/)
 
-**Professional Motion Capture Data Visualization & Editing Tool**
+**Markerless/Marker-based Motion Capture Data Visualization & Editing Tool**
 
 *Seamlessly visualize, analyze, and edit 3D marker data from motion capture systems*
 
