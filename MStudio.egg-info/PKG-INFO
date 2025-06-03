@@ -1,3 +1,55 @@
+Metadata-Version: 2.4
+Name: MStudio
+Version: 0.1.4
+Summary: A motion capture marker data visualization and editing tool
+Author-email: HunMin Kim <hunminkim98@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2025 HunMin Kim
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/hunminkim98/MStudio
+Project-URL: Bug Tracker, https://github.com/hunminkim98/MStudio/issues
+Keywords: biomechanics,kinemaics,marker,editor,Pose2Sim,Sports2D,mocap,motion capture,human pose
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: customtkinter
+Requires-Dist: matplotlib
+Requires-Dist: pyopengl
+Requires-Dist: pyopengl-accelerate
+Requires-Dist: pyopengltk
+Requires-Dist: numpy>=1.19
+Requires-Dist: pandas>=1.5
+Requires-Dist: c3d
+Requires-Dist: anytree
+Requires-Dist: filterpy
+Requires-Dist: scipy
+Requires-Dist: statsmodels
+Requires-Dist: opencv-python
+Dynamic: license-file
+
 <div align="center">
 
 # 🎯 MStudio
@@ -63,7 +115,7 @@ That's it! The application will open with an intuitive interface ready for your 
 
 ### Load Your First Dataset
 
-1. **Open File** your TRC/C3D file or Choose **JSON Folder** for 2D marker data
+1. **File → Open** or drag & drop your TRC/C3D file
 2. **Play** the animation using the spacebar
 3. **Explore** your data with mouse controls:
    - **Left click + drag**: Rotate view
@@ -139,7 +191,7 @@ mstudio
 | Action | Control |
 |--------|---------|
 | **Play/Pause Animation** | `Spacebar` or `Enter` |
-| **Stop Animation** | `Spacebar` or `Enter`  or `Esc` |
+| **Stop Animation** | `Esc` |
 | **Next/Previous Frame** | `→` / `←` Arrow keys |
 | **Rotate View** | Left click + drag |
 | **Pan View** | Right click + drag |
@@ -172,7 +224,7 @@ mstudio
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) *(Coming Soon)*.
 
 ### Supported File Formats
-- **Input**: TRC, C3D, JSON
+- **Input**: TRC, C3D
 - **Output**: TRC, C3D
 - **Skeleton Models**: OpenPose, MediaPipe, COCO, HALPE, MPII
 

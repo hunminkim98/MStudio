@@ -1,0 +1,13 @@
+customtkinter
+matplotlib
+pyopengl
+pyopengl-accelerate
+pyopengltk
+numpy>=1.19
+pandas>=1.5
+c3d
+anytree
+filterpy
+scipy
+statsmodels
+opencv-python
