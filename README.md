@@ -3,7 +3,6 @@
 # 🎯 MStudio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.1.2-green.svg)](https://pypi.org/project/MStudio/)
 
 **Professional Motion Capture Data Visualization & Editing Tool**
@@ -18,10 +17,10 @@
 
 ## 🌟 What is MStudio?
 
-MStudio is a powerful, user-friendly application designed for researchers, biomechanists, and motion capture professionals. It provides an intuitive interface to:
+MStudio is a user-friendly application designed for researchers, biomechanists, and motion capture professionals. It provides an intuitive interface to:
 
 - **Visualize** 3D marker trajectories in real-time
-- **Analyze** movement patterns and joint angles
+- **Analyze** movement patterns and joint&segment angles
 - **Edit** and filter motion capture data
 - **Export** processed data for further analysis
 
@@ -29,7 +28,7 @@ Compatible with popular tools like [Pose2Sim](https://github.com/perfanalytics/p
 
 ---
 
-## � Installation
+## 💾 Installation
 
 ### Option 1: Install from PyPI (Recommended)
 
