@@ -71,16 +71,7 @@ That's it! The application will open with an intuitive interface ready for your 
    - **Right click + drag**: Pan
    - **Scroll wheel**: Zoom
 
-### Basic Workflow
-
-```mermaid
-graph LR
-    A[Load Data] --> B[Visualize]
-    B --> C[Analyze]
-    C --> D[Filter/Edit]
-    D --> E[Export]
-    E --> F[Use in Research]
-```
+---
 
 ## 📖 Features
 
