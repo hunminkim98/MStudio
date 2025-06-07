@@ -238,6 +238,9 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.skeleton_pairs = None
         self.show_skeleton = False
 
+        # Marker visual settings (will be set from parent)
+        self.marker_visual_settings = None
+
         # --- Analysis Mode State (internal to renderer) ---
         self.analysis_mode_active = False
         self.analysis_selection = [] # Store names of selected markers for analysis highlight
@@ -587,13 +590,17 @@ class MarkerGLRenderer(MarkerGLFrame):
                     
                     if hasattr(self, 'pattern_selection_mode') and self.pattern_selection_mode:
                         if marker in self.pattern_markers:
-                            colors.append([1.0, 0.0, 0.0])  # Red
+                            color = self.marker_visual_settings.get_pattern_color() if self.marker_visual_settings else [1.0, 0.0, 0.0]
+                            colors.append(color)
                         else:
-                            colors.append([1.0, 1.0, 1.0])  # White
+                            color = self.marker_visual_settings.get_normal_color() if self.marker_visual_settings else [1.0, 1.0, 1.0]
+                            colors.append(color)
                     elif marker_str == current_marker_str:
-                        colors.append([1.0, 0.9, 0.4])  # Light yellow
+                        color = self.marker_visual_settings.get_selected_color() if self.marker_visual_settings else [1.0, 0.9, 0.4]
+                        colors.append(color)
                     else:
-                        colors.append([1.0, 1.0, 1.0])  # White
+                        color = self.marker_visual_settings.get_normal_color() if self.marker_visual_settings else [1.0, 1.0, 1.0]
+                        colors.append(color)
                         
                     positions.append(pos)
                     valid_markers.append(marker)
@@ -607,14 +614,31 @@ class MarkerGLRenderer(MarkerGLFrame):
                 pattern_selected_set = set(self.pattern_markers) if self.pattern_selection_mode else set()
 
                 # Stage 1: Normal markers (unselected markers or when not in pattern mode)
-                GL.glPointSize(5.0) # Normal size
+                marker_size = self.marker_visual_settings.get_marker_size() if self.marker_visual_settings else 5.0
+                GL.glPointSize(marker_size)
+
+                # Enable blending for opacity support
+                if self.marker_visual_settings and self.marker_visual_settings.get_opacity() < 1.0:
+                    GL.glEnable(GL.GL_BLEND)
+                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+
                 GL.glBegin(GL.GL_POINTS)
                 for i, pos in enumerate(positions):
                     marker = valid_markers[i]
                     if marker not in pattern_selected_set:
-                        GL.glColor3fv(colors[i])
+                        color = colors[i]
+                        if self.marker_visual_settings:
+                            # Apply opacity
+                            opacity = self.marker_visual_settings.get_opacity()
+                            GL.glColor4f(color[0], color[1], color[2], opacity)
+                        else:
+                            GL.glColor3fv(color)
                         GL.glVertex3fv(pos)
                 GL.glEnd()
+
+                # Disable blending
+                if self.marker_visual_settings and self.marker_visual_settings.get_opacity() < 1.0:
+                    GL.glDisable(GL.GL_BLEND)
                 
                 # Stage 2: Selected pattern markers (when in pattern mode)
                 if self.pattern_selection_mode and any(m in self.pattern_markers for m in valid_markers):
@@ -647,9 +671,13 @@ class MarkerGLRenderer(MarkerGLFrame):
                 GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
                 # ---------------------------------------------------------------
                 
-                # Pass 1: Draw Normal Skeleton Lines (Gray, Semi-Transparent, Width 2.0)
-                GL.glLineWidth(2.0)
-                GL.glColor4f(0.7, 0.7, 0.7, 0.8) # Gray, Alpha 0.8
+                # Pass 1: Draw Normal Skeleton Lines with customized settings
+                line_width = self.marker_visual_settings.get_skeleton_line_width() if self.marker_visual_settings else 2.0
+                normal_color = self.marker_visual_settings.get_skeleton_normal_color() if self.marker_visual_settings else (0.7, 0.7, 0.7)
+                opacity = self.marker_visual_settings.get_skeleton_opacity() if self.marker_visual_settings else 0.8
+
+                GL.glLineWidth(line_width)
+                GL.glColor4f(normal_color[0], normal_color[1], normal_color[2], opacity)
                 GL.glBegin(GL.GL_LINES)
                 for pair in self.skeleton_pairs:
                     if pair[0] in marker_positions and pair[1] in marker_positions:
@@ -663,10 +691,13 @@ class MarkerGLRenderer(MarkerGLFrame):
                             GL.glVertex3fv(p2)
                 GL.glEnd()
                 
-                # Pass 2: Draw Outlier Skeleton Lines (Red, Opaque, Width 4.0)
+                # Pass 2: Draw Outlier Skeleton Lines with customized settings
                 # Blending is already enabled, just change width and color
-                GL.glLineWidth(3.5)
-                GL.glColor4f(1.0, 0.0, 0.0, 1.0) # Red, Alpha 1.0
+                outlier_line_width = (line_width + 1.5) if self.marker_visual_settings else 3.5  # Slightly thicker than normal
+                outlier_color = self.marker_visual_settings.get_skeleton_outlier_color() if self.marker_visual_settings else (1.0, 0.0, 0.0)
+
+                GL.glLineWidth(outlier_line_width)
+                GL.glColor4f(outlier_color[0], outlier_color[1], outlier_color[2], 1.0)  # Full opacity for outliers
                 GL.glBegin(GL.GL_LINES)
                 for pair in self.skeleton_pairs:
                     if pair[0] in marker_positions and pair[1] in marker_positions:
@@ -692,11 +723,11 @@ class MarkerGLRenderer(MarkerGLFrame):
                     ("RHip", "LHip"),
                     ("RShoulder", "LShoulder")
                 ]
-                # Use the same style as normal skeleton lines (or adjust if needed)
+                # Use the same style as normal skeleton lines with customized settings
                 # Ensure Blend is enabled if needed
                 # GL.glEnable(GL.GL_BLEND) # Already enabled from standard skeleton drawing
-                GL.glLineWidth(2.0) # Match normal skeleton line width
-                GL.glColor4f(0.7, 0.7, 0.7, 0.8) # Gray, Alpha 0.8
+                GL.glLineWidth(line_width)  # Match normal skeleton line width
+                GL.glColor4f(normal_color[0], normal_color[1], normal_color[2], opacity)  # Match normal skeleton color
                 GL.glBegin(GL.GL_LINES)
                 for pair in explicit_torso_pairs:
                     if pair[0] in marker_positions and pair[1] in marker_positions:
@@ -714,8 +745,10 @@ class MarkerGLRenderer(MarkerGLFrame):
             # --- Analysis Mode Visualization ---
             if self.analysis_mode_active and len(self.analysis_selection) >= 1: 
                 try:
-                    # Highlight selected analysis markers (Green, larger size)
-                    GL.glPointSize(10.0) # Larger size for analysis selection
+                    # Highlight selected analysis markers (Green, larger size based on customization)
+                    base_marker_size = self.marker_visual_settings.get_marker_size() if self.marker_visual_settings else 5.0
+                    analysis_marker_size = base_marker_size + 5.0  # Always 5 pixels larger than base size
+                    GL.glPointSize(analysis_marker_size)
                     GL.glColor3f(0.0, 1.0, 0.0) # Green color
                     GL.glBegin(GL.GL_POINTS)
                     analysis_positions_raw = {}
@@ -727,7 +760,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                             GL.glVertex3fv(pos)
                             valid_analysis_markers.append(marker_name)
                     GL.glEnd()
-                    GL.glPointSize(5.0) # Reset point size
+                    GL.glPointSize(base_marker_size) # Reset to base marker size
 
                     # --- Calculations and Visualizations based on selection count --- 
                     num_valid_analysis = len(valid_analysis_markers)
@@ -817,8 +850,10 @@ class MarkerGLRenderer(MarkerGLFrame):
                         # Get positions in the selection order
                         analysis_positions_ordered = [analysis_positions_raw[m] for m in valid_analysis_markers]
 
-                        # Draw thicker lines between selected markers
-                        GL.glLineWidth(3.0) # Thicker line for analysis
+                        # Draw thicker lines between selected markers based on customization
+                        base_line_width = self.marker_visual_settings.get_skeleton_line_width() if self.marker_visual_settings else 2.0
+                        analysis_line_width = base_line_width + 1.0  # Always 1 pixel thicker than base skeleton width
+                        GL.glLineWidth(analysis_line_width)
                         GL.glColor3f(0.0, 1.0, 0.0) # Green color for analysis lines
                         if len(analysis_positions_ordered) == 2:
                             GL.glBegin(GL.GL_LINES)
@@ -885,11 +920,11 @@ class MarkerGLRenderer(MarkerGLFrame):
                             GL.glBegin(GL.GL_LINES)
                             # Draw lines based on selection order: 0->1 and 1->2
                             GL.glVertex3fv(analysis_positions_ordered[0])
-                            GL.glVertex3fv(analysis_positions_ordered[1]) 
                             GL.glVertex3fv(analysis_positions_ordered[1])
-                            GL.glVertex3fv(analysis_positions_ordered[2]) 
+                            GL.glVertex3fv(analysis_positions_ordered[1])
+                            GL.glVertex3fv(analysis_positions_ordered[2])
                             GL.glEnd()
-                        GL.glLineWidth(1.0) # Reset line width
+                        GL.glLineWidth(base_line_width) # Reset to base line width
 
                         # Calculate and prepare text for display
                         dist_text = None
@@ -955,8 +990,9 @@ class MarkerGLRenderer(MarkerGLFrame):
                                     # Re-enable face culling
                                     GL.glEnable(GL.GL_CULL_FACE)
                                     
-                                    # Optional: Draw outline of the arc (thinner line)
-                                    GL.glLineWidth(1.0)
+                                    # Optional: Draw outline of the arc (customized line width)
+                                    arc_outline_width = max(1.0, base_line_width * 0.5)  # Half of base line width, minimum 1.0
+                                    GL.glLineWidth(arc_outline_width)
                                     GL.glColor4f(1.0, 1.0, 0.0, 0.7) # Slightly more opaque outline
                                     GL.glBegin(GL.GL_LINE_STRIP)
                                     for point in arc_points:
@@ -1192,6 +1228,24 @@ class MarkerGLRenderer(MarkerGLFrame):
         self.show_trajectory = show
         # Force complete redraw to ensure state change is reflected
         self._force_complete_redraw()
+
+    def set_marker_visual_settings(self, settings):
+        """Set marker visual settings"""
+        self.marker_visual_settings = settings
+        # Invalidate skeleton cache when visual settings change
+        self._skeleton_cache_valid = False
+
+        # Add callback to invalidate skeleton cache when settings change
+        if hasattr(settings, 'add_change_callback'):
+            settings.add_change_callback(self._on_visual_settings_change)
+
+        logger.debug("Marker visual settings updated")
+
+    def _on_visual_settings_change(self):
+        """Called when visual settings change - invalidate caches and redraw"""
+        self._skeleton_cache_valid = False
+        if self.gl_initialized:
+            self.redraw()
         
     def update_plot(self):
         """
@@ -1580,34 +1634,70 @@ class MarkerGLRenderer(MarkerGLFrame):
                             pos = [x, y, z]
                             marker_str = str(marker)
 
-                            # Set color based on selection state
+                            # Set color based on selection state using visual settings
                             if marker_str == current_marker_str:
-                                colors.append([1.0, 0.9, 0.4])  # Light yellow for selected
+                                color = self.marker_visual_settings.get_selected_color() if self.marker_visual_settings else [1.0, 0.9, 0.4]
+                                colors.append(color)
                                 selected_position = pos
                             else:
-                                colors.append([1.0, 1.0, 1.0])  # White for normal
+                                color = self.marker_visual_settings.get_normal_color() if self.marker_visual_settings else [1.0, 1.0, 1.0]
+                                colors.append(color)
 
                             positions.append(pos)
 
                     except (KeyError, IndexError):
                         continue
 
-            # Render normal markers
+            # Render normal markers with customized visual settings
             if positions:
-                GL.glPointSize(5.0)
+                marker_size = self.marker_visual_settings.get_marker_size() if self.marker_visual_settings else 5.0
+                GL.glPointSize(marker_size)
+
+                # Enable blending for opacity support
+                if self.marker_visual_settings and self.marker_visual_settings.get_opacity() < 1.0:
+                    GL.glEnable(GL.GL_BLEND)
+                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+
                 GL.glBegin(GL.GL_POINTS)
                 for i, pos in enumerate(positions):
-                    GL.glColor3fv(colors[i])
+                    color = colors[i]
+                    if self.marker_visual_settings:
+                        # Apply opacity
+                        opacity = self.marker_visual_settings.get_opacity()
+                        GL.glColor4f(color[0], color[1], color[2], opacity)
+                    else:
+                        GL.glColor3fv(color)
                     GL.glVertex3fv(pos)
                 GL.glEnd()
 
-            # Highlight selected marker
+                # Disable blending
+                if self.marker_visual_settings and self.marker_visual_settings.get_opacity() < 1.0:
+                    GL.glDisable(GL.GL_BLEND)
+
+            # Highlight selected marker with customized settings
             if selected_position:
-                GL.glPointSize(8.0)
+                # Use larger size for selected marker
+                selected_size = (self.marker_visual_settings.get_marker_size() + 3.0) if self.marker_visual_settings else 8.0
+                GL.glPointSize(selected_size)
+
+                # Enable blending for opacity support
+                if self.marker_visual_settings and self.marker_visual_settings.get_opacity() < 1.0:
+                    GL.glEnable(GL.GL_BLEND)
+                    GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+
                 GL.glBegin(GL.GL_POINTS)
-                GL.glColor3f(1.0, 0.9, 0.4)  # Light yellow
+                selected_color = self.marker_visual_settings.get_selected_color() if self.marker_visual_settings else [1.0, 0.9, 0.4]
+                if self.marker_visual_settings:
+                    opacity = self.marker_visual_settings.get_opacity()
+                    GL.glColor4f(selected_color[0], selected_color[1], selected_color[2], opacity)
+                else:
+                    GL.glColor3fv(selected_color)
                 GL.glVertex3fv(selected_position)
                 GL.glEnd()
+
+                # Disable blending
+                if self.marker_visual_settings and self.marker_visual_settings.get_opacity() < 1.0:
+                    GL.glDisable(GL.GL_BLEND)
 
         except Exception as e:
             logger.error(f"Immediate marker rendering error: {e}")
@@ -1660,17 +1750,58 @@ class MarkerGLRenderer(MarkerGLFrame):
                 GL.glEnable(GL.GL_LINE_SMOOTH)
                 GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
 
-                # Draw skeleton lines
-                GL.glLineWidth(2.0)
-                GL.glColor4f(0.7, 0.7, 0.7, 0.8)  # Gray, semi-transparent
+                # Get customized settings
+                line_width = self.marker_visual_settings.get_skeleton_line_width() if self.marker_visual_settings else 2.0
+                normal_color = self.marker_visual_settings.get_skeleton_normal_color() if self.marker_visual_settings else (0.7, 0.7, 0.7)
+                outlier_color = self.marker_visual_settings.get_skeleton_outlier_color() if self.marker_visual_settings else (1.0, 0.0, 0.0)
+                opacity = self.marker_visual_settings.get_skeleton_opacity() if self.marker_visual_settings else 0.8
+
+                # Pass 1: Draw normal skeleton lines
+                GL.glLineWidth(line_width)
+                GL.glColor4f(normal_color[0], normal_color[1], normal_color[2], opacity)
                 GL.glBegin(GL.GL_LINES)
 
                 for pair in self.skeleton_pairs:
                     if pair[0] in marker_positions and pair[1] in marker_positions:
                         p1 = marker_positions[pair[0]]
                         p2 = marker_positions[pair[1]]
-                        GL.glVertex3fv(p1)
-                        GL.glVertex3fv(p2)
+
+                        # Check outlier status
+                        outlier_status1 = False
+                        outlier_status2 = False
+                        if hasattr(self, 'outliers'):
+                            outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+                            outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+
+                        is_outlier = outlier_status1 or outlier_status2
+                        if not is_outlier:
+                            GL.glVertex3fv(p1)
+                            GL.glVertex3fv(p2)
+
+                GL.glEnd()
+
+                # Pass 2: Draw outlier skeleton lines
+                outlier_line_width = (line_width + 1.5) if self.marker_visual_settings else 3.5
+                GL.glLineWidth(outlier_line_width)
+                GL.glColor4f(outlier_color[0], outlier_color[1], outlier_color[2], 1.0)  # Full opacity for outliers
+                GL.glBegin(GL.GL_LINES)
+
+                for pair in self.skeleton_pairs:
+                    if pair[0] in marker_positions and pair[1] in marker_positions:
+                        p1 = marker_positions[pair[0]]
+                        p2 = marker_positions[pair[1]]
+
+                        # Check outlier status
+                        outlier_status1 = False
+                        outlier_status2 = False
+                        if hasattr(self, 'outliers'):
+                            outlier_status1 = self.outliers.get(pair[0], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+                            outlier_status2 = self.outliers.get(pair[1], np.zeros(self.num_frames, dtype=bool))[self.frame_idx]
+
+                        is_outlier = outlier_status1 or outlier_status2
+                        if is_outlier:
+                            GL.glVertex3fv(p1)
+                            GL.glVertex3fv(p2)
 
                 GL.glEnd()
 
@@ -1732,9 +1863,13 @@ class MarkerGLRenderer(MarkerGLFrame):
                 GL.glEnable(GL.GL_LINE_SMOOTH)
                 GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
 
-                # Pass 1: Normal skeleton lines
-                GL.glLineWidth(2.0)
-                GL.glColor4f(0.7, 0.7, 0.7, 0.8)
+                # Pass 1: Normal skeleton lines with customized settings
+                line_width = self.marker_visual_settings.get_skeleton_line_width() if self.marker_visual_settings else 2.0
+                normal_color = self.marker_visual_settings.get_skeleton_normal_color() if self.marker_visual_settings else (0.7, 0.7, 0.7)
+                opacity = self.marker_visual_settings.get_skeleton_opacity() if self.marker_visual_settings else 0.8
+
+                GL.glLineWidth(line_width)
+                GL.glColor4f(normal_color[0], normal_color[1], normal_color[2], opacity)
                 GL.glBegin(GL.GL_LINES)
 
                 for pair in self.skeleton_pairs:
@@ -1756,9 +1891,12 @@ class MarkerGLRenderer(MarkerGLFrame):
 
                 GL.glEnd()
 
-                # Pass 2: Outlier skeleton lines
-                GL.glLineWidth(3.5)
-                GL.glColor4f(1.0, 0.0, 0.0, 1.0)
+                # Pass 2: Outlier skeleton lines with customized settings
+                outlier_line_width = (line_width + 1.5) if self.marker_visual_settings else 3.5
+                outlier_color = self.marker_visual_settings.get_skeleton_outlier_color() if self.marker_visual_settings else (1.0, 0.0, 0.0)
+
+                GL.glLineWidth(outlier_line_width)
+                GL.glColor4f(outlier_color[0], outlier_color[1], outlier_color[2], 1.0)
                 GL.glBegin(GL.GL_LINES)
 
                 for pair in self.skeleton_pairs:
@@ -1788,8 +1926,8 @@ class MarkerGLRenderer(MarkerGLFrame):
                     ("RShoulder", "LShoulder")
                 ]
 
-                GL.glLineWidth(2.0)
-                GL.glColor4f(0.7, 0.7, 0.7, 0.8)
+                GL.glLineWidth(line_width)
+                GL.glColor4f(normal_color[0], normal_color[1], normal_color[2], opacity)
                 GL.glBegin(GL.GL_LINES)
 
                 for pair in explicit_torso_pairs:
@@ -1995,8 +2133,10 @@ class MarkerGLRenderer(MarkerGLFrame):
                     except (KeyError, IndexError):
                         continue
 
-            # Highlight selected analysis markers (Green, larger size)
-            GL.glPointSize(10.0)  # Larger size for analysis selection
+            # Highlight selected analysis markers (Green, larger size based on customization)
+            base_marker_size = self.marker_visual_settings.get_marker_size() if self.marker_visual_settings else 5.0
+            analysis_marker_size = base_marker_size + 5.0  # Always 5 pixels larger than base size
+            GL.glPointSize(analysis_marker_size)
             GL.glColor3f(0.0, 1.0, 0.0)  # Green color
             GL.glBegin(GL.GL_POINTS)
 
@@ -2011,7 +2151,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                     valid_analysis_markers.append(marker_name)
 
             GL.glEnd()
-            GL.glPointSize(5.0)  # Reset point size
+            GL.glPointSize(base_marker_size)  # Reset to base marker size
 
             # Complete analysis visualization based on selection count
             num_valid_analysis = len(valid_analysis_markers)
@@ -2093,8 +2233,10 @@ class MarkerGLRenderer(MarkerGLFrame):
                 # Get positions in the selection order
                 analysis_positions_ordered = [analysis_positions_raw[m] for m in valid_analysis_markers]
 
-                # Draw thicker lines between selected markers
-                GL.glLineWidth(3.0)  # Thicker line for analysis
+                # Draw thicker lines between selected markers based on customization
+                base_line_width = self.marker_visual_settings.get_skeleton_line_width() if self.marker_visual_settings else 2.0
+                analysis_line_width = base_line_width + 1.0  # Always 1 pixel thicker than base skeleton width
+                GL.glLineWidth(analysis_line_width)
                 GL.glColor3f(0.0, 1.0, 0.0)  # Green color for analysis lines
 
                 if len(analysis_positions_ordered) == 2:
@@ -2119,11 +2261,11 @@ class MarkerGLRenderer(MarkerGLFrame):
                         self.ref_line_start = pB.copy()
                         self.ref_line_end = pB + u * REF_LINE_FIXED_LENGTH
 
-                        # reference line with hover effect
-                        line_width = 2.5 if self.ref_line_hover else 1.5
+                        # reference line with hover effect based on customization
+                        ref_line_width = base_line_width + (1.0 if self.ref_line_hover else 0.0)
                         line_color = [0.5, 0.9, 0.5] if self.ref_line_hover else [0.3, 0.7, 0.3]
 
-                        GL.glLineWidth(line_width)
+                        GL.glLineWidth(ref_line_width)
                         GL.glColor3fv(line_color)
                         GL.glBegin(GL.GL_LINES)
                         GL.glVertex3fv(self.ref_line_start)
@@ -2152,14 +2294,15 @@ class MarkerGLRenderer(MarkerGLFrame):
                                 GL.glVertex3fv(pt)
                             GL.glEnd()
                             GL.glEnable(GL.GL_CULL_FACE)
-                            GL.glLineWidth(1.0)
+                            arc_outline_width = max(1.0, base_line_width * 0.5)  # Half of base line width, minimum 1.0
+                            GL.glLineWidth(arc_outline_width)
                             GL.glColor4f(1.0, 0.6, 0.0, 0.8)
                             GL.glBegin(GL.GL_LINE_STRIP)
                             for pt in pts:
                                 GL.glVertex3fv(pt)
                             GL.glEnd()
                             GL.glDepthMask(GL.GL_TRUE)
-                        GL.glLineWidth(1.0)
+                        GL.glLineWidth(base_line_width)
 
                 elif len(analysis_positions_ordered) == 3:
                     GL.glBegin(GL.GL_LINES)
@@ -2170,7 +2313,7 @@ class MarkerGLRenderer(MarkerGLFrame):
                     GL.glVertex3fv(analysis_positions_ordered[2])
                     GL.glEnd()
 
-                GL.glLineWidth(1.0)  # Reset line width
+                GL.glLineWidth(base_line_width)  # Reset to base line width
 
                 # Calculate and prepare text for display
                 dist_text = None
@@ -2229,7 +2372,8 @@ class MarkerGLRenderer(MarkerGLFrame):
                             GL.glEnd()
 
                             GL.glEnable(GL.GL_CULL_FACE)
-                            GL.glLineWidth(1.0)
+                            arc_outline_width = max(1.0, base_line_width * 0.5)  # Half of base line width, minimum 1.0
+                            GL.glLineWidth(arc_outline_width)
                             GL.glColor4f(1.0, 1.0, 0.0, 0.7)
                             GL.glBegin(GL.GL_LINE_STRIP)
                             for point in arc_points:
@@ -2733,8 +2877,8 @@ class MarkerGLRenderer(MarkerGLFrame):
         # Make a copy to avoid direct modification issues if parent list changes elsewhere
         self.analysis_selection = list(selected_markers)
         logger.debug(f"Renderer analysis state updated: Active={self.analysis_mode_active}, Selection={self.analysis_selection}")
-        # Force complete redraw to ensure state change is reflected
-        self._force_complete_redraw()
+        # Use immediate redraw for instant visual feedback (consistent with marker selection)
+        self._immediate_redraw()
 
     def cleanup_all_resources(self):
         """

@@ -41,6 +41,7 @@ from MStudio.core.data_manager import DataManager
 from MStudio.core.animation_controller import AnimationController
 from MStudio.core.outlier_detector import OutlierDetector
 from MStudio.core.state_manager import StateManager
+from MStudio.core.marker_visual_settings import MarkerVisualSettings
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -79,6 +80,8 @@ class TRCViewer(ctk.CTk):
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
+        # screen_width = 1280
+        # screen_height = 720
         self.geometry(f"{screen_width}x{screen_height}")
 
         # Initialize core components
@@ -86,6 +89,7 @@ class TRCViewer(ctk.CTk):
         self.animation_controller = AnimationController(self)
         self.outlier_detector = OutlierDetector()
         self.state_manager = StateManager()
+        self.marker_visual_settings = MarkerVisualSettings()
 
         # Initialize performance manager for animation optimization
         from MStudio.utils.performance_utils import AnimationPerformanceManager
@@ -93,6 +97,9 @@ class TRCViewer(ctk.CTk):
 
         # Setup callbacks for core components
         self._setup_core_callbacks()
+
+        # Setup marker visual settings callback
+        self.marker_visual_settings.add_change_callback(self._on_marker_visual_settings_changed)
 
         # --- Frame tracking (now managed by animation_controller) ---
         self.frame_idx = 0  # Synchronized with animation_controller
@@ -235,6 +242,13 @@ class TRCViewer(ctk.CTk):
         """Callback for when editing state changes."""
         # Update UI elements based on editing state
         pass
+
+    def _on_marker_visual_settings_changed(self) -> None:
+        """Callback for when marker visual settings change."""
+        # Update the OpenGL renderer with new visual settings
+        if hasattr(self, 'gl_renderer'):
+            self.gl_renderer.set_marker_visual_settings(self.marker_visual_settings)
+            self.gl_renderer.redraw()
 
     # --- Direct access to core components (optimized) ---
     # Remove redundant property wrappers for better performance
@@ -1371,8 +1385,9 @@ class TRCViewer(ctk.CTk):
                 messagebox.showwarning("Analysis Mode", "You can select a maximum of 3 markers for analysis. Click on an already selected marker to deselect it.")
                 return # Do not proceed further if limit reached
 
-        # Update the renderer state with the new list and trigger redraw
+        # Update the renderer state with the new list and trigger immediate redraw
         if hasattr(self, 'gl_renderer'):
             # Ensure the renderer knows the current mode state and the updated list
             self.gl_renderer.set_analysis_state(self.state_manager.editing_state.is_analysis_mode, self.state_manager.selection_state.analysis_markers)
-            self.gl_renderer.redraw() # Redraw to show selection changes
+            # Use immediate redraw for instant visual feedback (same as camera interactions)
+            self.gl_renderer._immediate_redraw()

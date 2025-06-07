@@ -76,7 +76,11 @@ def create_plot(self):
         # Set outlier information
         if hasattr(self, 'outliers') and self.outliers:
             self.gl_renderer.set_outliers(self.outliers)
-            
+
+        # Set marker visual settings
+        if hasattr(self, 'marker_visual_settings'):
+            self.gl_renderer.set_marker_visual_settings(self.marker_visual_settings)
+
         # Save canvas reference
         self.canvas = self.gl_renderer
         
