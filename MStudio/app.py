@@ -16,6 +16,7 @@ from MStudio.gui.markerPlotUI import build_marker_plot_buttons
 
 from MStudio.utils.dataLoader import open_file
 from MStudio.utils.dataSaver import save_as
+from MStudio.utils.reportGenerator import ReportGenerator
 from MStudio.utils.skeletons import (
     BODY_25B, BODY_25, BODY_135, BLAZEPOSE, HALPE_26, HALPE_68,
     HALPE_136, COCO_133, COCO, MPII, COCO_17
@@ -277,7 +278,41 @@ class TRCViewer(ctk.CTk):
     def save_as(self):
         save_as(self)
 
-    
+    def export_analysis_report(self):
+        """Export comprehensive analysis report to PDF."""
+        try:
+            if not self.data_manager.has_data():
+                messagebox.showerror("Error", "No data available for report generation.\nPlease load data first.")
+                return
+
+            # Get current frame rate
+            fps = float(self.fps_var.get()) if hasattr(self, 'fps_var') else 30.0
+
+            # Get current skeleton model name
+            skeleton_model_name = self.model_var.get() if hasattr(self, 'model_var') else "No skeleton"
+
+            # Create report generator
+            report_generator = ReportGenerator(
+                data_manager=self.data_manager,
+                state_manager=self.state_manager,
+                fps=fps,
+                skeleton_model_name=skeleton_model_name
+            )
+
+            # Generate report
+            success = report_generator.generate_report()
+
+            if success:
+                logger.info("Analysis report exported successfully")
+            else:
+                logger.warning("Report export was cancelled or failed")
+
+        except Exception as e:
+            error_msg = f"Error exporting analysis report: {e}"
+            logger.error(error_msg, exc_info=True)
+            messagebox.showerror("Export Error", error_msg)
+
+
     #########################################
     ############ View managers ##############
     #########################################

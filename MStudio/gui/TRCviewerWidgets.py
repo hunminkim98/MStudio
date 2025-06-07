@@ -96,6 +96,23 @@ def create_widgets(self):
     )
     self.save_button.pack(side='left', padx=5)
 
+    # Export Report button
+    report_button_style = {
+        "fg_color": "#2E8B57",  # Sea green color
+        "hover_color": "#3CB371",
+        "text_color": "white",
+        "font": ("Arial", 11, "bold")
+    }
+
+    self.export_report_button = ctk.CTkButton(
+        button_frame,
+        text="📊 Export Report",
+        command=self.export_analysis_report,
+        width=120,
+        **report_button_style
+    )
+    self.export_report_button.pack(side='left', padx=5)
+
     self.model_var = ctk.StringVar(value='No skeleton')
     self.model_combo = ctk.CTkComboBox(
         button_frame,
