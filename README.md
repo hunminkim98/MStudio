@@ -3,7 +3,7 @@
 # 🎯 MStudio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.4-green.svg)](https://pypi.org/project/MStudio/)
+[![Version](https://img.shields.io/badge/version-0.1.5-green.svg)](https://pypi.org/project/MStudio/)
 
 **Markerless/Marker-based Motion Capture Data Visualization & Editing Tool**
 
@@ -186,11 +186,11 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - [x] **Analysis Tools**: Distance measurement, joint angles, segment angles
 - [x] **Data Processing**: Advanced filtering and interpolation
 - [x] **File Support**: TRC/C3D import/export functionality
+- [x] **Customization**: Adjustable marker size, color, and opacity
 
 ### 🚧 **In Development**
 - [ ] **Multi-Selection**: Drag-and-drop selection for multiple markers
 - [ ] **View Planes**: Click-to-set orthogonal views (inspired by OpenSim)
-- [ ] **Customization**: Adjustable marker size, color, and opacity
 - [ ] **Performance**: Enhanced rendering for large datasets
 
 ### 🎯 **Planned Features**
