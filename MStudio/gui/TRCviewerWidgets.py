@@ -104,6 +104,15 @@ def create_widgets(self):
     )
     self.model_combo.pack(side='left', padx=5)
 
+    # Pack control_frame FIRST to ensure timeline is always visible
+    self.control_frame = ctk.CTkFrame(
+        self,
+        border_width=1,
+        fg_color="#1A1A1A"  # background color
+    )
+    self.control_frame.pack(fill='x', padx=10, pady=(0, 10))
+
+    # Then pack main_content
     self.main_content = ctk.CTkFrame(self)
     self.main_content.pack(fill='both', expand=True, padx=10, pady=(0, 10))
 
@@ -115,7 +124,7 @@ def create_widgets(self):
     self.right_panel.pack_propagate(False)  # fixed size
 
     self.graph_frame = ctk.CTkFrame(self.right_panel, fg_color="black")
-    
+
     viewer_top_frame = ctk.CTkFrame(self.view_frame)
     viewer_top_frame.pack(fill='x', pady=(5, 0))
 
@@ -128,13 +137,6 @@ def create_widgets(self):
     self.canvas_frame = ctk.CTkFrame(canvas_container)
     self.canvas_frame.pack(expand=True, fill='both')
     self.canvas_frame.pack_propagate(False)
-
-    self.control_frame = ctk.CTkFrame(
-        self,
-        border_width=1,  
-        fg_color="#1A1A1A"  # background color
-    )
-    self.control_frame.pack(fill='x', padx=10, pady=(0, 10))
 
     # control button style
     control_style = {

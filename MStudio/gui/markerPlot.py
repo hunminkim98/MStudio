@@ -48,7 +48,7 @@ def show_marker_plot(self, marker_name):
 
     if not self.graph_frame.winfo_ismapped():
         # display right panel
-        self.right_panel.pack(side='right', fill='both')
+        self.right_panel.pack(side='right', fill='y')
         
         # initial width setting (1/3 of the window width)
         initial_width = self.winfo_width() // 3
