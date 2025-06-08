@@ -428,20 +428,13 @@ class ReportGenerator:
             plt.close(fig)
             return
 
-        # Segment length analysis
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle('Skeleton Segment Analysis', fontsize=16, fontweight='bold')
-
-        # Calculate segment lengths over time
-        segment_lengths = {}
-        segment_angles_x = {}
-        segment_angles_y = {}
-        segment_angles_z = {}
-
+        # Calculate segment lengths and angles over time
+        segment_data = {}
         time_axis = np.arange(self.data_manager.num_frames) / self.fps
 
         for pair in self.state_manager.skeleton_pairs:
             marker1, marker2 = pair
+            segment_name = f"{marker1}-{marker2}"
             lengths = []
             angles_x = []
             angles_y = []
@@ -458,8 +451,6 @@ class ReportGenerator:
                         lengths.append(distance if distance is not None else np.nan)
 
                         # Calculate angles relative to each axis
-                        segment_vector = pos2 - pos1
-
                         # Angle with X-axis
                         x_axis = np.array([1.0, 0.0, 0.0])
                         ref_point_x = pos1 + x_axis
@@ -489,96 +480,166 @@ class ReportGenerator:
                     angles_y.append(np.nan)
                     angles_z.append(np.nan)
 
-            segment_lengths[f"{marker1}-{marker2}"] = lengths
-            segment_angles_x[f"{marker1}-{marker2}"] = angles_x
-            segment_angles_y[f"{marker1}-{marker2}"] = angles_y
-            segment_angles_z[f"{marker1}-{marker2}"] = angles_z
+            segment_data[segment_name] = {
+                'lengths': lengths,
+                'angles_x': angles_x,
+                'angles_y': angles_y,
+                'angles_z': angles_z
+            }
 
-        # Plot segment lengths
-        ax = axes[0, 0]
-        for segment_name, lengths in segment_lengths.items():
+        # Create segment lengths overview page
+        fig, ax = plt.subplots(figsize=(12, 8))
+        fig.suptitle('Segment Lengths Over Time', fontsize=16, fontweight='bold')
+
+        for segment_name, data in segment_data.items():
+            lengths = data['lengths']
             valid_lengths = np.array(lengths)
             if not np.all(np.isnan(valid_lengths)):
-                ax.plot(time_axis, lengths, label=segment_name, alpha=0.7, linewidth=1)
-        ax.set_title('Segment Lengths Over Time')
+                ax.plot(time_axis, lengths, label=segment_name, alpha=0.7, linewidth=1.5)
+
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Length (m)')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-        ax.grid(True, alpha=0.3)
-
-        # Plot segment angles relative to X-axis
-        ax = axes[0, 1]
-        for segment_name, angles in segment_angles_x.items():
-            valid_angles = np.array(angles)
-            if not np.all(np.isnan(valid_angles)):
-                ax.plot(time_axis, angles, label=segment_name, alpha=0.7, linewidth=1)
-        ax.set_title('Segment Angles Relative to X-Axis')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Angle (degrees)')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-        ax.grid(True, alpha=0.3)
-
-        # Plot segment angles relative to Y-axis
-        ax = axes[1, 0]
-        for segment_name, angles in segment_angles_y.items():
-            valid_angles = np.array(angles)
-            if not np.all(np.isnan(valid_angles)):
-                ax.plot(time_axis, angles, label=segment_name, alpha=0.7, linewidth=1)
-        ax.set_title('Segment Angles Relative to Y-Axis')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Angle (degrees)')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-        ax.grid(True, alpha=0.3)
-
-        # Plot segment angles relative to Z-axis
-        ax = axes[1, 1]
-        for segment_name, angles in segment_angles_z.items():
-            valid_angles = np.array(angles)
-            if not np.all(np.isnan(valid_angles)):
-                ax.plot(time_axis, angles, label=segment_name, alpha=0.7, linewidth=1)
-        ax.set_title('Segment Angles Relative to Z-Axis')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Angle (degrees)')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
         ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
         pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
 
-        # Create segment statistics table
-        fig, ax = plt.subplots(figsize=(11, 8.5))
-        ax.axis('off')
-        ax.set_title('Segment Length Statistics', fontsize=16, fontweight='bold', pad=20)
+        # Create segment angle analysis pages (similar to joint analysis)
+        segments_per_page = 6
+        segment_names = list(segment_data.keys())
+        segment_chunks = [segment_names[i:i+segments_per_page]
+                         for i in range(0, len(segment_names), segments_per_page)]
 
-        # Prepare statistics data
+        for chunk_idx, segment_chunk in enumerate(segment_chunks):
+            rows = (len(segment_chunk) + 1) // 2
+            fig, axes = plt.subplots(rows, 2, figsize=(15, 4*rows))
+            if rows == 1:
+                axes = axes.reshape(1, -1)
+
+            fig.suptitle(f'Segment Angle Analysis (Page {chunk_idx + 1})',
+                        fontsize=16, fontweight='bold')
+
+            for i, segment_name in enumerate(segment_chunk):
+                row = i // 2
+                col = i % 2
+
+                data = segment_data[segment_name]
+                angles_x = np.array(data['angles_x'])
+                angles_y = np.array(data['angles_y'])
+                angles_z = np.array(data['angles_z'])
+
+                # Plot all three angle components
+                axes[row, col].plot(time_axis, angles_x, linewidth=2, alpha=0.8, color='red', label='X-axis')
+                axes[row, col].plot(time_axis, angles_y, linewidth=2, alpha=0.8, color='green', label='Y-axis')
+                axes[row, col].plot(time_axis, angles_z, linewidth=2, alpha=0.8, color='blue', label='Z-axis')
+
+                axes[row, col].set_title(f"{segment_name} Segment Angles")
+                axes[row, col].set_xlabel('Time (s)')
+                axes[row, col].set_ylabel('Angle (degrees)')
+                axes[row, col].grid(True, alpha=0.3)
+                axes[row, col].legend(fontsize=9)
+
+                # Add statistics text box
+                stats_text_lines = []
+                for axis_name, angles in [('X', angles_x), ('Y', angles_y), ('Z', angles_z)]:
+                    valid_data = angles[~np.isnan(angles)]
+                    if len(valid_data) > 0:
+                        mean_angle = np.mean(valid_data)
+                        std_angle = np.std(valid_data)
+                        min_angle = np.min(valid_data)
+                        max_angle = np.max(valid_data)
+                        range_angle = max_angle - min_angle
+                        stats_text_lines.append(f'{axis_name}: μ={mean_angle:.1f}°, σ={std_angle:.1f}°, R={range_angle:.1f}°')
+
+                if stats_text_lines:
+                    stats_text = '\n'.join(stats_text_lines)
+                    axes[row, col].text(0.02, 0.98, stats_text, transform=axes[row, col].transAxes,
+                                      verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
+                                      fontsize=8)
+
+            # Hide empty subplots
+            for i in range(len(segment_chunk), rows * 2):
+                row = i // 2
+                col = i % 2
+                axes[row, col].axis('off')
+
+            plt.tight_layout()
+            pdf.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
+
+        # Create comprehensive segment angle statistics table
+        fig, ax = plt.subplots(figsize=(16, 10))
+        ax.axis('off')
+        ax.set_title('Segment Angle Statistics (Relative to Coordinate Axes)', fontsize=16, fontweight='bold', pad=20)
+
+        # Prepare comprehensive angle statistics data
         stats_data = []
-        for segment_name, lengths in segment_lengths.items():
-            valid_lengths = np.array(lengths)[~np.isnan(lengths)]
-            if len(valid_lengths) > 0:
-                mean_length = np.mean(valid_lengths)
-                std_length = np.std(valid_lengths)
-                min_length = np.min(valid_lengths)
-                max_length = np.max(valid_lengths)
-                stats_data.append([
-                    segment_name,
-                    f"{mean_length:.4f}",
-                    f"{std_length:.4f}",
-                    f"{min_length:.4f}",
-                    f"{max_length:.4f}"
-                ])
+        for segment_name, data in segment_data.items():
+            angles_x = np.array(data['angles_x'])
+            angles_y = np.array(data['angles_y'])
+            angles_z = np.array(data['angles_z'])
+
+            row_data = [segment_name]
+
+            # Calculate statistics for each axis
+            for axis_name, angles in [('X', angles_x), ('Y', angles_y), ('Z', angles_z)]:
+                valid_angles = angles[~np.isnan(angles)]
+                if len(valid_angles) > 0:
+                    mean_angle = np.mean(valid_angles)
+                    std_angle = np.std(valid_angles)
+                    min_angle = np.min(valid_angles)
+                    max_angle = np.max(valid_angles)
+                    range_angle = max_angle - min_angle
+
+                    # Add formatted statistics for this axis
+                    row_data.extend([
+                        f"{mean_angle:.1f}°",
+                        f"{std_angle:.1f}°",
+                        f"{min_angle:.1f}°",
+                        f"{max_angle:.1f}°",
+                        f"{range_angle:.1f}°"
+                    ])
+                else:
+                    # No valid data for this axis
+                    row_data.extend(['N/A', 'N/A', 'N/A', 'N/A', 'N/A'])
+
+            stats_data.append(row_data)
 
         if stats_data:
+            # Create column headers
+            col_headers = ['Segment']
+            for axis in ['X-axis', 'Y-axis', 'Z-axis']:
+                col_headers.extend([
+                    f'{axis}\nMean',
+                    f'{axis}\nStd',
+                    f'{axis}\nMin',
+                    f'{axis}\nMax',
+                    f'{axis}\nRange'
+                ])
+
             table = ax.table(cellText=stats_data,
-                           colLabels=['Segment', 'Mean (m)', 'Std (m)', 'Min (m)', 'Max (m)'],
+                           colLabels=col_headers,
                            cellLoc='center',
                            loc='center',
-                           colWidths=[0.3, 0.175, 0.175, 0.175, 0.175])
+                           colWidths=[0.12] + [0.055] * 15)  # Segment name wider, then 15 equal columns
             table.auto_set_font_size(False)
-            table.set_fontsize(10)
-            table.scale(1, 2)
+            table.set_fontsize(8)
+            table.scale(1, 2.5)
+
+            # Style the table headers
+            for i in range(len(col_headers)):
+                table[(0, i)].set_facecolor('#E6E6FA')  # Light purple background for headers
+                table[(0, i)].set_text_props(weight='bold')
+
+            # Add alternating row colors for better readability
+            for i in range(1, len(stats_data) + 1):
+                if i % 2 == 0:
+                    for j in range(len(col_headers)):
+                        table[(i, j)].set_facecolor('#F8F8FF')  # Very light gray for even rows
         else:
-            ax.text(0.5, 0.5, 'No valid segment data available',
+            ax.text(0.5, 0.5, 'No valid segment angle data available',
                    ha='center', va='center', fontsize=14, transform=ax.transAxes)
 
         pdf.savefig(fig, bbox_inches='tight')
