@@ -15,7 +15,7 @@ __maintainer__ = "HunMin Kim"
 __email__ = "hunminkim98@gmail.com"
 __status__ = "Development"
 
-
+    
 def main():
     """
     Main function to run the MarkerStudio application
