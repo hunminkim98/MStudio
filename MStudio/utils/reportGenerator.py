@@ -1180,9 +1180,9 @@ class ReportGenerator:
 
             col_widths = [self.style['table']['col_width_marker']] + [self.style['table']['col_width_stat']] * 15
             self._create_statistics_table(pdf, velocity_stats_data, col_headers,
-                                        title="Velocity Statistics", col_widths=col_widths)
+                                        title="", col_widths=col_widths)
         else:
-            self._create_statistics_table(pdf, [], [], title="Velocity Statistics")
+            self._create_statistics_table(pdf, [], [], title="")
 
         # Prepare acceleration statistics data
         acceleration_stats_data = []
@@ -1227,9 +1227,9 @@ class ReportGenerator:
 
             col_widths = [self.style['table']['col_width_marker']] + [self.style['table']['col_width_stat']] * 15
             self._create_statistics_table(pdf, acceleration_stats_data, col_headers,
-                                        title="Acceleration Statistics", col_widths=col_widths)
+                                        title="", col_widths=col_widths)
         else:
-            self._create_statistics_table(pdf, [], [], title="Acceleration Statistics")
+            self._create_statistics_table(pdf, [], [], title="")
 
     def _create_skeleton_analysis(self, pdf: PdfPages) -> None:
         """Create skeleton segment analysis pages using pre-calculated data."""
@@ -1377,9 +1377,9 @@ class ReportGenerator:
 
             col_widths = [self.style['table']['col_width_marker']] + [self.style['table']['col_width_stat']] * 15
             self._create_statistics_table(pdf, stats_data, col_headers,
-                                        title="Segment Angle Statistics", col_widths=col_widths)
+                                        title="", col_widths=col_widths)
         else:
-            self._create_statistics_table(pdf, [], [], title="Segment Angle Statistics")
+            self._create_statistics_table(pdf, [], [], title="")
 
     def _create_joint_analysis(self, pdf: PdfPages) -> None:
         """Create joint angle analysis pages using pre-calculated data."""
