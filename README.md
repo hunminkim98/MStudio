@@ -72,52 +72,52 @@ That's it! The application will open with an intuitive interface ready for your 
 
 ---
 
-## 📖 Features
-
-<table>
-<tr>
-<td width="50%">
+## ✨ Key Features
 
 ### 🎯 **3D Visualization**
-- **Real-time 3D rendering** of marker data
-- **Interactive camera controls** (rotate, pan, zoom)
-- **Coordinate system switching** (Y-up/Z-up)
-- **Marker label toggle** for clarity
-- **Smooth 60 FPS animation** playback
+- **Real-time 3D rendering** of marker data with interactive controls
+- **Multi-camera support** (rotate, pan, zoom) with smooth navigation
+- **Coordinate system switching** (Y-up/Z-up) for different conventions
+- **Customizable marker display** with label toggle and size adjustment
+- **Smooth 60 FPS animation** playback with timeline scrubbing
 
 ### 🦴 **Skeleton Models**
-Support for multiple skeleton formats:
-- **BODY_25B/25** (OpenPose)
-- **BODY_135** (Full body)
-- **BLAZEPOSE** (MediaPipe)
-- **HALPE** (26/68/136 keypoints)
-- **COCO** (17/133 keypoints)
-- **MPII** (16 keypoints)
-
-</td>
-<td width="50%">
+Comprehensive support for industry-standard skeleton formats:
+- **OpenPose**: BODY_25B, BODY_25
+- **MediaPipe**: BLAZEPOSE
+- **Research Standards**: BODY_135 (Full body), HALPE (26/68/136), COCO (17/133), MPII (16)
+- **Custom skeleton definitions** with flexible joint configurations
 
 ### 📊 **Analysis Tools**
-- **Trajectory visualization** with customizable paths
-- **Distance measurement** between any 2 markers
-- **Segment angle calculation** (relative to horizontal reference)
-- **Joint angle calculation** using 3-point method
-- **Outlier detection** with visual highlighting
-- **Frame-by-frame navigation** with timeline scrubbing
-- **Multi-axis coordinate plots**
+- **Trajectory visualization** with complete motion paths and data completeness indicators
+- **Biomechanical measurements**:
+  - Distance calculation between any 2 markers
+  - Segment angle analysis (relative to coordinate axes)
+  - Joint angle calculation using 3-point method
+- **Advanced data analysis**:
+  - Velocity and acceleration computation with X/Y/Z components
+  - Outlier detection with visual highlighting
+  - Frame-by-frame navigation with precise timeline control
+  - Multi-axis coordinate plotting
+
+### 📋 **Analysis Reports**
+- **Comprehensive PDF reports** with professional biomechanical styling
+- **Multi-section analysis**:
+  - Dataset statistics and data quality metrics
+  - Marker coordinate analysis with statistical summaries
+  - Velocity & acceleration analysis with component breakdowns
+  - Segment angle analysis with orientation data
+  - Joint angle analysis with biomechanical parameters
 
 ### 🔧 **Data Processing**
-- **Advanced filtering**:
-  - Butterworth filter
-  - Butterworth on speed
-  - Median filter
-- **Smart interpolation** with pattern matching
-- **Interactive editing** tools
-- **Original data preservation**
-
-</td>
-</tr>
-</table>
+- **Advanced filtering options**:
+  - Butterworth filter with customizable cutoff frequencies
+  - Butterworth on speed for motion-based filtering
+  - Median filter for noise reduction
+- **Smart interpolation** with pattern matching algorithms
+- **Interactive editing tools** for manual data correction
+- **Original data preservation** with non-destructive workflow
+- **Real-time preview** of all processing operations
 
 
 
@@ -187,6 +187,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - [x] **Data Processing**: Advanced filtering and interpolation
 - [x] **File Support**: TRC/C3D import/export functionality
 - [x] **Customization**: Adjustable marker size, color, and opacity
+- [x] **Analysis Report**: Export comprehensive analysis results to PDF format
 
 ### 🚧 **In Development**
 - [ ] **Multi-Selection**: Drag-and-drop selection for multiple markers
@@ -195,7 +196,6 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ### 🎯 **Planned Features**
 - [ ] **Multi-Person Support**: Simultaneous visualization and analysis of multiple subjects
-- [ ] **Analysis Reports**: Export comprehensive analysis results to PDF format
 - [ ] **Gait Analysis Mode**: Specialized tools and metrics for gait analysis
 
 ---
