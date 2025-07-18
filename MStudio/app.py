@@ -1,19 +1,21 @@
+# Basics
 import logging
 import os
 from typing import Optional, Dict, List, Tuple, Any
-
 import numpy as np
 import customtkinter as ctk
 from tkinter import messagebox
 import matplotlib.pyplot as plt
 import matplotlib
 
+# GUI
 from MStudio.gui.TRCviewerWidgets import create_widgets
 from MStudio.gui.markerPlot import show_marker_plot
 from MStudio.gui.plotCreator import create_plot
 from MStudio.gui.filterUI import on_filter_type_change, build_filter_parameter_widgets
 from MStudio.gui.markerPlotUI import build_marker_plot_buttons
 
+# Utilities
 from MStudio.utils.dataLoader import open_file
 from MStudio.utils.dataSaver import save_as
 from MStudio.utils.reportGenerator import ReportGenerator
@@ -37,7 +39,7 @@ from MStudio.utils.dataProcessor import (
 from MStudio.utils.mouseHandler import MouseHandler
 from MStudio.utils.performance_utils import PerformanceTimer, memoize, animation_optimized
 
-# Core components
+# Core
 from MStudio.core.data_manager import DataManager
 from MStudio.core.animation_controller import AnimationController
 from MStudio.core.outlier_detector import OutlierDetector
