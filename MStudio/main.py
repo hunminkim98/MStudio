@@ -18,7 +18,7 @@ __status__ = "Development"
     
 def main():
     """
-    Main function to run the MarkerStudio application
+    Main function to run the MStudio application
     """
     # Theme
     ctk.set_appearance_mode("System")
@@ -34,5 +34,4 @@ if __name__ == "__main__":
 # TODO:
 # 1. Drag and select multiple markers. <- Should change the logic of the left click.
 # 2. Choice the view by clicking the plane (inspired from OpenSim GUI)
-# 3. Marker size, color, opacity.
 
