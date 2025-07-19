@@ -35,6 +35,7 @@ dependencies = [
     "scipy",
     "statsmodels",
     "opencv-python"
+    "seaborn"
 ]
 
 [project.scripts]
