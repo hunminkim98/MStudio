@@ -34,7 +34,7 @@ dependencies = [
     "filterpy",
     "scipy",
     "statsmodels",
-    "opencv-python"
+    "opencv-python",
     "seaborn"
 ]
 
