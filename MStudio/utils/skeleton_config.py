@@ -146,23 +146,4 @@ def get_joint_patterns():
     return JOINT_PATTERNS.copy()
 
 
-def add_custom_segment_pattern(segment_name: str, marker_combinations: list):
-    """
-    Add a custom segment pattern to the existing patterns.
-    
-    Args:
-        segment_name (str): Name of the segment
-        marker_combinations (list): List of marker combinations for this segment
-    """
-    SEGMENT_PATTERNS[segment_name] = marker_combinations
 
-
-def add_custom_joint_pattern(joint_name: str, marker_combinations: list):
-    """
-    Add a custom joint pattern to the existing patterns.
-    
-    Args:
-        joint_name (str): Name of the joint
-        marker_combinations (list): List of 3-point marker combinations for this joint
-    """
-    JOINT_PATTERNS[joint_name] = marker_combinations

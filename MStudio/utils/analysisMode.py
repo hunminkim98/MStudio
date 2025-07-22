@@ -220,21 +220,3 @@ def calculate_acceleration(vel_prev: np.ndarray, vel_next: np.ndarray, frame_rat
         logger.error(f"Error calculating acceleration: {e}", exc_info=True)
         return None
 
-# Example usage (for testing, can be removed later)
-if __name__ == '__main__':
-    p1 = np.array([0.0, 0.0, 0.0])
-    p2 = np.array([1.0, 0.0, 0.0])
-    p3 = np.array([1.0, 1.0, 0.0])
-
-    dist = calculate_distance(p1, p2)
-    print(f"Distance between p1 and p2: {dist}") # Expected: 1.0
-
-    angle = calculate_angle(p1, p2, p3)
-    print(f"Angle at p2 (p1-p2-p3): {angle}") # Expected: 90.0
-    
-    p4 = np.array([2.0, 0.0, 0.0])
-    angle_collinear = calculate_angle(p1, p2, p4)
-    print(f"Angle at p2 (p1-p2-p4): {angle_collinear}") # Expected: 180.0 or 0.0 depending on direction
-
-    angle_zero = calculate_angle(p1, p1, p3)
-    print(f"Angle at p1 (p1-p1-p3): {angle_zero}") # Expected: None 

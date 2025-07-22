@@ -160,45 +160,7 @@ class OutlierDetector:
                 
         return bone_lengths
         
-    def detect_statistical_outliers(self, data: pd.DataFrame, marker_names: List[str],
-                                  z_threshold: float = 3.0) -> Dict[str, np.ndarray]:
-        """
-        Detect outliers using statistical methods (Z-score).
-        
-        Args:
-            data: DataFrame containing marker data
-            marker_names: List of marker names
-            z_threshold: Z-score threshold for outlier detection
-            
-        Returns:
-            Dictionary mapping marker names to boolean arrays indicating outliers
-        """
-        outliers = {marker: np.zeros(len(data), dtype=bool) for marker in marker_names}
-        
-        try:
-            for marker in marker_names:
-                for axis in ['X', 'Y', 'Z']:
-                    col_name = f'{marker}_{axis}'
-                    if col_name in data.columns:
-                        values = data[col_name].values
-                        
-                        # Skip if all values are NaN
-                        if np.all(np.isnan(values)):
-                            continue
-                            
-                        # Compute Z-scores
-                        mean_val = np.nanmean(values)
-                        std_val = np.nanstd(values)
-                        
-                        if std_val > 0:
-                            z_scores = np.abs((values - mean_val) / std_val)
-                            axis_outliers = z_scores > z_threshold
-                            outliers[marker] = np.logical_or(outliers[marker], axis_outliers)
-                            
-        except Exception as e:
-            logger.error("Error in statistical outlier detection: %s", e, exc_info=True)
-            
-        return outliers
+
         
     def smooth_outliers(self, data: pd.DataFrame, outliers: Dict[str, np.ndarray],
                        method: str = 'linear') -> pd.DataFrame:
