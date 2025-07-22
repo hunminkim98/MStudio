@@ -939,6 +939,9 @@ class TRCViewer(ctk.CTk):
             self.fps_label.configure(text=f"FPS: {fps}")
 
 
+
+
+
     def _update_marker_plot_vertical_line_data(self):
         """Updates the vertical line data in the marker plot."""
         if not self.data_manager.has_data() or not hasattr(self, 'marker_canvas') or self.marker_canvas is None:

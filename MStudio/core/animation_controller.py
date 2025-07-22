@@ -6,7 +6,6 @@ frame management, and timeline operations.
 """
 
 import logging
-import time
 from typing import Optional, Callable, Any
 
 logger = logging.getLogger(__name__)
@@ -39,12 +38,8 @@ class AnimationController:
         self.animation_job: Optional[str] = None
         
         # Animation settings
-        self.fps: float = 60.0
+        self.fps: float = 60.0  # Keep FPS for timeline display, but don't limit animation
         self.loop_enabled: bool = False
-
-        # Performance optimization
-        self._last_frame_time: float = 0.0
-        self._target_frame_time: float = 1.0 / 60.0  # Target time per frame
 
         # Callbacks
         self.frame_update_callback: Optional[Callable[[int], None]] = None
@@ -53,15 +48,15 @@ class AnimationController:
     def set_data_info(self, num_frames: int, fps: float = 60.0) -> None:
         """
         Set the data information for animation.
-        
+
         Args:
             num_frames: Total number of frames in the data
-            fps: Frames per second for playback
+            fps: Frames per second for timeline display (not used for animation limiting)
         """
         self.num_frames = num_frames
-        self.fps = fps
+        self.fps = fps  # Store for timeline display, but don't use for animation limiting
         self.frame_idx = min(self.frame_idx, max(0, num_frames - 1))
-        logger.info(f"Animation data set: {num_frames} frames at {fps} FPS")
+        logger.info(f"Animation data set: {num_frames} frames at {fps} FPS (display only)")
         
     def set_frame_update_callback(self, callback: Callable[[int], None]) -> None:
         """Set the callback function for frame updates."""
@@ -151,17 +146,7 @@ class AnimationController:
         elif self.loop_enabled and self.num_frames > 1:
             self.set_frame(self.num_frames - 1)
             
-    def set_fps(self, fps: float) -> None:
-        """
-        Set the animation frame rate.
 
-        Args:
-            fps: Frames per second
-        """
-        self.fps = max(1.0, fps)  # Minimum 1 FPS
-        self._target_frame_time = 1.0 / self.fps
-        logger.info(f"Animation FPS set to {self.fps}")
-        
     def set_loop(self, enabled: bool) -> None:
         """
         Enable or disable animation looping.
@@ -172,24 +157,43 @@ class AnimationController:
         self.loop_enabled = enabled
         logger.info(f"Animation loop {'enabled' if enabled else 'disabled'}")
         
+    def set_fps(self, fps: float) -> None:
+        """
+        Set the FPS for timeline display (does not limit animation speed).
+
+        Args:
+            fps: Frames per second for timeline display
+        """
+        self.fps = fps
+        logger.info(f"Animation FPS set to {self.fps} (display only)")
+
     def get_current_time(self) -> float:
         """
         Get the current time in seconds based on frame index and FPS.
-        
+
         Returns:
             Current time in seconds
         """
         return self.frame_idx / self.fps if self.fps > 0 else 0.0
-        
+
     def set_time(self, time_seconds: float) -> None:
         """
         Set the current time in seconds.
-        
+
         Args:
             time_seconds: Time in seconds
         """
         frame_idx = int(time_seconds * self.fps)
         self.set_frame(frame_idx)
+
+    def get_current_frame(self) -> int:
+        """
+        Get the current frame index.
+
+        Returns:
+            Current frame index
+        """
+        return self.frame_idx
         
     def get_progress(self) -> float:
         """
@@ -214,17 +218,12 @@ class AnimationController:
         self.set_frame(frame_idx)
         
     def _schedule_next_frame(self) -> None:
-        """Schedule the next frame update with optimized timing."""
+        """Schedule the next frame update immediately."""
         if not self.is_playing:
             return
 
-        # Calculate delay based on FPS with better precision
-        delay_ms = max(1, int(1000.0 / self.fps))  # Minimum 1ms delay
-
-        # OPTIMIZATION: Always use timed scheduling to avoid blocking mouse events
-        # after_idle() saturates the event loop and blocks camera controls
-        # Use precise timing for all frame rates to maintain smooth camera interaction
-        self.animation_job = self.parent.after(delay_ms, self._animate_step)
+        # Immediate execution - no delay for maximum performance
+        self.animation_job = self.parent.after_idle(self._animate_step)
         
     def _cancel_scheduled_frame(self) -> None:
         """Cancel any scheduled frame update."""
@@ -233,18 +232,12 @@ class AnimationController:
             self.animation_job = None
             
     def _animate_step(self) -> None:
-        """Execute one animation step with frame rate limiting."""
+        """Execute one animation step with maximum performance - no frame rate limiting."""
         if not self.is_playing:
             return
 
-        # Frame rate limiting for smooth animation
-        current_time = time.time()
-        if current_time - self._last_frame_time < self._target_frame_time:
-            # Too early for next frame, reschedule
-            self._schedule_next_frame()
-            return
-
-        self._last_frame_time = current_time
+        # Removed frame rate limiting for maximum performance
+        # No timing checks - execute immediately for unlimited FPS
 
         # Move to next frame
         if self.frame_idx < self.num_frames - 1:

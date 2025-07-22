@@ -180,20 +180,13 @@ def animation_optimized(func: Callable) -> Callable:
     """
     Decorator to optimize functions for animation performance.
 
-    This decorator adds frame rate limiting and reduces redundant calls
-    during animation playback.
+    This decorator removes frame rate limiting for maximum performance.
+    All calls are executed immediately without any throttling.
     """
-    last_call_time = [0.0]
-    min_interval = 1.0 / 120.0  # Max 120 FPS
-
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        current_time = time.time()
-        if current_time - last_call_time[0] >= min_interval:
-            last_call_time[0] = current_time
-            return func(*args, **kwargs)
-        # Skip call if too frequent
-        return None
+        # No frame rate limiting - execute all calls immediately for maximum performance
+        return func(*args, **kwargs)
 
     return wrapper
 
@@ -228,8 +221,6 @@ class AnimationPerformanceManager:
 
     def __init__(self):
         self.animation_active = False
-        self.last_frame_time = 0.0
-        self.target_fps = 60.0
         self.context_cache = {}
 
     def set_animation_active(self, active: bool) -> None:
@@ -240,14 +231,9 @@ class AnimationPerformanceManager:
             self.context_cache.clear()
 
     def should_render_frame(self) -> bool:
-        """Check if a new frame should be rendered based on target FPS."""
-        current_time = time.time()
-        target_interval = 1.0 / self.target_fps
-
-        if current_time - self.last_frame_time >= target_interval:
-            self.last_frame_time = current_time
-            return True
-        return False
+        """Always render frames for maximum performance - no FPS limiting."""
+        # Always return True for unlimited frame rendering
+        return True
 
     def optimize_for_animation(self, renderer) -> None:
         """Apply animation-specific optimizations to a renderer."""
