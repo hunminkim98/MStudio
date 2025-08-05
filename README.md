@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎯 MStudio
+# MStudio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.5-green.svg)](https://pypi.org/project/MStudio/)
@@ -9,13 +9,13 @@
 
 *Seamlessly visualize, analyze, and edit 3D marker data from motion capture systems*
 
-[🚀 Quick Start](#-quick-start) • [📖 Features](#-features) • [💾 Installation](#-installation) • [🎮 Usage](#-usage) • [🤝 Support](#-support)
+[Quick Start](#quick-start) • [Features](#features) • [Installation](#installation) • [Usage](#usage) • [Support](#support)
 
 </div>
 
 ---
 
-## 🌟 What is MStudio?
+## What is MStudio?
 
 MStudio is a user-friendly application designed for researchers, biomechanists, and motion capture professionals. It provides an intuitive interface to:
 
@@ -28,7 +28,7 @@ Compatible with popular tools like [Pose2Sim](https://github.com/perfanalytics/p
 
 ---
 
-## 💾 Installation
+## Installation
 
 ### Option 1: Install from PyPI (Recommended)
 
@@ -51,7 +51,7 @@ pip install .
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Launch MStudio
 
@@ -72,23 +72,23 @@ That's it! The application will open with an intuitive interface ready for your 
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 🎯 **3D Visualization**
+### **3D Visualization**
 - **Real-time 3D rendering** of marker data with interactive controls
 - **Multi-camera support** (rotate, pan, zoom) with smooth navigation
 - **Coordinate system switching** (Y-up/Z-up) for different conventions
 - **Customizable marker display** with label toggle and size adjustment
 - **Smooth 60 FPS animation** playback with timeline scrubbing
 
-### 🦴 **Skeleton Models**
+### **Skeleton Models**
 Comprehensive support for industry-standard skeleton formats:
 - **OpenPose**: BODY_25B, BODY_25
 - **MediaPipe**: BLAZEPOSE
 - **Research Standards**: BODY_135 (Full body), HALPE (26/68/136), COCO (17/133), MPII (16)
 - **Custom skeleton definitions** with flexible joint configurations
 
-### 📊 **Analysis Tools**
+### **Analysis Tools**
 - **Trajectory visualization** with complete motion paths and data completeness indicators
 - **Biomechanical measurements**:
   - Distance calculation between any 2 markers
@@ -100,7 +100,7 @@ Comprehensive support for industry-standard skeleton formats:
   - Frame-by-frame navigation with precise timeline control
   - Multi-axis coordinate plotting
 
-### 📋 **Analysis Reports**
+### **Analysis Reports**
 - **Comprehensive PDF reports** with professional biomechanical styling
 - **Multi-section analysis**:
   - Dataset statistics and data quality metrics
@@ -109,7 +109,7 @@ Comprehensive support for industry-standard skeleton formats:
   - Segment angle analysis with orientation data
   - Joint angle analysis with biomechanical parameters
 
-### 🔧 **Data Processing**
+### **Data Processing**
 - **Advanced filtering options**:
   - Butterworth filter with customizable cutoff frequencies
   - Butterworth on speed for motion-based filtering
@@ -121,7 +121,7 @@ Comprehensive support for industry-standard skeleton formats:
 
 
 
-## 🎮 Usage
+## Usage
 
 ### Step-by-Step Tutorial
 
@@ -160,13 +160,13 @@ mstudio
 
 ---
 
-## 🤝 Support
+## Support
 
 ### Getting Help
-- 📖 **Documentation**: [GitHub Wiki](https://github.com/hunminkim98/MStudio/wiki) *(Coming Soon)*
-- 🐛 **Bug Reports**: [Issue Tracker](https://github.com/hunminkim98/MStudio/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/hunminkim98/MStudio/discussions)
-- 📧 **Contact**: hunminkim98@gmail.com
+- **Documentation**: [GitHub Wiki](https://github.com/hunminkim98/MStudio/wiki) *(Coming Soon)*
+- **Bug Reports**: [Issue Tracker](https://github.com/hunminkim98/MStudio/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/hunminkim98/MStudio/discussions)
+- **Contact**: hunminkim98@gmail.com
 
 ### Contributing
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) *(Coming Soon)*.
@@ -178,9 +178,9 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ---
 
-## 🔮 Roadmap
+## Roadmap
 
-### ✅ **Completed Features**
+### **Completed Features**
 - [x] **3D Visualization**: Real-time marker rendering with smooth 60 FPS animation
 - [x] **Skeleton Support**: Multiple skeleton models (OpenPose, MediaPipe, COCO, etc.)
 - [x] **Analysis Tools**: Distance measurement, joint angles, segment angles
@@ -189,24 +189,24 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 - [x] **Customization**: Adjustable marker size, color, and opacity
 - [x] **Analysis Report**: Export comprehensive analysis results to PDF format
 
-### 🚧 **In Development**
+### **In Development**
 - [ ] **Multi-Selection**: Drag-and-drop selection for multiple markers
 - [ ] **View Planes**: Click-to-set orthogonal views (inspired by OpenSim)
 - [ ] **Performance**: Enhanced rendering for large datasets
 
-### 🎯 **Planned Features**
+### **Planned Features**
 - [ ] **Multi-Person Support**: Simultaneous visualization and analysis of multiple subjects
 - [ ] **Gait Analysis Mode**: Specialized tools and metrics for gait analysis
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Compatible with [Pose2Sim](https://github.com/perfanalytics/pose2sim) and [Sports2D](https://github.com/davidpagnon/Sports2D)
 - Built with Python, OpenGL, and CustomTkinter
