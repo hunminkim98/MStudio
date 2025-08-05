@@ -56,16 +56,7 @@ pip install .
 ### Launch MStudio
 
 ```bash
-mstudio
-```
 
-That's it! The application will open with an intuitive interface ready for your motion capture data.
-
-<br>
-
-<img scr = "Content/mainview.png">
-
-</br>
 
 ### Load Your First Dataset
 
@@ -86,7 +77,16 @@ That's it! The application will open with an intuitive interface ready for your 
 - **Coordinate system switching** (Y-up/Z-up) for different conventions
 - **Customizable marker display** with label toggle and size adjustment
 - **Smooth 60 FPS animation** playback with timeline scrubbing
+mstudio
+```
 
+That's it! The application will open with an intuitive interface ready for your motion capture data.
+
+<br>
+
+<img src="Content/mainview.png" alt="MStudio Main Interface">
+
+<br>
 ### **Skeleton Models**
 Comprehensive support for industry-standard skeleton formats:
 - **OpenPose**: BODY_25B, BODY_25
