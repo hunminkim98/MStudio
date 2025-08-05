@@ -61,6 +61,12 @@ mstudio
 
 That's it! The application will open with an intuitive interface ready for your motion capture data.
 
+<br>
+
+<img scr = "Content/mainview.png">
+
+</br>
+
 ### Load Your First Dataset
 
 1. **Open File** your TRC/C3D file or Choose **JSON Folder** for 2D marker data
