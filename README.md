@@ -75,6 +75,8 @@ That's it! The application will open with an intuitive interface ready for your 
 <img src="Content/OpenFile.png" alt="Open File Dialog">
 <p align="center"><em>Open File Dialog</em></p>
 
+<br>
+
 <img src="Content/FileSelection.png" alt="File Selection Interface">
 <p align="center"><em>File Selection Interface</em></p>
 
