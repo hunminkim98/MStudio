@@ -71,6 +71,13 @@ That's it! The application will open with an intuitive interface ready for your 
 ### Load Your First Dataset
 
 1. **Open File** your TRC/C3D file or Choose **JSON Folder** for 2D marker data
+
+<img src="Content/OpenFile.png" alt="Open File Dialog">
+<p align="center"><em>Open File Dialog</em></p>
+
+<img src="Content/FileSelection.png" alt="File Selection Interface">
+<p align="center"><em>File Selection Interface</em></p>
+
 2. **Play** the animation using the spacebar
 3. **Explore** your data with mouse controls:
    - **Left click + drag**: Rotate view
