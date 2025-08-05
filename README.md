@@ -63,7 +63,8 @@ That's it! The application will open with an intuitive interface ready for your 
 
 <br>
 
-<img src="Content/mainview.png" alt="MStudio Main Interface">
+<img src="Content/mainview.png" alt="MStudio main view">
+<p align="center"><em>Initial Launch Screen</em></p>
 
 <br>
 
