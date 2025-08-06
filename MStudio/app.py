@@ -80,6 +80,10 @@ class TRCViewer(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("MStudio")
+
+        # Set window icon
+        self._set_window_icon()
+
         # Get screen dimensions
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
@@ -183,6 +187,19 @@ class TRCViewer(ctk.CTk):
         self.create_widgets()
         self.create_plot()
         self.update_plot()
+
+    def _set_window_icon(self):
+        """Set the window icon for taskbar and window title bar."""
+        try:
+            import os
+            icon_path = os.path.join(os.path.dirname(__file__), "..", "Content", "icon.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+            else:
+                print("icon.ico not found in Content directory")
+        except Exception as e:
+            print(f"Error setting window icon: {e}")
+
 
     def _setup_core_callbacks(self) -> None:
         """Setup callbacks for core component communication."""
