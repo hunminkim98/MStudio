@@ -80,11 +80,19 @@ That's it! The application will open with an intuitive interface ready for your 
 <img src="Content/FileSelection.png" alt="File Selection Interface">
 <p align="center"><em>File Selection Interface</em></p>
 
+<br>
+
 2. **Play** the animation using the spacebar
 3. **Explore** your data with mouse controls:
    - **Left click + drag**: Rotate view
    - **Right click + drag**: Pan
    - **Scroll wheel**: Zoom
+
+<video width="600" controls>
+  <source src="Content/Video1.mp4" type="video/mp4">
+  Your browser does not support the video.
+</video>
+<p align="center"><em>Mouse Controls Demonstration</em></p>
 
 ---
 
