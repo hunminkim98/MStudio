@@ -88,11 +88,8 @@ That's it! The application will open with an intuitive interface ready for your 
    - **Right click + drag**: Pan
    - **Scroll wheel**: Zoom
 
-<video width="600" controls>
-  <source src="Content/Video1.mp4" type="video/mp4">
-  Your browser does not support the video.
-</video>
-<p align="center"><em>Mouse Controls Demonstration</em></p>
+https://github.com/user-attachments/assets/86ac9d61-f568-4bfa-bf6a-527a38a9b194
+<p align="center"><em>Play/Mouse Controls Demonstration</em></p>
 
 ---
 
