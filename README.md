@@ -88,7 +88,7 @@ That's it! The application will open with an intuitive interface ready for your 
    - **Right click + drag**: Pan
    - **Scroll wheel**: Zoom
 
-https://github.com/user-attachments/assets/86ac9d61-f568-4bfa-bf6a-527a38a9b194
+https://github.com/user-attachments/assets/386a3832-0ff0-4267-a2c9-10cac33f73b6
 <p align="center"><em>Play/Mouse Controls Demonstration</em></p>
 
 ---
