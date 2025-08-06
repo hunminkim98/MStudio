@@ -1,6 +1,6 @@
 <div align="center">
 
-# MStudio
+<img src="Content/icon.ico" alt="MStudio Icon" width="32" height="32" style="vertical-align: middle;"> MStudio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.5-green.svg)](https://pypi.org/project/MStudio/)
@@ -96,17 +96,14 @@ https://github.com/user-attachments/assets/386a3832-0ff0-4267-a2c9-10cac33f73b6
 ## Key Features
 
 ### **3D Visualization**
-- **Real-time 3D rendering** of marker data with interactive controls
-- **Multi-camera support** (rotate, pan, zoom) with smooth navigation
-- **Coordinate system switching** (Y-up/Z-up) for different conventions
-- **Customizable marker display** with label toggle and size adjustment
-- **Smooth 60 FPS animation** playback with timeline scrubbing
+- **3D Rendering** of marker data with interactive controls
+- **Camera Navigation** (rotate, pan, zoom) with smooth navigation
+- **Coordinate System Switching** (Y-up/Z-up) for different conventions
+- **Customizable Marker Appearance** Color, size, opacity, and more
 
 ### **Skeleton Models**
 Comprehensive support for industry-standard skeleton formats:
-- **OpenPose**: BODY_25B, BODY_25
-- **MediaPipe**: BLAZEPOSE
-- **Research Standards**: BODY_135 (Full body), HALPE (26/68/136), COCO (17/133), MPII (16)
+- **Support for OpenPose, MediaPipe, COCO, HALPE, MPII, and custom skeletons**: BODY_25B, BODY_25, BODY_135, BLAZEPOSE, HALPE_26, HALPE_68, HALPE_136, COCO_133, COCO_17, MPII
 - **Custom skeleton definitions** with flexible joint configurations
 
 ### **Analysis Tools**
@@ -114,15 +111,15 @@ Comprehensive support for industry-standard skeleton formats:
 - **Biomechanical measurements**:
   - Distance calculation between any 2 markers
   - Segment angle analysis (relative to coordinate axes)
-  - Joint angle calculation using 3-point method
+  - Joint angle calculation using 3-point
 - **Advanced data analysis**:
-  - Velocity and acceleration computation with X/Y/Z components
+  - Velocity and acceleration computation
   - Outlier detection with visual highlighting
   - Frame-by-frame navigation with precise timeline control
   - Multi-axis coordinate plotting
 
 ### **Analysis Reports**
-- **Comprehensive PDF reports** with professional biomechanical styling
+- **Comprehensive PDF reports** with biomechanical styling
 - **Multi-section analysis**:
   - Dataset statistics and data quality metrics
   - Marker coordinate analysis with statistical summaries
@@ -139,7 +136,6 @@ Comprehensive support for industry-standard skeleton formats:
 - **Interactive editing tools** for manual data correction
 - **Original data preservation** with non-destructive workflow
 - **Real-time preview** of all processing operations
-
 
 
 ## Usage
