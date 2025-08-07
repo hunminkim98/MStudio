@@ -9,7 +9,7 @@
 
 *Seamlessly visualize, analyze, and edit 3D marker data from motion capture systems*
 
-[Quick Start](#quick-start) • [Features](#features) • [Installation](#installation) • [Usage](#usage) • [Support](#support)
+[Getting Started](#getting-started) • [Features](#features) • [Installation](#installation) • [Support](#support)
 
 </div>
 
@@ -51,15 +51,15 @@ pip install .
 
 ---
 
-## Quick Start
+## Getting Started
 
-### Launch MStudio
+### 1. Launch MStudio
 
 ```bash
 mstudio
 ```
 
-That's it! The application will open with an intuitive interface ready for your motion capture data.
+The application will open with an intuitive interface ready for your motion capture data.
 
 <br>
 
@@ -68,12 +68,11 @@ That's it! The application will open with an intuitive interface ready for your 
 
 <br>
 
-### Load Your First Dataset
+### 2. Load Your Data
 
-1. **Open File** your TRC/C3D file or Choose **JSON Folder** for 2D marker data
+**Open File** your TRC/C3D file or Choose **JSON Folder** for 2D marker data
 
-<img src="Content/OpenFile.png" alt="Open File Dialog">
-<p align="center"><em>Open File Dialog</em></p>
+<!-- <img src="Content/OpenFile.png" alt="Open File Dialog"> -->
 
 <br>
 
@@ -82,14 +81,34 @@ That's it! The application will open with an intuitive interface ready for your 
 
 <br>
 
-2. **Play** the animation using the spacebar
-3. **Explore** your data with mouse controls:
-   - **Left click + drag**: Rotate view
-   - **Right click + drag**: Pan
-   - **Scroll wheel**: Zoom
+### 3. Basic Navigation & Controls
+
+| Action | Control |
+|--------|---------|
+| **Play/Pause Animation** | `Spacebar` or `Enter` |
+| **Stop Animation** | `Spacebar` or `Enter` or `Esc` |
+| **Next/Previous Frame** | `→` / `←` Arrow keys |
+| **Rotate View** | Left click + drag |
+| **Pan View** | Right click + drag |
+| **Zoom** | Mouse wheel |
 
 https://github.com/user-attachments/assets/386a3832-0ff0-4267-a2c9-10cac33f73b6
 <p align="center"><em>Play/Mouse Controls Demonstration</em></p>
+
+### 4. Analysis Mode
+
+1. Click the **"Analysis"** button to activate
+2. **Select markers** by left-clicking in the 3D view:
+   - **2 markers**: Shows distance measurement and segment angle (relative to virtual horizontal line)
+     - Left-click to cycle through reference axes (X, Y, Z)
+   - **3 markers**: Shows joint angle (middle marker = vertex)
+3. Results display directly in the 3D viewport
+
+### 5. Data Processing
+
+- **Filter data**: Use the filter panel to apply Butterworth, median, or speed-based filters
+- **Interpolate gaps**: Select problematic markers and use pattern-based interpolation
+- **Export results**: File → Save As → Choose TRC or C3D format
 
 ---
 
@@ -138,42 +157,6 @@ Comprehensive support for industry-standard skeleton formats:
 - **Real-time preview** of all processing operations
 
 
-## Usage
-
-### Step-by-Step Tutorial
-
-#### 1. **Load Your Data**
-```bash
-# Launch MStudio
-mstudio
-
-# In the application:
-# File → Open → Select your .trc or .c3d file
-# Or simply drag & drop your file into the window
-```
-
-#### 2. **Basic Navigation**
-| Action | Control |
-|--------|---------|
-| **Play/Pause Animation** | `Spacebar` or `Enter` |
-| **Stop Animation** | `Spacebar` or `Enter`  or `Esc` |
-| **Next/Previous Frame** | `→` / `←` Arrow keys |
-| **Rotate View** | Left click + drag |
-| **Pan View** | Right click + drag |
-| **Zoom** | Mouse wheel |
-
-#### 3. **Analysis Mode**
-1. Click the **"Analysis"** button to activate
-2. **Select markers** by left-clicking in the 3D view:
-   - **2 markers**: Shows distance measurement and segment angle (relative to virtual horizontal line)
-     - Left-click to cycle through reference axes (X, Y, Z)
-   - **3 markers**: Shows joint angle (middle marker = vertex)
-3. Results display directly in the 3D viewport
-
-#### 4. **Data Processing**
-- **Filter data**: Use the filter panel to apply Butterworth, median, or speed-based filters
-- **Interpolate gaps**: Select problematic markers and use pattern-based interpolation
-- **Export results**: File → Save As → Choose TRC or C3D format
 
 ---
 
@@ -185,13 +168,9 @@ mstudio
 - **Discussions**: [GitHub Discussions](https://github.com/hunminkim98/MStudio/discussions)
 - **Contact**: hunminkim98@gmail.com
 
-### Contributing
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) *(Coming Soon)*.
-
 ### Supported File Formats
 - **Input**: TRC, C3D, JSON
 - **Output**: TRC, C3D
-- **Skeleton Models**: OpenPose, MediaPipe, COCO, HALPE, MPII
 
 ---
 
