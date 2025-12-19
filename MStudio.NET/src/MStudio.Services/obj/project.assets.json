@@ -1,0 +1,94 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "MStudio.Core/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/MStudio.Core.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/MStudio.Core.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MStudio.Core/1.0.0": {
+      "type": "project",
+      "path": "../MStudio.Core/MStudio.Core.csproj",
+      "msbuildProject": "../MStudio.Core/MStudio.Core.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "MStudio.Core >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\BB1\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj",
+      "projectName": "MStudio.Services",
+      "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj",
+      "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {
+            "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
+              "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

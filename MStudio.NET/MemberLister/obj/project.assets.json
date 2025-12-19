@@ -1,0 +1,135 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "C3D.NET/0.3.1": {
+        "type": "package",
+        "compile": {
+          "lib/net40-Client/C3D.dll": {
+            "related": ".XML"
+          }
+        },
+        "runtime": {
+          "lib/net40-Client/C3D.dll": {
+            "related": ".XML"
+          }
+        }
+      },
+      "MStudio.Core/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "C3D.NET": "0.3.1"
+        },
+        "compile": {
+          "bin/placeholder/MStudio.Core.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/MStudio.Core.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "C3D.NET/0.3.1": {
+      "sha512": "/Wfvo6f8Ig3UQ8aJ541t28aY0iZ3+cYmyIPoSv93javyN0ANcv/lBGOrVI9UdRhLXHA/PxZph0pqa2jkn6tiAQ==",
+      "type": "package",
+      "path": "c3d.net/0.3.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "c3d.net.0.3.1.nupkg.sha512",
+        "c3d.net.nuspec",
+        "lib/net40-Client/C3D.XML",
+        "lib/net40-Client/C3D.dll"
+      ]
+    },
+    "MStudio.Core/1.0.0": {
+      "type": "project",
+      "path": "../src/MStudio.Core/MStudio.Core.csproj",
+      "msbuildProject": "../src/MStudio.Core/MStudio.Core.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "MStudio.Core >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\BB1\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\MemberLister\\MemberLister.csproj",
+      "projectName": "MemberLister",
+      "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\MemberLister\\MemberLister.csproj",
+      "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\MemberLister\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {
+            "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
+              "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  },
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "프로젝트 대상 프레임워크 'net8.0' 대신 '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1'을(를) 사용하여 패키지 'C3D.NET 0.3.1'을(를) 복원했습니다. 이 패키지는 프로젝트와 완벽하게 호환되지 않을 수 있습니다.",
+      "libraryId": "C3D.NET",
+      "targetGraphs": [
+        "net8.0"
+      ]
+    }
+  ]
+}

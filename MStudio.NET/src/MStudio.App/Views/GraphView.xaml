@@ -1,0 +1,34 @@
+<UserControl x:Class="MStudio.App.Views.GraphView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="100" d:DesignWidth="800">
+    <Grid Background="#1A1A1A">
+        <!-- Background Grid Lines -->
+        <Canvas Opacity="0.1">
+            <Line X1="0" Y1="25" X2="10000" Y2="25" Stroke="White" StrokeThickness="1"/>
+            <Line X1="0" Y1="50" X2="10000" Y2="50" Stroke="White" StrokeThickness="1"/>
+            <Line X1="0" Y1="75" X2="10000" Y2="75" Stroke="White" StrokeThickness="1"/>
+        </Canvas>
+
+        <!-- Data Curves -->
+        <Polyline Points="{Binding PointsX}" Stroke="#E63946" StrokeThickness="1.2" Opacity="0.8"/>
+        <Polyline Points="{Binding PointsY}" Stroke="#F1FA8C" StrokeThickness="1.2" Opacity="0.8"/>
+        <Polyline Points="{Binding PointsZ}" Stroke="#00B4D8" StrokeThickness="1.2" Opacity="0.8"/>
+
+        <!-- Cursor -->
+        <Canvas IsHitTestVisible="False">
+            <Line X1="{Binding CursorPosition}" Y1="0" X2="{Binding CursorPosition}" Y2="{Binding ViewHeight}" 
+                  Stroke="{DynamicResource B_Accent}" StrokeThickness="2" Opacity="0.8"/>
+        </Canvas>
+
+        <!-- Labels Overlay -->
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="5">
+            <TextBlock Text="X" Foreground="#E63946" FontSize="9" Margin="5,0"/>
+            <TextBlock Text="Y" Foreground="#F1FA8C" FontSize="9" Margin="5,0"/>
+            <TextBlock Text="Z" Foreground="#00B4D8" FontSize="9" Margin="5,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

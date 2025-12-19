@@ -1,0 +1,320 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:reskeys="clr-namespace:AvalonDock.Themes.VS2013.Themes;assembly=AvalonDock.Themes.VS2013">
+
+    <!-- ============================================================== -->
+    <!-- AVALONDOCK VS2013 ACCENT COLOR OVERRIDES (Motive Style) -->
+    <!-- ============================================================== -->
+    <!-- Override the bright blue accent with a subtle dark grey -->
+    <Color x:Key="{x:Static reskeys:ResourceKeys.ControlAccentColorKey}">#3A3A3A</Color>
+    
+    <SolidColorBrush x:Key="{x:Static reskeys:ResourceKeys.ControlAccentBrushKey}" Color="#3A3A3A"/>
+    
+    <!-- Selected Document Tab - Dark grey instead of blue -->
+    <SolidColorBrush x:Key="{x:Static reskeys:ResourceKeys.DocumentWellTabSelectedActiveBackground}" Color="#3A3A3A"/>
+    <SolidColorBrush x:Key="{x:Static reskeys:ResourceKeys.DocumentWellTabUnselectedHoveredBackground}" Color="#333333"/>
+    
+    <!-- Tool Window Caption - Dark grey instead of blue -->
+    <SolidColorBrush x:Key="{x:Static reskeys:ResourceKeys.ToolWindowCaptionActiveBackground}" Color="#3A3A3A"/>
+    <SolidColorBrush x:Key="{x:Static reskeys:ResourceKeys.ToolWindowCaptionActiveText}" Color="#CCCCCC"/>
+
+    <!-- ============================================================== -->
+    <!-- MOTIVE-GRADE DARK THEME - Authentic Recreation -->
+    <!-- ============================================================== -->
+    
+    <!-- EXACT COLORS FROM MOTIVE -->
+    <Color x:Key="C_Background">#1A1A1A</Color>        <!-- Main Background -->
+    <Color x:Key="C_Panel">#252525</Color>             <!-- Panel Background -->
+    <Color x:Key="C_PanelHeader">#2A2A2A</Color>       <!-- Panel Header -->
+    <Color x:Key="C_Input">#333333</Color>             <!-- Input Fields -->
+    <Color x:Key="C_BorderDark">#000000</Color>        <!-- Black dividers (True Motive Style) -->
+    <Color x:Key="C_BorderLight">#111111</Color>       <!-- Very subtle highlight -->
+    <Color x:Key="C_Separator">#111111</Color>         <!-- Subtle dark line -->
+    <Color x:Key="C_IconDark">#555555</Color>          <!-- Dark icons (not white) -->
+    <Color x:Key="C_Text">#CCCCCC</Color>              <!-- Main Text -->
+    <Color x:Key="C_TextDim">#808080</Color>           <!-- Dimmed Text -->
+    <Color x:Key="C_Accent">#00B4D8</Color>            <!-- Motive Cyan/Teal -->
+    <Color x:Key="C_AccentDark">#0077B6</Color>        <!-- Darker Accent -->
+    <Color x:Key="C_Selection">#404040</Color>        <!-- Selection -->
+    <Color x:Key="C_Red">#E63946</Color>               <!-- Red (for REC) -->
+    <Color x:Key="C_Green">#2A9D8F</Color>             <!-- Green (for LIVE) -->
+    
+    <!-- Brush Definitions -->
+    <SolidColorBrush x:Key="B_Background" Color="{StaticResource C_Background}"/>
+    <SolidColorBrush x:Key="B_Panel" Color="{StaticResource C_Panel}"/>
+    <SolidColorBrush x:Key="B_PanelHeader" Color="{StaticResource C_PanelHeader}"/>
+    <SolidColorBrush x:Key="B_Input" Color="{StaticResource C_Input}"/>
+    <SolidColorBrush x:Key="B_IconDark" Color="{StaticResource C_IconDark}"/>
+    <SolidColorBrush x:Key="B_BorderDark" Color="{StaticResource C_BorderDark}"/>
+    <SolidColorBrush x:Key="B_BorderLight" Color="{StaticResource C_BorderLight}"/>
+    <SolidColorBrush x:Key="B_Separator" Color="{StaticResource C_Separator}"/>
+    <SolidColorBrush x:Key="B_Text" Color="{StaticResource C_Text}"/>
+    <SolidColorBrush x:Key="B_TextDim" Color="{StaticResource C_TextDim}"/>
+    <SolidColorBrush x:Key="B_Accent" Color="{StaticResource C_Accent}"/>
+    <SolidColorBrush x:Key="B_AccentDark" Color="{StaticResource C_AccentDark}"/>
+    <SolidColorBrush x:Key="B_Selection" Color="{StaticResource C_Selection}"/>
+    <SolidColorBrush x:Key="B_Red" Color="{StaticResource C_Red}"/>
+    <SolidColorBrush x:Key="B_Green" Color="{StaticResource C_Green}"/>
+
+    <!-- GLOBAL TEXTBLOCK -->
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="FontSize" Value="11"/>
+    </Style>
+
+    <!-- Action Button (Used for editing tools) -->
+    <Style x:Key="ActionButton" TargetType="Button">
+        <Setter Property="Background" Value="#444"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="2" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource B_Accent}"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- MOTIVE MENU STYLE -->
+    <Style x:Key="MotiveMenuStyle" TargetType="Menu">
+        <Setter Property="Background" Value="{StaticResource B_Panel}"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+
+    <!-- MOTIVE TOOLBAR BUTTON (Small Icon Style) -->
+    <Style x:Key="ToolbarIconButton" TargetType="Button">
+        <Setter Property="Width" Value="24"/>
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="2" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#2A2A2A"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource B_Accent}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- PANEL HEADER STYLE (Small, Left-aligned like Motive) -->
+    <Style x:Key="PanelHeaderStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource B_PanelHeader}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource B_BorderDark}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        <Setter Property="Padding" Value="8,4"/>
+    </Style>
+
+    <!-- TRANSPORT BUTTON (Play/Pause/Step) -->
+    <Style x:Key="TransportButton" TargetType="Button">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#333"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- MOTIVE TIMELINE SLIDER -->
+    <Style x:Key="MotiveTimelineSlider" TargetType="Slider">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid>
+                        <!-- Timeline Track Background -->
+                        <Border Height="20" Background="#2A2A2A" CornerRadius="0">
+                            <!-- Tick marks would go here -->
+                        </Border>
+                        
+                        <!-- Played Region -->
+                        <Border Height="20" HorizontalAlignment="Left" 
+                                Width="{TemplateBinding Value}" 
+                                Background="#333" CornerRadius="0"/>
+                        
+                        <Track x:Name="PART_Track">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate>
+                                            <Grid Margin="0,-5,0,0">
+                                                <!-- Playhead Triangle -->
+                                                <Polygon Points="0,0 8,0 4,6" Fill="{StaticResource B_Accent}" VerticalAlignment="Top"/>
+                                                <!-- Playhead Line -->
+                                                <Rectangle Width="2" Height="25" Fill="{StaticResource B_Accent}" VerticalAlignment="Top" Margin="3,5,0,0"/>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- GLOBAL BORDER STYLE -->
+    <Style TargetType="{x:Type Border}">
+        <Setter Property="BorderBrush" Value="{StaticResource B_BorderDark}"/>
+    </Style>
+
+    <!-- GLOBAL SEPARATOR -->
+    <Style TargetType="{x:Type Separator}">
+        <Setter Property="Background" Value="{StaticResource B_Separator}"/>
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Separator}">
+                    <Border Background="{TemplateBinding Background}" Height="{TemplateBinding Height}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- GLOBAL COMBOBOX -->
+    <Style TargetType="{x:Type ComboBox}">
+        <Setter Property="Background" Value="{StaticResource B_Input}"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource B_BorderDark}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="4,2"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource B_Accent}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- GLOBAL LIST CONTROLS -->
+    <Style TargetType="{x:Type ListBox}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+    </Style>
+    <Style TargetType="{x:Type ListView}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+    </Style>
+    <Style TargetType="{x:Type TreeView}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+    </Style>
+    
+    <!-- LABEL BADGE (for Edit Tools labels like "Tails", "Gaps", etc) -->
+    <Style x:Key="SectionLabel" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource B_Accent}"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Margin" Value="0,8,0,4"/>
+    </Style>
+
+    <!-- FLAT CHECKBOX -->
+    <Style x:Key="FlatCheckBox" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="Background" Value="{StaticResource B_Input}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource B_BorderLight}"/>
+        <Setter Property="FontSize" Value="11"/>
+    </Style>
+
+    <!-- FLAT TEXTBOX -->
+    <Style x:Key="FlatTextBox" TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource B_Input}"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="4,2"/>
+        <Setter Property="FontSize" Value="11"/>
+    </Style>
+
+    <!-- ICONS (Path Geometries) -->
+    <Geometry x:Key="Geo_Play">M 0,0 L 10,5 L 0,10 Z</Geometry>
+    <Geometry x:Key="Geo_Pause">M 0,0 L 3,0 L 3,10 L 0,10 Z M 6,0 L 9,0 L 9,10 L 6,10 Z</Geometry>
+    <Geometry x:Key="Geo_Stop">M 0,0 L 10,0 L 10,10 L 0,10 Z</Geometry>
+    <Geometry x:Key="Geo_StepFwd">M 0,0 L 6,5 L 0,10 Z M 7,0 L 9,0 L 9,10 L 7,10 Z</Geometry>
+    <Geometry x:Key="Geo_StepBwd">M 9,0 L 3,5 L 9,10 Z M 0,0 L 2,0 L 2,10 L 0,10 Z</Geometry>
+    <Geometry x:Key="Geo_Loop">M 2,3 A 5,5 0 1 1 2,7 M 0,7 L 2,7 L 2,9</Geometry>
+
+    <!-- ============================================================ -->
+    <!-- AVALONDOCK INTERNAL OVERRIDES (Dark Theme) -->
+    <!-- ============================================================ -->
+    <!-- 
+        AvalonDock uses custom control types. Target them via xmlns or type names.
+        We'll use implicit styles targeting the base types if possible.
+    -->
+    <Style TargetType="{x:Type Control}" x:Key="AvalonDock_BaseStyle">
+        <Setter Property="Background" Value="{StaticResource B_Panel}"/>
+        <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <!-- Target the TabItems specifically (Perspective, Assets etc) -->
+    <!-- Note: In AvalonDock 4.x, these are under namespace AvalonDock.Controls -->
+    <!-- Since we can't easily add xmlns to this file for AvalonDock without assembly ref, 
+         we will use a generic workaround or try to target them by name if we had them.
+         Alternatively, we can set them in MainWindow.xaml resources.
+    -->
+    <Style TargetType="{x:Type TabItem}">
+        <Setter Property="Background" Value="{StaticResource B_Panel}"/>
+        <Setter Property="Foreground" Value="{StaticResource B_TextDim}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type TabItem}">
+                    <Border x:Name="border" Background="{TemplateBinding Background}" BorderThickness="0" Padding="8,4" Margin="2,0">
+                        <ContentPresenter ContentSource="Header"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource B_Background}"/>
+                            <Setter Property="Foreground" Value="{StaticResource B_Text}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

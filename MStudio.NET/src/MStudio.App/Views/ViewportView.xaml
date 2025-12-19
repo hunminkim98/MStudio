@@ -1,0 +1,92 @@
+<UserControl x:Class="MStudio.App.Views.ViewportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:helix="http://helix-toolkit.org/wpf/SharpDX">
+    <Grid Background="#0A0A0A">
+        <helix:Viewport3DX x:Name="viewport"
+                         FXAALevel="Low"
+                         BackgroundColor="Black"
+                         Camera="{Binding Camera}"
+                         EffectsManager="{Binding EffectsManager}"
+                         ModelUpDirection="{Binding ModelUpDirection}"
+                         ShowCoordinateSystem="True"
+                         ShowViewCube="False"
+                         UseDefaultGestures="False">
+            
+            <helix:Viewport3DX.InputBindings>
+                <MouseBinding Command="{x:Static helix:ViewportCommands.Rotate}" MouseAction="LeftClick" />
+                <MouseBinding Command="{x:Static helix:ViewportCommands.Pan}" MouseAction="RightClick" />
+            </helix:Viewport3DX.InputBindings>
+            
+            <!-- Default Lighting -->
+            <helix:AmbientLight3D Color="#404040"/>
+            <helix:DirectionalLight3D Color="#FFFFFF" Direction="-1,-1,-1"/>
+            <helix:DirectionalLight3D Color="#606060" Direction="1,1,1"/>
+            
+        </helix:Viewport3DX>
+        
+        <!-- Overlay -->
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left" Margin="5">
+            <StackPanel.Resources>
+                <Style x:Key="ViewportButtonStyle" TargetType="ButtonBase">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ButtonBase">
+                                <Border Background="Transparent" BorderThickness="0" Padding="2">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="Foreground" Value="#666666"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                             <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="Button" BasedOn="{StaticResource ViewportButtonStyle}"/>
+                <Style TargetType="ToggleButton" BasedOn="{StaticResource ViewportButtonStyle}">
+                    <Style.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                             <Setter Property="Foreground" Value="#CCCCCC"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Resources>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <!-- Reset View -->
+                <Button Command="{Binding ResetViewCommand}" Width="24" Height="24" Margin="0,0,2,0" ToolTip="Reset View">
+                    <TextBlock Text="🎥" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+                <!-- Origin Axis Toggle -->
+                <ToggleButton IsChecked="{Binding IsShowOriginAxis}" Width="24" Height="24" Margin="0,0,2,0" ToolTip="Toggle Origin Axis">
+                    <Grid Width="16" Height="16">
+                        <!-- X Axis -->
+                        <Line X1="8" Y1="8" X2="14" Y2="8" Stroke="Red" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        <!-- Y Axis -->
+                        <Line X1="8" Y1="8" X2="8" Y2="2" Stroke="Yellow" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        <!-- Z Axis -->
+                        <Line X1="8" Y1="8" X2="4" Y2="12" Stroke="Blue" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    </Grid>
+                </ToggleButton>
+                <!-- Grid Toggle -->
+                <ToggleButton IsChecked="{Binding IsShowGrid}" Width="24" Height="24" ToolTip="Toggle Grid">
+                    <TextBlock Text="▦" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+                <!-- Y/Z Up Toggle -->
+                <ToggleButton IsChecked="{Binding IsZUp}" Width="24" Height="24" Margin="2,0,0,0" ToolTip="Toggle Y-up / Z-up">
+                    <TextBlock Text="{Binding UpAxisText}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+            </StackPanel>
+
+            <TextBlock Text="{Binding MarkerCountText, FallbackValue=''}" FontSize="9" Foreground="#666666" Margin="3,0,0,0"/>
+        </StackPanel>
+        
+        <!-- Frame Counter Overlay -->
+        <TextBlock VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="10"
+                   FontSize="12" Foreground="#666666"
+                   Text="{Binding FrameInfoText, FallbackValue=''}"/>
+    </Grid>
+</UserControl>
