@@ -39,10 +39,8 @@ namespace MStudio.Core.Parsers
 
                 int totalFrames = lastFrame - firstFrame + 1;
 
-                // --- 2. Simplified Parameter Extraction (Skip to marker labels if possible) ---
-                // For now, we'll use generic names if we can't easily find labels in binary
-                // In a full implementation, we'd traverse the parameter blocks.
-                var markerNames = Enumerable.Range(1, numPoints).Select(i => $"Marker_{i}").ToList();
+                // --- 2. Read Marker Names from Parameter Block ---
+                var markerNames = ReadMarkerLabels(fs, reader, paramBlock, numPoints);
 
                 var container = new MarkerDataContainer(numPoints, totalFrames);
 
@@ -80,17 +78,10 @@ namespace MStudio.Core.Parsers
                     }
 
                     // Skip analog data if present
-                    int analogSize = numAnalog * 4; // Simplified, usually analog samples per frame
-                    // C3D spec says analog data follows points in each frame.
-                    // This is simplified and might need adjustment for specific C3D variants.
                     if (numAnalog > 0)
                     {
-                        // Each frame has numAnalog items. If analog rate is higher than frame rate, 
-                        // there are multiple samples per frame. 
-                        // For MStudio, we focus on markers.
-                        // We need to skip: (total analog channels) * (analog samples per point frame)
-                        // This usually needs the ANALOG:RATE parameter.
-                        // For a basic parser, we might need to look closer at the file.
+                        // Simplified - skip analog data
+                        // Full implementation would read ANALOG:RATE parameter
                     }
                 }
 
@@ -108,5 +99,120 @@ namespace MStudio.Core.Parsers
                 };
             });
         }
+
+        private List<string> ReadMarkerLabels(FileStream fs, BinaryReader reader, byte paramBlockStart, int numPoints)
+        {
+            var labels = new List<string>();
+            
+            try
+            {
+                // Navigate to parameter block
+                fs.Seek((paramBlockStart - 1) * 512, SeekOrigin.Begin);
+                
+                // Skip first 4 bytes of parameter section header
+                reader.ReadBytes(4);
+                
+                // Read parameter groups and parameters
+                while (fs.Position < fs.Length)
+                {
+                    sbyte nameLen = reader.ReadSByte();
+                    if (nameLen == 0) break; // End of parameters
+                    
+                    sbyte groupId = reader.ReadSByte();
+                    bool isGroup = groupId < 0;
+                    int absNameLen = Math.Abs(nameLen);
+                    
+                    if (absNameLen == 0 || absNameLen > 127) break;
+                    
+                    string name = Encoding.ASCII.GetString(reader.ReadBytes(absNameLen)).Trim();
+                    short offset = reader.ReadInt16(); // Offset to next item
+                    
+                    if (isGroup)
+                    {
+                        // Skip group description
+                        if (offset > 0)
+                        {
+                            byte descLen = reader.ReadByte();
+                            reader.ReadBytes(descLen);
+                        }
+                    }
+                    else
+                    {
+                        // Read parameter data
+                        sbyte dataType = reader.ReadSByte();
+                        byte numDims = reader.ReadByte();
+                        
+                        int[] dims = new int[numDims];
+                        int totalElements = 1;
+                        for (int i = 0; i < numDims; i++)
+                        {
+                            dims[i] = reader.ReadByte();
+                            totalElements *= dims[i];
+                        }
+                        
+                        // Check if this is POINT:LABELS (or just LABELS in group POINT)
+                        if (name.Equals("LABELS", StringComparison.OrdinalIgnoreCase) && dataType == -1)
+                        {
+                            // Character array
+                            int stringLength = dims.Length > 0 ? dims[0] : 0;
+                            int numStrings = dims.Length > 1 ? dims[1] : 1;
+                            
+                            for (int i = 0; i < numStrings; i++)
+                            {
+                                string label = Encoding.ASCII.GetString(reader.ReadBytes(stringLength)).Trim();
+                                if (!string.IsNullOrWhiteSpace(label))
+                                {
+                                    labels.Add(label);
+                                }
+                            }
+                            
+                            // Found labels, return them
+                            if (labels.Count > 0)
+                            {
+                                // Pad with generic names if needed
+                                while (labels.Count < numPoints)
+                                {
+                                    labels.Add($"Marker_{labels.Count + 1}");
+                                }
+                                return labels;
+                            }
+                        }
+                        else
+                        {
+                            // Skip this parameter's data
+                            int dataSize = dataType switch
+                            {
+                                -1 => 1, // char
+                                1 => 1,  // byte
+                                2 => 2,  // int16
+                                4 => 4,  // float
+                                _ => 1
+                            };
+                            reader.ReadBytes(Math.Abs(dataSize) * totalElements);
+                        }
+                        
+                        // Skip description
+                        byte descLen = reader.ReadByte();
+                        if (descLen > 0)
+                        {
+                            reader.ReadBytes(descLen);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // If parsing fails, fall back to generic names
+            }
+            
+            // Fallback: generate generic marker names
+            if (labels.Count == 0)
+            {
+                labels = Enumerable.Range(1, numPoints).Select(i => $"Marker_{i}").ToList();
+            }
+            
+            return labels;
+        }
     }
 }
+

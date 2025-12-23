@@ -1,0 +1,219 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj",
+        "projectName": "MStudio.App",
+        "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj",
+        "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.App\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0-windows"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
+            "projectReferences": {
+              "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj": {
+                "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
+          "dependencies": {
+            "CommunityToolkit.Mvvm": {
+              "target": "Package",
+              "version": "[8.4.0, )"
+            },
+            "Dirkster.AvalonDock": {
+              "target": "Package",
+              "version": "[4.72.1, )"
+            },
+            "Dirkster.AvalonDock.Themes.VS2013": {
+              "target": "Package",
+              "version": "[4.72.1, )"
+            },
+            "HelixToolkit.Wpf.SharpDX": {
+              "target": "Package",
+              "version": "[3.1.2, )"
+            },
+            "Microsoft.Extensions.DependencyInjection": {
+              "target": "Package",
+              "version": "[10.0.1, )"
+            },
+            "OxyPlot.Wpf": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WPF": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj",
+        "projectName": "MStudio.Core",
+        "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj",
+        "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj",
+        "projectName": "MStudio.Services",
+        "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj",
+        "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
+                "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

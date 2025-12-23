@@ -255,10 +255,12 @@
                                     
                                     <!-- Labels Section -->
                                     <TextBlock Text="Labels" Style="{DynamicResource SectionLabel}"/>
-                                    <ListBox Background="{DynamicResource B_Input}" BorderThickness="0" MaxHeight="400"
+                                    <ListBox x:Name="LabelsListBox"
+                                             Background="{DynamicResource B_Input}" BorderThickness="0" MaxHeight="400"
                                              ItemsSource="{Binding ViewportViewModel.MarkerNames}"
                                              SelectedIndex="{Binding ViewportViewModel.SelectedMarkerIndex}"
-                                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             PreviewKeyDown="LabelsListBox_PreviewKeyDown">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <Grid Height="20">
@@ -344,7 +346,7 @@
                 <!-- LOOP / REVERSE -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
                     <!-- LOOP Toggle -->
-                    <ToggleButton IsChecked="{Binding IsLooping}" BorderThickness="0" Background="Transparent" Margin="0,0,15,0" Cursor="Hand">
+                    <ToggleButton IsChecked="{Binding IsLooping}" BorderThickness="0" Background="Transparent" Margin="0,0,15,0" Cursor="Hand" Focusable="False">
                         <ToggleButton.Template>
                              <ControlTemplate TargetType="ToggleButton">
                                  <TextBlock Text="LOOP" FontSize="10" FontWeight="Bold" Foreground="{TemplateBinding Foreground}"/>
@@ -363,7 +365,7 @@
                     </ToggleButton>
 
                     <!-- REVERSE Toggle -->
-                    <ToggleButton IsChecked="{Binding IsReverse}" BorderThickness="0" Background="Transparent" Margin="0,0,15,0" Cursor="Hand">
+                    <ToggleButton IsChecked="{Binding IsReverse}" BorderThickness="0" Background="Transparent" Margin="0,0,15,0" Cursor="Hand" Focusable="False">
                         <ToggleButton.Template>
                              <ControlTemplate TargetType="ToggleButton">
                                  <TextBlock Text="REVERSE" FontSize="10" FontWeight="Bold" Foreground="{TemplateBinding Foreground}"/>
@@ -385,7 +387,7 @@
                     <TextBlock Text="{Binding PlaybackSpeed, StringFormat={}{0:F1}x}" FontSize="10" Foreground="{DynamicResource B_Text}" VerticalAlignment="Center" Margin="0,0,5,0" Width="30"/>
                     <Slider Width="100" Minimum="0" Maximum="10" Value="{Binding PlaybackSpeed}" 
                             TickFrequency="0.1" IsSnapToTickEnabled="False"
-                            VerticalAlignment="Center"/>
+                            VerticalAlignment="Center" Focusable="False"/>
                     <Button Content="1x" Style="{DynamicResource ToolbarIconButton}" Width="24" Height="20" FontSize="9"
                             Command="{Binding ResetSpeedCommand}" Margin="5,0,0,0">
                     </Button>

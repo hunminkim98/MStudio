@@ -38,6 +38,14 @@ namespace MStudio.App.ViewModels
         private bool _isShowOriginAxis = true;
 
         [ObservableProperty]
+        private bool _isShowTrajectory = true;
+
+        partial void OnIsShowTrajectoryChanged(bool value)
+        {
+            if (_trajectoryModel != null) _trajectoryModel.IsRendering = value;
+        }
+
+        [ObservableProperty]
         private Vector3D _modelUpDirection = new Vector3D(0, 1, 0);
 
         partial void OnIsShowGridChanged(bool value)
@@ -90,6 +98,23 @@ namespace MStudio.App.ViewModels
         [ObservableProperty]
         private int _selectedMarkerIndex = -1;
 
+        // Skeleton model selection
+        public ObservableCollection<string> AvailableSkeletons { get; } = new();
+
+        [ObservableProperty]
+        private string _selectedSkeleton = "HALPE_26";
+
+        partial void OnSelectedSkeletonChanged(string value)
+        {
+            // Regenerate bones when skeleton model changes
+            if (_sessionService.CurrentMotion != null)
+            {
+                _boneLinks.Clear();
+                AutoGenerateBones(_sessionService.CurrentMotion);
+                UpdateBones();
+            }
+        }
+
         // Simple bone linkage (pair of marker indices)
         private readonly List<(int start, int end)> _boneLinks = new();
 
@@ -119,7 +144,7 @@ namespace MStudio.App.ViewModels
         // Appearance settings
         private const float MarkerRadius = 0.012f;
         private readonly Color4 _markerColor = new Color4(0.2f, 0.8f, 0.3f, 1.0f); // Green
-        private readonly System.Windows.Media.Color _trajectoryColor = System.Windows.Media.Colors.Yellow;
+        private readonly System.Windows.Media.Color _trajectoryColor = System.Windows.Media.Color.FromArgb(128, 255, 255, 0); // Yellow with 50% transparency
         private readonly System.Windows.Media.Color _boneColor = System.Windows.Media.Color.FromArgb(180, 200, 200, 200); // White-grey
 
         public MStudioViewportViewModel(ISessionService sessionService, ITimelineService timelineService)
@@ -141,6 +166,12 @@ namespace MStudio.App.ViewModels
                 FarPlaneDistance = 1000,
                 NearPlaneDistance = 0.01
             };
+
+            // Initialize available skeleton models
+            foreach (var skeleton in PredefinedSkeletons.All)
+            {
+                AvailableSkeletons.Add(skeleton.Name);
+            }
 
             CreateGrid();
             CreateAxis();
@@ -248,7 +279,7 @@ namespace MStudio.App.ViewModels
                 // Z-Axis (Blue) - Vertical
                 var zBuilder = new LineBuilder();
                 zBuilder.AddLine(new Vector3(0, 0, offset), new Vector3(0, 0, axisLength + offset));
-                _originModel.Children.Add(new LineGeometryModel3D { Geometry = zBuilder.ToLineGeometry3D(), Color = System.Windows.Media.Colors.SkyBlue, Thickness = 2 });
+                _originModel.Children.Add(new LineGeometryModel3D { Geometry = zBuilder.ToLineGeometry3D(), Color = System.Windows.Media.Colors.Blue, Thickness = 2 });
             }
             else
             {
@@ -266,7 +297,7 @@ namespace MStudio.App.ViewModels
                 // Z-Axis (Blue)
                 var zBuilder = new LineBuilder();
                 zBuilder.AddLine(new Vector3(0, offset, 0), new Vector3(0, offset, axisLength));
-                _originModel.Children.Add(new LineGeometryModel3D { Geometry = zBuilder.ToLineGeometry3D(), Color = System.Windows.Media.Colors.SkyBlue, Thickness = 2 });
+                _originModel.Children.Add(new LineGeometryModel3D { Geometry = zBuilder.ToLineGeometry3D(), Color = System.Windows.Media.Colors.Blue, Thickness = 2 });
             }
 
             _originModel.IsRendering = IsShowOriginAxis;
@@ -310,8 +341,52 @@ namespace MStudio.App.ViewModels
 
         private void AutoGenerateBones(MotionData motion)
         {
-            // Simple proximity and name-based auto-skeleton
-            // In a production app, this would use a template (e.g. MarkerSets)
+            // Use predefined skeleton models based on marker names
+            var names = motion.Metadata.MarkerNames;
+            
+            // Create a name-to-index lookup (case-insensitive)
+            var nameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < names.Count; i++)
+            {
+                nameToIndex[names[i]] = i;
+            }
+
+            // Use the selected skeleton model
+            var skeleton = PredefinedSkeletons.GetByName(SelectedSkeleton) ?? PredefinedSkeletons.Halpe26;
+            
+            // Build reverse lookup: joint name -> marker index
+            var jointToMarkerIndex = new Dictionary<int, int>();
+            foreach (var kvp in skeleton.JointMap)
+            {
+                int jointId = kvp.Key;
+                string jointName = kvp.Value;
+                
+                if (nameToIndex.TryGetValue(jointName, out int markerIdx))
+                {
+                    jointToMarkerIndex[jointId] = markerIdx;
+                }
+            }
+
+            // Create bone links from skeleton definition
+            foreach (var bone in skeleton.Bones)
+            {
+                if (jointToMarkerIndex.TryGetValue(bone.Parent, out int parentIdx) &&
+                    jointToMarkerIndex.TryGetValue(bone.Child, out int childIdx))
+                {
+                    _boneLinks.Add((parentIdx, childIdx));
+                }
+            }
+
+            // If no bones were created from the skeleton template, fall back to proximity-based
+            if (_boneLinks.Count == 0)
+            {
+                AutoGenerateBonesByProximity(motion);
+            }
+        }
+
+        private void AutoGenerateBonesByProximity(MotionData motion)
+        {
+            // Fallback: proximity-based auto-skeleton for unknown marker sets
             var names = motion.Metadata.MarkerNames;
             for (int i = 0; i < names.Count; i++)
             {
@@ -323,7 +398,7 @@ namespace MStudio.App.ViewModels
                     if (float.IsNaN(p1.X) || float.IsNaN(p2.X)) continue;
 
                     float dist = Vector3.Distance(p1, p2);
-                    // Connect if markers are close (e.g. within 30cm) and probably on same limb
+                    // Connect if markers are close (e.g. within 30cm) 
                     if (dist < 0.3f)
                     {
                         _boneLinks.Add((i, j));
