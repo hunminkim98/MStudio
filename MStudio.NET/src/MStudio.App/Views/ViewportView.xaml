@@ -2,6 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:helix="http://helix-toolkit.org/wpf/SharpDX">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
     <Grid Background="#0A0A0A">
         <helix:Viewport3DX x:Name="viewport"
                          FXAALevel="Low"
@@ -109,6 +112,154 @@
                           Width="90" Height="20" FontSize="9"
                           ToolTip="Select skeleton model"/>
             </StackPanel>
+
+            <!-- Customization Panel (Collapsible) -->
+            <Border Background="#1A1A1A" CornerRadius="4" Padding="6" Margin="0,6,0,0" Opacity="0.9">
+                <StackPanel>
+                    <!-- Header with toggle -->
+                    <ToggleButton x:Name="CustomizationToggle" IsChecked="False" 
+                                  HorizontalAlignment="Stretch" Focusable="False">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border Background="Transparent" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="Arrow" Text="▶" FontSize="8" Foreground="#666666" 
+                                                   VerticalAlignment="Center" Margin="0,0,4,0" Width="10"/>
+                                        <TextBlock Text="Customization" FontSize="9" Foreground="#888888" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="Arrow" Property="Text" Value="▼"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Arrow" Property="Foreground" Value="#AAAAAA"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+                    
+                    <!-- Collapsible Content -->
+                    <StackPanel x:Name="CustomizationContent" Margin="0,4,0,0"
+                                Visibility="{Binding IsChecked, ElementName=CustomizationToggle, Converter={StaticResource BoolToVisibilityConverter}}">
+                        
+                        <!-- ═══ PRESET ═══ -->
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="Preset:" FontSize="9" Foreground="#888888" Width="45" VerticalAlignment="Center"/>
+                            <ComboBox ItemsSource="{Binding AvailableColorSchemes}" 
+                                      SelectedItem="{Binding SelectedColorScheme, Mode=TwoWay}"
+                                      Width="90" Height="18" FontSize="9"
+                                      ToolTip="Color Preset"/>
+                        </StackPanel>
+
+                        <!-- ═══ MARKER SECTION ═══ -->
+                        <TextBlock Text="● Marker" FontSize="9" Foreground="#6699CC" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                        
+                        <!-- Marker Size -->
+                        <StackPanel Orientation="Horizontal" Margin="8,2,0,0">
+                            <TextBlock Text="Size" FontSize="8" Foreground="#666666" Width="40" VerticalAlignment="Center"/>
+                            <Slider Minimum="0.005" Maximum="0.05" 
+                                    Value="{Binding MarkerSize, Mode=TwoWay}" 
+                                    Width="70" Height="14" 
+                                    VerticalAlignment="Center"
+                                    ToolTip="Marker Size"/>
+                            <TextBlock Text="{Binding MarkerSize, StringFormat={}{0:F3}}" 
+                                       FontSize="8" Foreground="#555555" Width="28" 
+                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                        
+                        <!-- Marker Color -->
+                        <StackPanel Orientation="Horizontal" Margin="8,2,0,0">
+                            <TextBlock Text="Color" FontSize="8" Foreground="#666666" Width="40" VerticalAlignment="Center"/>
+                            <Button x:Name="MarkerColorButton" 
+                                    Width="18" Height="14" 
+                                    Click="MarkerColorButton_Click"
+                                    ToolTip="Marker Color">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border CornerRadius="2" BorderBrush="#555" BorderThickness="1" Cursor="Hand">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="{Binding MarkerColorDisplay, FallbackValue=#33CC55}"/>
+                                            </Border.Background>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                        
+                        <!-- Marker Opacity -->
+                        <StackPanel Orientation="Horizontal" Margin="8,2,0,0">
+                            <TextBlock Text="Opacity" FontSize="8" Foreground="#666666" Width="40" VerticalAlignment="Center"/>
+                            <Slider Minimum="0.1" Maximum="1.0" 
+                                    Value="{Binding MarkerOpacity, Mode=TwoWay}" 
+                                    Width="70" Height="14" 
+                                    VerticalAlignment="Center"
+                                    ToolTip="Marker Opacity"/>
+                            <TextBlock Text="{Binding MarkerOpacity, StringFormat={}{0:P0}}" 
+                                       FontSize="8" Foreground="#555555" Width="28" 
+                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+
+                        <!-- ═══ SKELETON SECTION ═══ -->
+                        <TextBlock Text="━ Skeleton" FontSize="9" Foreground="#CC9966" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                        
+                        <!-- Skeleton Thickness -->
+                        <StackPanel Orientation="Horizontal" Margin="8,2,0,0">
+                            <TextBlock Text="Width" FontSize="8" Foreground="#666666" Width="40" VerticalAlignment="Center"/>
+                            <Slider Minimum="0.5" Maximum="5.0" 
+                                    Value="{Binding BoneThickness, Mode=TwoWay}" 
+                                    Width="70" Height="14" 
+                                    VerticalAlignment="Center"
+                                    ToolTip="Skeleton Line Width"/>
+                            <TextBlock Text="{Binding BoneThickness, StringFormat={}{0:F1}}" 
+                                       FontSize="8" Foreground="#555555" Width="28" 
+                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                        
+                        <!-- Skeleton Color -->
+                        <StackPanel Orientation="Horizontal" Margin="8,2,0,0">
+                            <TextBlock Text="Color" FontSize="8" Foreground="#666666" Width="40" VerticalAlignment="Center"/>
+                            <Button x:Name="BoneColorButton" 
+                                    Width="18" Height="14" 
+                                    Click="BoneColorButton_Click"
+                                    ToolTip="Skeleton Color">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border CornerRadius="2" BorderBrush="#555" BorderThickness="1" Cursor="Hand">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="{Binding BoneColor, FallbackValue=#CCCCCC}"/>
+                                            </Border.Background>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                        
+                        <!-- Skeleton Opacity -->
+                        <StackPanel Orientation="Horizontal" Margin="8,2,0,0">
+                            <TextBlock Text="Opacity" FontSize="8" Foreground="#666666" Width="40" VerticalAlignment="Center"/>
+                            <Slider Minimum="0.1" Maximum="1.0" 
+                                    Value="{Binding BoneOpacity, Mode=TwoWay}" 
+                                    Width="70" Height="14" 
+                                    VerticalAlignment="Center"
+                                    ToolTip="Skeleton Opacity"/>
+                            <TextBlock Text="{Binding BoneOpacity, StringFormat={}{0:P0}}" 
+                                       FontSize="8" Foreground="#555555" Width="28" 
+                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+
+                        <!-- ═══ RESET ═══ -->
+                        <Button Content="↺ Reset" 
+                                Command="{Binding ResetVisualizationSettingsCommand}"
+                                Width="55" Height="18" 
+                                HorizontalAlignment="Left"
+                                Margin="0,10,0,0"
+                                FontSize="9"
+                                ToolTip="Reset to default settings"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
         
         <!-- Frame Counter Overlay -->

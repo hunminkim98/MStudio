@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\MStudio.App\App.xaml
-41845703830
+5-2015577926
 
-13722924841
+16211850560
 2341421604847
-MainWindow.xaml;Styles\DarkTheme.xaml;Views\GraphView.xaml;Views\ViewportView.xaml;
+MainWindow.xaml;Styles\DarkTheme.xaml;Views\DataView.xaml;Views\GraphView.xaml;Views\ViewportView.xaml;
 
 False
 

@@ -14,7 +14,7 @@ namespace MStudio.App.Views
     /// ViewportView - 3D viewport for motion capture visualization.
     /// 
     /// Clean Architecture Notes:
-    /// - View handles low-level UI events (mouse clicks)
+    /// - View handles low-level UI events (mouse clicks, color picker dialog)
     /// - Converts screen coordinates to 3D picking request
     /// - Delegates marker selection logic to ViewModel
     /// </summary>
@@ -113,6 +113,62 @@ namespace MStudio.App.Views
                 e.Handled = true;
             }
         }
+
+        /// <summary>
+        /// Opens color picker dialog for marker color selection.
+        /// 
+        /// Clean Architecture: View handles UI dialog, ViewModel receives the result.
+        /// </summary>
+        private void MarkerColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not MStudioViewportViewModel vm)
+                return;
+
+            // Use Windows Forms ColorDialog (WPF doesn't have a built-in one)
+            using var colorDialog = new System.Windows.Forms.ColorDialog
+            {
+                Color = System.Drawing.Color.FromArgb(
+                    (int)(vm.MarkerColor.Alpha * 255),
+                    (int)(vm.MarkerColor.Red * 255),
+                    (int)(vm.MarkerColor.Green * 255),
+                    (int)(vm.MarkerColor.Blue * 255)),
+                FullOpen = true,
+                AllowFullOpen = true
+            };
+
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                var c = colorDialog.Color;
+                vm.MarkerColor = new Color4(c.R / 255f, c.G / 255f, c.B / 255f, vm.MarkerColor.Alpha);
+            }
+        }
+
+        /// <summary>
+        /// Opens color picker dialog for bone color selection.
+        /// 
+        /// Clean Architecture: View handles UI dialog, ViewModel receives the result.
+        /// </summary>
+        private void BoneColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not MStudioViewportViewModel vm)
+                return;
+
+            using var colorDialog = new System.Windows.Forms.ColorDialog
+            {
+                Color = System.Drawing.Color.FromArgb(
+                    vm.BoneColor.A,
+                    vm.BoneColor.R,
+                    vm.BoneColor.G,
+                    vm.BoneColor.B),
+                FullOpen = true,
+                AllowFullOpen = true
+            };
+
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                var c = colorDialog.Color;
+                vm.BoneColor = System.Windows.Media.Color.FromArgb(vm.BoneColor.A, c.R, c.G, c.B);
+            }
+        }
     }
 }
-

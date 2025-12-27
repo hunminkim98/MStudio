@@ -8,8 +8,10 @@ namespace MStudio.Services.Interfaces
     public interface ISessionService : INotifyPropertyChanged
     {
         MotionData? CurrentMotion { get; }
+        string? CurrentFilePath { get; }
         bool IsLoading { get; }
         Task LoadMotionAsync(string filePath);
+        void LoadFile(string filePath);
         void CloseSession();
     }
 

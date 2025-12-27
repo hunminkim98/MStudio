@@ -1,0 +1,92 @@
+<UserControl x:Class="MStudio.App.Views.DataView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+    
+    <Grid Background="{DynamicResource B_Panel}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="8">
+                
+                <!-- ═══ CURRENT FILE INFO ═══ -->
+                <TextBlock Text="● Current File" 
+                           FontSize="10" 
+                           Foreground="#6699CC" 
+                           FontWeight="SemiBold" 
+                           Margin="0,0,0,4"
+                           Visibility="{Binding HasLoadedFile, Converter={StaticResource BoolToVisibility}}"/>
+                
+                <StackPanel Visibility="{Binding HasLoadedFile, Converter={StaticResource BoolToVisibility}}">
+                    <!-- File name -->
+                    <TextBlock Text="{Binding CurrentFileName}" 
+                               FontSize="11" 
+                               Foreground="#FFFFFF" 
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding CurrentFilePath}"
+                               Margin="8,0,0,4"/>
+                    
+                    <!-- Stats Grid -->
+                    <Grid Margin="8,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="65"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Markers:" FontSize="9" Foreground="#666666"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MarkerCount}" FontSize="9" Foreground="#AAAAAA"/>
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Frames:" FontSize="9" Foreground="#666666"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FrameCount, StringFormat={}{0:N0}}" FontSize="9" Foreground="#AAAAAA"/>
+                        
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Rate:" FontSize="9" Foreground="#666666"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" FontSize="9" Foreground="#AAAAAA">
+                            <Run Text="{Binding FrameRate, StringFormat={}{0:F0}}"/>
+                            <Run Text=" Hz"/>
+                        </TextBlock>
+                        
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Duration:" FontSize="9" Foreground="#666666"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DurationText}" FontSize="9" Foreground="#AAAAAA"/>
+                    </Grid>
+                    
+                    <!-- Data Validity -->
+                    <StackPanel Margin="8,8,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Valid Data:" FontSize="9" Foreground="#666666"/>
+                            <TextBlock Grid.Column="1" FontSize="9" Foreground="#4CAF50">
+                                <Run Text="{Binding DataValidity, StringFormat={}{0:F1}}"/>
+                                <Run Text="%"/>
+                            </TextBlock>
+                        </Grid>
+                        <ProgressBar Value="{Binding DataValidity}" 
+                                     Maximum="100" 
+                                     Height="4" 
+                                     Margin="0,2,0,0"
+                                     Background="#333333"
+                                     Foreground="#4CAF50"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Empty state message -->
+                <TextBlock Text="No file loaded"
+                           FontSize="9" 
+                           Foreground="#666666" 
+                           FontStyle="Italic"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,0"
+                           Visibility="{Binding HasNoFile, Converter={StaticResource BoolToVisibility}}"/>
+                
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

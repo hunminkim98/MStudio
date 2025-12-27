@@ -1,0 +1,19 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  MStudio.Core -> C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\MStudio.Core\bin\Debug\net8.0\MStudio.Core.dll
+  MStudio.Services -> C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.Services\bin\Debug\net8.0\MStudio.Services.dll
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\GraphViewModel.cs(202,28): error CS0104: 'Point' is an ambiguous reference between 'System.Drawing.Point' and 'System.Windows.Point' [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\GraphViewModel.cs(203,28): error CS0104: 'Point' is an ambiguous reference between 'System.Drawing.Point' and 'System.Windows.Point' [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\GraphViewModel.cs(204,28): error CS0104: 'Point' is an ambiguous reference between 'System.Drawing.Point' and 'System.Windows.Point' [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\ViewportViewModel.cs(469,94): warning MVVMTK0034: The field MStudio.App.ViewModels.MStudioViewportViewModel._markerColor is annotated with [ObservableProperty] and should not be directly referenced (use the generated property instead) (https://aka.ms/mvvmtoolkit/errors/mvvmtk0034) [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+
+Build FAILED.
+
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\ViewportViewModel.cs(469,94): warning MVVMTK0034: The field MStudio.App.ViewModels.MStudioViewportViewModel._markerColor is annotated with [ObservableProperty] and should not be directly referenced (use the generated property instead) (https://aka.ms/mvvmtoolkit/errors/mvvmtk0034) [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\GraphViewModel.cs(202,28): error CS0104: 'Point' is an ambiguous reference between 'System.Drawing.Point' and 'System.Windows.Point' [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\GraphViewModel.cs(203,28): error CS0104: 'Point' is an ambiguous reference between 'System.Drawing.Point' and 'System.Windows.Point' [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\ViewModels\GraphViewModel.cs(204,28): error CS0104: 'Point' is an ambiguous reference between 'System.Drawing.Point' and 'System.Windows.Point' [C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\mstudio.net\src\MStudio.App\MStudio.App_vze5qksx_wpftmp.csproj]
+    1 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:01.74

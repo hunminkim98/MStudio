@@ -14,6 +14,7 @@ namespace MStudio.Services.Implementations
     {
         private readonly IEnumerable<IFileParser> _parsers;
         private MotionData? _currentMotion;
+        private string? _currentFilePath;
         private bool _isLoading;
 
         public SessionService(IEnumerable<IFileParser> parsers)
@@ -25,6 +26,12 @@ namespace MStudio.Services.Implementations
         {
             get => _currentMotion;
             private set => SetProperty(ref _currentMotion, value);
+        }
+
+        public string? CurrentFilePath
+        {
+            get => _currentFilePath;
+            private set => SetProperty(ref _currentFilePath, value);
         }
 
         public bool IsLoading
@@ -42,6 +49,7 @@ namespace MStudio.Services.Implementations
             try
             {
                 var data = await parser.ParseAsync(filePath);
+                CurrentFilePath = filePath; // Set path before motion to ensure UI updates correctly
                 CurrentMotion = data;
             }
             finally
@@ -50,10 +58,20 @@ namespace MStudio.Services.Implementations
             }
         }
 
+        /// <summary>
+        /// Synchronous file loading wrapper
+        /// </summary>
+        public void LoadFile(string filePath)
+        {
+            // Run async method synchronously (acceptable for UI-driven operations)
+            LoadMotionAsync(filePath).GetAwaiter().GetResult();
+        }
+
         public void CloseSession()
         {
             CurrentMotion?.Markers.Dispose();
             CurrentMotion = null;
+            CurrentFilePath = null;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

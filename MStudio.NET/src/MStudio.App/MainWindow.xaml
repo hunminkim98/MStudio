@@ -156,14 +156,7 @@
                         </layout:LayoutAnchorable>
                         
                         <layout:LayoutAnchorable Title="Data" CanClose="False">
-                            <Grid Background="{DynamicResource B_Panel}">
-                                <ListView Background="Transparent" BorderThickness="0" Foreground="{DynamicResource B_Text}">
-                                    <ListViewItem Content="20_Kits"/>
-                                    <ListViewItem Content="40_Kits"/>
-                                    <ListViewItem Content="OT57-04_Acro_001"/>
-                                    <ListViewItem Content="OT57-04_Acro_002"/>
-                                </ListView>
-                            </Grid>
+                            <views:DataView DataContext="{Binding DataViewModel}"/>
                         </layout:LayoutAnchorable>
                     </layout:LayoutAnchorablePane>
 

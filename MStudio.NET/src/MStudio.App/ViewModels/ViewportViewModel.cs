@@ -10,6 +10,7 @@ using HelixToolkit.Geometry;
 using HelixToolkit.Maths;
 using HelixToolkit.SharpDX;
 using HelixToolkit.Wpf.SharpDX;
+using MStudio.Core.Interfaces;
 using MStudio.Core.Messaging;
 using MStudio.Core.Models;
 using MStudio.Services.Interfaces;
@@ -20,6 +21,7 @@ namespace MStudio.App.ViewModels
     {
         private readonly ISessionService _sessionService;
         private readonly ITimelineService _timelineService;
+        private readonly IVisualizationSettingsService _visualizationSettings;
 
         // 3D Scene Elements
         public ObservableCollection<Element3D> SceneElements { get; } = new();
@@ -154,21 +156,137 @@ namespace MStudio.App.ViewModels
         // List of all marker names in current motion
         public ObservableCollection<string> MarkerNames { get; } = new();
 
-        // Appearance settings
-        private const float MarkerRadius = 0.012f;
-        private readonly Color4 _markerColor = new Color4(0.2f, 0.8f, 0.3f, 1.0f); // Green
-        private readonly System.Windows.Media.Color _trajectoryColor = System.Windows.Media.Color.FromArgb(128, 255, 255, 0); // Yellow with 50% transparency
-        private readonly System.Windows.Media.Color _boneColor = System.Windows.Media.Color.FromArgb(180, 200, 200, 200); // White-grey
+        // ========== Visualization Settings (Customizable) ==========
+        
+        /// <summary>
+        /// Marker radius in meters. Range: 0.005 ~ 0.05
+        /// </summary>
+        [ObservableProperty]
+        private float _markerSize = 0.012f;
 
-        public MStudioViewportViewModel(ISessionService sessionService, ITimelineService timelineService)
+        partial void OnMarkerSizeChanged(float value)
+        {
+            // Rebuild marker geometry with new size
+            RebuildMarkerGeometry();
+            // Sync to service
+            _visualizationSettings.MarkerSize = value;
+        }
+
+        /// <summary>
+        /// Marker opacity. Range: 0.1 ~ 1.0
+        /// </summary>
+        [ObservableProperty]
+        private float _markerOpacity = 1.0f;
+
+        partial void OnMarkerOpacityChanged(float value)
+        {
+            // Update marker color with new opacity
+            MarkerColor = new Color4(MarkerColor.Red, MarkerColor.Green, MarkerColor.Blue, value);
+            // Sync to service
+            _visualizationSettings.MarkerOpacity = value;
+        }
+
+        /// <summary>
+        /// Marker color (RGBA)
+        /// </summary>
+        [ObservableProperty]
+        private Color4 _markerColor = new Color4(0.2f, 0.8f, 0.3f, 1.0f); // Green
+
+        partial void OnMarkerColorChanged(Color4 value)
+        {
+            UpdateMarkerMaterial();
+            OnPropertyChanged(nameof(MarkerColorDisplay));
+            // Sync to service (without opacity, opacity is separate)
+            _visualizationSettings.MarkerColor = (value.Red, value.Green, value.Blue, value.Alpha);
+        }
+
+        /// <summary>
+        /// Marker color as WPF Color for UI display binding
+        /// </summary>
+        public System.Windows.Media.Color MarkerColorDisplay => 
+            System.Windows.Media.Color.FromArgb(
+                (byte)(MarkerColor.Alpha * 255),
+                (byte)(MarkerColor.Red * 255),
+                (byte)(MarkerColor.Green * 255),
+                (byte)(MarkerColor.Blue * 255));
+
+        /// <summary>
+        /// Selected marker color for trajectory display
+        /// </summary>
+        [ObservableProperty]
+        private System.Windows.Media.Color _selectedMarkerColor = System.Windows.Media.Color.FromArgb(255, 255, 230, 100);
+
+        partial void OnSelectedMarkerColorChanged(System.Windows.Media.Color value)
+        {
+            UpdateTrajectories();
+        }
+
+        /// <summary>
+        /// Bone/skeleton line color
+        /// </summary>
+        [ObservableProperty]
+        private System.Windows.Media.Color _boneColor = System.Windows.Media.Color.FromArgb(180, 200, 200, 200);
+
+        partial void OnBoneColorChanged(System.Windows.Media.Color value)
+        {
+            if (_boneModel != null)
+            {
+                _boneModel.Color = value;
+            }
+            // Sync to service
+            _visualizationSettings.BoneColor = (value.ScR, value.ScG, value.ScB, value.ScA);
+        }
+
+        /// <summary>
+        /// Bone line thickness
+        /// </summary>
+        [ObservableProperty]
+        private double _boneThickness = 1.5;
+
+        partial void OnBoneThicknessChanged(double value)
+        {
+            if (_boneModel != null)
+            {
+                _boneModel.Thickness = value;
+            }
+            // Sync to service
+            _visualizationSettings.BoneThickness = value;
+        }
+
+        /// <summary>
+        /// Bone opacity. Range: 0.1 ~ 1.0
+        /// </summary>
+        [ObservableProperty]
+        private float _boneOpacity = 0.8f;
+
+        partial void OnBoneOpacityChanged(float value)
+        {
+            // Update bone color with new opacity
+            BoneColor = System.Windows.Media.Color.FromScRgb(value, BoneColor.ScR, BoneColor.ScG, BoneColor.ScB);
+            // Sync to service
+            _visualizationSettings.BoneOpacity = value;
+        }
+
+        // Trajectory color (derived from selected marker color)
+        private System.Windows.Media.Color TrajectoryColor => 
+            System.Windows.Media.Color.FromArgb(128, SelectedMarkerColor.R, SelectedMarkerColor.G, SelectedMarkerColor.B);
+
+        public MStudioViewportViewModel(
+            ISessionService sessionService, 
+            ITimelineService timelineService,
+            IVisualizationSettingsService visualizationSettings)
         {
             _sessionService = sessionService;
             _timelineService = timelineService;
+            _visualizationSettings = visualizationSettings;
+
+            // Sync initial values from service
+            SyncFromVisualizationSettings();
 
             EffectsManager = new DefaultEffectsManager();
 
             var meshBuilder = new MeshBuilder(true, false);
-            meshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerRadius, 12, 12);
+            meshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerSize, 12, 12);
             _markerSphereGeometry = meshBuilder.ToMeshGeometry3D();
 
             Camera = new HelixToolkit.Wpf.SharpDX.PerspectiveCamera
@@ -206,6 +324,9 @@ namespace MStudio.App.ViewModels
                 }
             };
 
+            // Subscribe to visualization settings changes (Clean Architecture: Service -> ViewModel)
+            _visualizationSettings.PropertyChanged += OnVisualizationSettingsChanged;
+
             // Register for marker data change messages (from MainViewModel after FillGaps/Smooth)
             WeakReferenceMessenger.Default.Register<MarkerDataChangedMessage>(this, (r, m) =>
             {
@@ -223,11 +344,122 @@ namespace MStudio.App.ViewModels
             });
         }
 
+        /// <summary>
+        /// Handles property changes from the visualization settings service.
+        /// Clean Architecture: ViewModel reacts to Service layer changes.
+        /// </summary>
+        private void OnVisualizationSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(IVisualizationSettingsService.MarkerSize):
+                    // Use property to trigger OnMarkerSizeChanged (rebuilds geometry)
+                    MarkerSize = _visualizationSettings.MarkerSize;
+                    break;
+                case nameof(IVisualizationSettingsService.MarkerColor):
+                    var mc = _visualizationSettings.MarkerColor;
+                    MarkerColor = new Color4(mc.R, mc.G, mc.B, MarkerOpacity);
+                    break;
+                case nameof(IVisualizationSettingsService.MarkerOpacity):
+                    MarkerOpacity = _visualizationSettings.MarkerOpacity;
+                    break;
+                case nameof(IVisualizationSettingsService.SelectedMarkerColor):
+                    var smc = _visualizationSettings.SelectedMarkerColor;
+                    SelectedMarkerColor = System.Windows.Media.Color.FromScRgb(smc.A, smc.R, smc.G, smc.B);
+                    break;
+                case nameof(IVisualizationSettingsService.BoneThickness):
+                    BoneThickness = _visualizationSettings.BoneThickness;
+                    break;
+                case nameof(IVisualizationSettingsService.BoneColor):
+                    var bc = _visualizationSettings.BoneColor;
+                    BoneColor = System.Windows.Media.Color.FromScRgb(BoneOpacity, bc.R, bc.G, bc.B);
+                    break;
+                case nameof(IVisualizationSettingsService.BoneOpacity):
+                    BoneOpacity = _visualizationSettings.BoneOpacity;
+                    break;
+                case nameof(IVisualizationSettingsService.ShowMarkerNames):
+                    IsShowMarkerNames = _visualizationSettings.ShowMarkerNames;
+                    break;
+                case nameof(IVisualizationSettingsService.CurrentColorScheme):
+                    OnPropertyChanged(nameof(SelectedColorScheme));
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Syncs ViewModel properties from the visualization settings service.
+        /// Called once during initialization.
+        /// </summary>
+        private void SyncFromVisualizationSettings()
+        {
+            var mc = _visualizationSettings.MarkerColor;
+            _markerSize = _visualizationSettings.MarkerSize;
+            _markerOpacity = _visualizationSettings.MarkerOpacity;
+            _markerColor = new Color4(mc.R, mc.G, mc.B, _markerOpacity);
+            
+            var smc = _visualizationSettings.SelectedMarkerColor;
+            _selectedMarkerColor = System.Windows.Media.Color.FromScRgb(smc.A, smc.R, smc.G, smc.B);
+            
+            _boneThickness = _visualizationSettings.BoneThickness;
+            _boneOpacity = _visualizationSettings.BoneOpacity;
+            var bc = _visualizationSettings.BoneColor;
+            _boneColor = System.Windows.Media.Color.FromScRgb(_boneOpacity, bc.R, bc.G, bc.B);
+            _isShowMarkerNames = _visualizationSettings.ShowMarkerNames;
+        }
+
+        /// <summary>
+        /// Updates the visualization settings service when ViewModel properties change.
+        /// Clean Architecture: ViewModel -> Service layer sync.
+        /// </summary>
+        private void SyncToVisualizationSettings()
+        {
+            _visualizationSettings.MarkerSize = MarkerSize;
+            _visualizationSettings.MarkerColor = (MarkerColor.Red, MarkerColor.Green, MarkerColor.Blue, MarkerColor.Alpha);
+            _visualizationSettings.MarkerOpacity = MarkerColor.Alpha;
+            _visualizationSettings.SelectedMarkerColor = (SelectedMarkerColor.ScR, SelectedMarkerColor.ScG, SelectedMarkerColor.ScB, SelectedMarkerColor.ScA);
+            _visualizationSettings.BoneThickness = BoneThickness;
+            _visualizationSettings.BoneColor = (BoneColor.ScR, BoneColor.ScG, BoneColor.ScB, BoneColor.ScA);
+            _visualizationSettings.BoneOpacity = BoneColor.ScA;
+            _visualizationSettings.ShowMarkerNames = IsShowMarkerNames;
+        }
+
+        // ========== Color Presets (Service-backed) ==========
+
+        /// <summary>
+        /// Available color scheme names for UI binding
+        /// </summary>
+        public string[] AvailableColorSchemes => _visualizationSettings.GetAvailableColorSchemes();
+
+        /// <summary>
+        /// Currently selected color scheme
+        /// </summary>
+        public string SelectedColorScheme
+        {
+            get => _visualizationSettings.CurrentColorScheme;
+            set
+            {
+                if (_visualizationSettings.CurrentColorScheme != value)
+                {
+                    _visualizationSettings.ApplyColorScheme(value);
+                    OnPropertyChanged(nameof(SelectedColorScheme));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reset all visualization settings to defaults
+        /// </summary>
+        [RelayCommand]
+        private void ResetVisualizationSettings()
+        {
+            _visualizationSettings.ResetToDefaults();
+        }
+
         private void CreateTrajectoryAndBoneModels()
         {
             _trajectoryModel = new LineGeometryModel3D
             {
-                Color = _trajectoryColor,
+                Color = TrajectoryColor,
                 Thickness = 1.0,
                 IsRendering = true
             };
@@ -235,11 +467,40 @@ namespace MStudio.App.ViewModels
 
             _boneModel = new LineGeometryModel3D
             {
-                Color = _boneColor,
-                Thickness = 1.5,
+                Color = BoneColor,
+                Thickness = BoneThickness,
                 IsRendering = true
             };
             SceneElements.Add(_boneModel);
+        }
+
+        /// <summary>
+        /// Rebuilds the marker sphere geometry when size changes
+        /// </summary>
+        private void RebuildMarkerGeometry()
+        {
+            var meshBuilder = new MeshBuilder(true, false);
+            meshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerSize, 12, 12);
+            _markerSphereGeometry = meshBuilder.ToMeshGeometry3D();
+
+            if (_markerModel != null)
+            {
+                _markerModel.Geometry = _markerSphereGeometry;
+            }
+        }
+
+        /// <summary>
+        /// Updates the marker material when color changes
+        /// </summary>
+        private void UpdateMarkerMaterial()
+        {
+            if (_markerModel != null)
+            {
+                _markerModel.Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
+                { 
+                    DiffuseColor = MarkerColor 
+                };
+            }
         }
 
         partial void OnSelectedMarkerIndexChanged(int value)

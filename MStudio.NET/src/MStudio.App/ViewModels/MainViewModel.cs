@@ -42,18 +42,23 @@ namespace MStudio.App.ViewModels
         // GraphViewModel for time-series data (exposed for DataContext binding in XAML)
         public GraphViewModel GraphViewModel { get; }
 
+        // DataViewModel for file management (exposed for DataContext binding in XAML)
+        public DataViewModel DataViewModel { get; }
+
         public MainViewModel(
             ISessionService sessionService, 
             ITimelineService timelineService,
             IDialogService dialogService,
             MStudioViewportViewModel viewportViewModel, 
-            GraphViewModel graphViewModel)
+            GraphViewModel graphViewModel,
+            DataViewModel dataViewModel)
         {
             _sessionService = sessionService;
             _timelineService = timelineService;
             _dialogService = dialogService;
             ViewportViewModel = viewportViewModel;
             GraphViewModel = graphViewModel;
+            DataViewModel = dataViewModel;
 
             // Re-broadcast property changes from services if needed
             _timelineService.PropertyChanged += (s, e) => 

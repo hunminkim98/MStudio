@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "6OcIolxh5eE=",
+  "dgSpecHash": "yLOaC4o1KQI=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
+  "projectFilePath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\gnsal\\.nuget\\packages\\coverlet.collector\\6.0.0\\coverlet.collector.6.0.0.nupkg.sha512",
     "C:\\Users\\gnsal\\.nuget\\packages\\microsoft.codecoverage\\17.8.0\\microsoft.codecoverage.17.8.0.nupkg.sha512",
