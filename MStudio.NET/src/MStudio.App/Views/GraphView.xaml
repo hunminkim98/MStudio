@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:behaviors="clr-namespace:MStudio.App.Behaviors"
              mc:Ignorable="d" 
              d:DesignHeight="100" d:DesignWidth="800">
     <Grid Background="#1A1A1A">
@@ -24,8 +25,15 @@
                        VerticalAlignment="Bottom" HorizontalAlignment="Right"/>
         </Grid>
 
-        <!-- Graph Area -->
-        <Grid Grid.Column="1" x:Name="GraphArea">
+        <!-- Graph Area with Behaviors (Clean Architecture: no code-behind needed) -->
+        <!-- Background="Transparent" is required for mouse hit testing on the Grid -->
+        <Grid Grid.Column="1" x:Name="GraphArea"
+              Background="Transparent"
+              behaviors:SizeObserverBehavior.IsEnabled="True"
+              behaviors:SizeObserverBehavior.ObservedWidth="{Binding ViewWidth, Mode=OneWayToSource}"
+              behaviors:SizeObserverBehavior.ObservedHeight="{Binding ViewHeight, Mode=OneWayToSource}"
+              behaviors:MouseSeekBehavior.IsEnabled="True"
+              behaviors:MouseSeekBehavior.SeekCommand="{Binding SeekCommand}">
             <!-- Background Grid Lines -->
             <Canvas Opacity="0.15">
                 <Line X1="0" Y1="25" X2="10000" Y2="25" Stroke="White" StrokeThickness="1" StrokeDashArray="4,4"/>
@@ -53,3 +61,4 @@
         </Grid>
     </Grid>
 </UserControl>
+

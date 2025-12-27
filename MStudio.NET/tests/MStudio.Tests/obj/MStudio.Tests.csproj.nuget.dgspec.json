@@ -1,25 +1,31 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj": {}
+    "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj": {}
   },
   "projects": {
-    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
+    "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj",
+        "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj",
         "projectName": "MStudio.Core",
-        "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj",
-        "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\obj\\",
+        "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj",
+        "packagesPath": "C:\\Users\\gnsal\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\gnsal\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -37,7 +43,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -58,34 +65,40 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj": {
+    "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj",
+        "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj",
         "projectName": "MStudio.Services",
-        "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj",
-        "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\obj\\",
+        "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj",
+        "packagesPath": "C:\\Users\\gnsal\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\gnsal\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
-                "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj"
+              "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj": {
+                "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj"
               }
             }
           }
@@ -99,7 +112,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -120,37 +134,43 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj": {
+    "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
+        "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
         "projectName": "MStudio.Tests",
-        "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
-        "packagesPath": "C:\\Users\\BB1\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\obj\\",
+        "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
+        "packagesPath": "C:\\Users\\gnsal\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\BB1\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\gnsal\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
-                "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj"
+              "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj": {
+                "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj"
               },
-              "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj": {
-                "projectPath": "C:\\Users\\BB1\\Desktop\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj"
+              "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj": {
+                "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj"
               }
             }
           }
@@ -164,7 +184,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -203,7 +224,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

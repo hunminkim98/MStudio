@@ -1,11 +1,23 @@
 using System.Collections.Specialized;
+using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using HelixToolkit.Maths;
+using HelixToolkit.SharpDX;
 using MStudio.App.ViewModels;
 using HelixToolkit.Wpf.SharpDX;
 
 namespace MStudio.App.Views
 {
+    /// <summary>
+    /// ViewportView - 3D viewport for motion capture visualization.
+    /// 
+    /// Clean Architecture Notes:
+    /// - View handles low-level UI events (mouse clicks)
+    /// - Converts screen coordinates to 3D picking request
+    /// - Delegates marker selection logic to ViewModel
+    /// </summary>
     public partial class ViewportView : UserControl
     {
         public ViewportView()
@@ -62,5 +74,45 @@ namespace MStudio.App.Views
                     break;
             }
         }
+
+        /// <summary>
+        /// Handles mouse click for marker picking.
+        /// Casts a ray from the camera through the click point and finds the nearest marker.
+        /// </summary>
+        private void Viewport_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (DataContext is not MStudioViewportViewModel vm)
+                return;
+
+            // Get click position relative to viewport
+            var clickPoint = e.GetPosition(viewport);
+
+            // Get the render context to access viewport matrices
+            var renderContext = viewport.RenderContext;
+            if (renderContext == null)
+                return;
+
+            // Use HelixToolkit's UnProject extension method
+            // This creates a ray from the camera through the clicked point
+            var screenPos = new Vector2((float)clickPoint.X, (float)clickPoint.Y);
+            
+            // UnProject returns a Ray from the camera through the screen point
+            viewport.UnProject(screenPos, out var ray);
+
+            // Convert to System.Numerics.Vector3
+            var rayOrigin = new System.Numerics.Vector3(ray.Position.X, ray.Position.Y, ray.Position.Z);
+            var rayDirection = new System.Numerics.Vector3(ray.Direction.X, ray.Direction.Y, ray.Direction.Z);
+
+            // Ask ViewModel to select the nearest marker along this ray
+            bool markerSelected = vm.SelectMarkerByRay(rayOrigin, rayDirection);
+
+            // Only mark as handled if we actually selected a marker
+            // This allows camera rotation to work when clicking on empty space
+            if (markerSelected)
+            {
+                e.Handled = true;
+            }
+        }
     }
 }
+

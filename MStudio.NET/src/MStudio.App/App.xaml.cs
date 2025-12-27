@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using MStudio.App.Services;
 using MStudio.App.ViewModels;
 using MStudio.Core.Parsers;
 using MStudio.Services.Implementations;
@@ -42,6 +43,9 @@ namespace MStudio.App
             // Services
             services.AddSingleton<ISessionService, SessionService>();
             services.AddSingleton<ITimelineService, TimelineService>();
+            
+            // UI Services (Clean Architecture: platform-specific implementations in App layer)
+            services.AddSingleton<IDialogService, DialogService>();
 
             // ViewModels / Windows
             services.AddSingleton<MStudioViewportViewModel>();

@@ -3,8 +3,12 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using MStudio.Core.Messaging;
 using MStudio.Services.Interfaces;
 
 namespace MStudio.App.ViewModels
@@ -73,7 +77,65 @@ namespace MStudio.App.ViewModels
                     UpdatePoints();
                 }
             };
+
+            // Register for marker data change messages (from MainViewModel after FillGaps/Smooth)
+            WeakReferenceMessenger.Default.Register<MarkerDataChangedMessage>(this, (r, m) =>
+            {
+                UpdatePoints();
+            });
+
+            // Register for marker selection sync (from other ViewModels)
+            WeakReferenceMessenger.Default.Register<MarkerSelectionChangedMessage>(this, (r, m) =>
+            {
+                // Avoid infinite loop - don't update if we are the source
+                if (m.Source != this)
+                {
+                    SelectedMarkerIndex = m.SelectedMarkerIndex;
+                }
+            });
         }
+
+        #region Property Change Handlers (for SizeObserverBehavior)
+
+        /// <summary>
+        /// Called when ViewWidth changes (via SizeObserverBehavior binding).
+        /// Triggers graph re-rendering with new dimensions.
+        /// </summary>
+        partial void OnViewWidthChanged(double value)
+        {
+            if (value > 0)
+            {
+                UpdatePoints();
+            }
+        }
+
+        /// <summary>
+        /// Called when ViewHeight changes (via SizeObserverBehavior binding).
+        /// Triggers graph re-rendering with new dimensions.
+        /// </summary>
+        partial void OnViewHeightChanged(double value)
+        {
+            if (value > 0)
+            {
+                UpdatePoints();
+            }
+        }
+
+        #endregion
+
+        #region Commands (for MouseSeekBehavior)
+
+        /// <summary>
+        /// Command for seeking to a position. Used by MouseSeekBehavior.
+        /// Parameter is the X position in pixels.
+        /// </summary>
+        [RelayCommand]
+        private void Seek(double xPosition)
+        {
+            SeekToPosition(xPosition);
+        }
+
+        #endregion
 
         public void UpdatePoints()
         {
@@ -169,9 +231,9 @@ namespace MStudio.App.ViewModels
 
         /// <summary>
         /// Seeks to a frame based on X position in the view.
-        /// Called when user clicks or drags on the graph panel.
+        /// Called by SeekCommand when user clicks or drags on the graph panel.
         /// </summary>
-        public void SeekToPosition(double xPosition)
+        private void SeekToPosition(double xPosition)
         {
             var motion = _sessionService.CurrentMotion;
             if (motion == null || motion.Markers.FrameCount <= 0 || ViewWidth <= 0)
@@ -188,3 +250,4 @@ namespace MStudio.App.ViewModels
         }
     }
 }
+

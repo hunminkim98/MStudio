@@ -1135,7 +1135,7 @@
       "MStudio.Core/1.0.0": {
         "runtime": {
           "MStudio.Core.dll": {
-            "assemblyVersion": "1.0.0",
+            "assemblyVersion": "1.0.0.0",
             "fileVersion": "1.0.0.0"
           }
         }
@@ -1146,7 +1146,7 @@
         },
         "runtime": {
           "MStudio.Services.dll": {
-            "assemblyVersion": "1.0.0",
+            "assemblyVersion": "1.0.0.0",
             "fileVersion": "1.0.0.0"
           }
         }

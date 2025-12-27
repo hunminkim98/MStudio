@@ -4,11 +4,13 @@ using System.Windows.Media.Media3D;
 using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using HelixToolkit;
 using HelixToolkit.Geometry;
 using HelixToolkit.Maths;
 using HelixToolkit.SharpDX;
 using HelixToolkit.Wpf.SharpDX;
+using MStudio.Core.Messaging;
 using MStudio.Core.Models;
 using MStudio.Services.Interfaces;
 
@@ -90,6 +92,17 @@ namespace MStudio.App.ViewModels
         // Marker Rendering
         private InstancingMeshGeometryModel3D? _markerModel;
         private HelixToolkit.SharpDX.MeshGeometry3D? _markerSphereGeometry;
+
+        // Marker Names (billboard text)
+        private BillboardTextModel3D? _markerNamesModel;
+
+        [ObservableProperty]
+        private bool _isShowMarkerNames = false;
+
+        partial void OnIsShowMarkerNamesChanged(bool value)
+        {
+            if (_markerNamesModel != null) _markerNamesModel.IsRendering = value;
+        }
 
         // Trajectory & Bones
         private LineGeometryModel3D? _trajectoryModel;
@@ -192,6 +205,22 @@ namespace MStudio.App.ViewModels
                     UpdateMarkersAndVisuals();
                 }
             };
+
+            // Register for marker data change messages (from MainViewModel after FillGaps/Smooth)
+            WeakReferenceMessenger.Default.Register<MarkerDataChangedMessage>(this, (r, m) =>
+            {
+                UpdateMarkersAndVisuals();
+            });
+
+            // Register for marker selection sync (from other ViewModels)
+            WeakReferenceMessenger.Default.Register<MarkerSelectionChangedMessage>(this, (r, m) =>
+            {
+                // Avoid re-sending if we are the source
+                if (m.Source != this)
+                {
+                    SelectedMarkerIndex = m.SelectedMarkerIndex;
+                }
+            });
         }
 
         private void CreateTrajectoryAndBoneModels()
@@ -216,6 +245,13 @@ namespace MStudio.App.ViewModels
         partial void OnSelectedMarkerIndexChanged(int value)
         {
             UpdateTrajectories();
+
+            // Publish selection change message for other ViewModels to sync
+            WeakReferenceMessenger.Default.Send(new MarkerSelectionChangedMessage
+            {
+                SelectedMarkerIndex = value,
+                Source = this
+            });
         }
 
         private void CreateGrid()
@@ -333,6 +369,16 @@ namespace MStudio.App.ViewModels
                 SceneElements.Add(_markerModel);
             }
 
+            // Ensure marker names billboard model
+            if (_markerNamesModel == null)
+            {
+                _markerNamesModel = new BillboardTextModel3D
+                {
+                    IsRendering = IsShowMarkerNames
+                };
+                SceneElements.Add(_markerNamesModel);
+            }
+
             AutoGenerateBones(motion);
             UpdateMarkersAndVisuals();
 
@@ -410,6 +456,7 @@ namespace MStudio.App.ViewModels
         public void UpdateMarkersAndVisuals()
         {
             UpdateMarkerPositions();
+            UpdateMarkerNames();
             UpdateTrajectories();
             UpdateBones();
         }
@@ -439,6 +486,48 @@ namespace MStudio.App.ViewModels
                     instances[i] = Matrix4x4.CreateTranslation(pos.X, pos.Y, pos.Z);
             }
             _markerModel.Instances = instances;
+        }
+
+        /// <summary>
+        /// Updates the billboard text labels showing marker names in 3D space.
+        /// </summary>
+        public void UpdateMarkerNames()
+        {
+            var motion = _sessionService.CurrentMotion;
+            if (motion == null || _markerNamesModel == null) return;
+
+            int frame = _timelineService.CurrentFrame;
+            if (frame < 0 || frame >= motion.Markers.FrameCount)
+            {
+                _markerNamesModel.Geometry = null;
+                return;
+            }
+
+            // Create billboard text for each marker
+            var textInfo = new BillboardText3D();
+            var markerNames = motion.Metadata.MarkerNames;
+
+            for (int i = 0; i < motion.Markers.MarkerCount; i++)
+            {
+                var pos = motion.Markers.GetPosition(i, frame);
+                
+                // Skip invalid markers
+                if (float.IsNaN(pos.X) || (pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+                    continue;
+
+                string name = i < markerNames.Count ? markerNames[i] : $"M{i}";
+                
+                // Position text slightly above the marker
+                var textPos = new Vector3(pos.X, pos.Y + 0.03f, pos.Z);
+                
+                textInfo.TextInfo.Add(new TextInfo(name, textPos)
+                {
+                    Foreground = Color4.White,
+                    Scale = 0.4f
+                });
+            }
+
+            _markerNamesModel.Geometry = textInfo;
         }
 
         public void UpdateTrajectories()
@@ -502,5 +591,119 @@ namespace MStudio.App.ViewModels
 
             _boneModel.Geometry = builder.ToLineGeometry3D();
         }
+
+        /// <summary>
+        /// Selects the nearest marker to the given 3D position.
+        /// Called when user clicks in the 3D viewport.
+        /// 
+        /// Clean Architecture: This method contains the selection logic in the ViewModel,
+        /// while the View only captures the click event and forwards the position.
+        /// </summary>
+        /// <param name="clickPosition">The 3D world position where the user clicked</param>
+        /// <param name="maxDistance">Maximum distance to consider a marker as "clicked" (in meters)</param>
+        public void SelectMarkerNearPosition(Vector3 clickPosition, float maxDistance = 0.1f)
+        {
+            var motion = _sessionService.CurrentMotion;
+            if (motion == null || motion.Markers.MarkerCount == 0)
+                return;
+
+            int frame = _timelineService.CurrentFrame;
+            if (frame < 0 || frame >= motion.Markers.FrameCount)
+                return;
+
+            int nearestMarkerIndex = -1;
+            float nearestDistance = float.MaxValue;
+
+            // Find the nearest marker to the click position
+            for (int i = 0; i < motion.Markers.MarkerCount; i++)
+            {
+                var markerPos = motion.Markers.GetPosition(i, frame);
+                
+                // Skip invalid markers
+                if (float.IsNaN(markerPos.X) || (markerPos.X == 0 && markerPos.Y == 0 && markerPos.Z == 0))
+                    continue;
+
+                float distance = Vector3.Distance(clickPosition, markerPos);
+                
+                if (distance < nearestDistance && distance <= maxDistance)
+                {
+                    nearestDistance = distance;
+                    nearestMarkerIndex = i;
+                }
+            }
+
+            // Select the nearest marker (if found)
+            if (nearestMarkerIndex >= 0)
+            {
+                SelectedMarkerIndex = nearestMarkerIndex;
+            }
+        }
+
+        /// <summary>
+        /// Selects the nearest marker to a ray defined by an origin and direction.
+        /// Used for object picking in 3D space.
+        /// </summary>
+        /// <param name="rayOrigin">Ray origin in world space</param>
+        /// <param name="rayDirection">Normalized ray direction</param>
+        /// <param name="maxRayDistance">Max distance from ray to consider a hit (meters)</param>
+        /// <returns>True if a marker was selected</returns>
+        public bool SelectMarkerByRay(Vector3 rayOrigin, Vector3 rayDirection, float maxRayDistance = 0.05f)
+        {
+            var motion = _sessionService.CurrentMotion;
+            if (motion == null || motion.Markers.MarkerCount == 0)
+                return false;
+
+            int frame = _timelineService.CurrentFrame;
+            if (frame < 0 || frame >= motion.Markers.FrameCount)
+                return false;
+
+            int bestMarkerIndex = -1;
+            float minRayDistSq = maxRayDistance * maxRayDistance;
+            float minProj = float.MaxValue;
+
+            for (int i = 0; i < motion.Markers.MarkerCount; i++)
+            {
+                var markerPos = motion.Markers.GetPosition(i, frame);
+
+                // Skip invalid markers
+                if (float.IsNaN(markerPos.X) || (markerPos.X == 0 && markerPos.Y == 0 && markerPos.Z == 0))
+                    continue;
+
+                // Vector from ray origin to point
+                Vector3 originToPoint = markerPos - rayOrigin;
+
+                // Project point onto ray
+                float proj = Vector3.Dot(originToPoint, rayDirection);
+
+                // Skip if point is behind the camera
+                if (proj < 0) continue;
+
+                // Distance squared from point to ray
+                // distSq = |originToPoint|^2 - proj^2
+                float distSq = originToPoint.LengthSquared() - (proj * proj);
+
+                // If within radius and closer than previous best (or closer to camera if multiple hits)
+                if (distSq < minRayDistSq)
+                {
+                    // If multiple markers are close to the ray path, pick the one closest to camera
+                    if (bestMarkerIndex == -1 || proj < minProj)
+                    {
+                        minRayDistSq = distSq;
+                        minProj = proj;
+                        bestMarkerIndex = i;
+                    }
+                }
+            }
+
+            if (bestMarkerIndex >= 0)
+            {
+                SelectedMarkerIndex = bestMarkerIndex;
+                return true;
+            }
+
+            return false;
+        }
     }
 }
+
+

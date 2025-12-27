@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MStudio.App"
         xmlns:views="clr-namespace:MStudio.App.Views"
+        xmlns:behaviors="clr-namespace:MStudio.App.Behaviors"
         xmlns:dock="clr-namespace:AvalonDock;assembly=AvalonDock"
         xmlns:dockControls="clr-namespace:AvalonDock.Controls;assembly=AvalonDock"
         xmlns:layout="clr-namespace:AvalonDock.Layout;assembly=AvalonDock"
@@ -13,13 +14,11 @@
         mc:Ignorable="d"
         Title="Motive" Height="900" Width="1600"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource B_Background}">
-
-    <Window.InputBindings>
-        <KeyBinding Key="Space" Command="{Binding TogglePlayCommand}"/>
-        <KeyBinding Key="Left" Command="{Binding StepBackwardCommand}"/>
-        <KeyBinding Key="Right" Command="{Binding StepForwardCommand}"/>
-    </Window.InputBindings>
+        Background="{DynamicResource B_Background}"
+        behaviors:GlobalKeyboardBehavior.IsEnabled="True"
+        behaviors:GlobalKeyboardBehavior.LeftKeyCommand="{Binding StepBackwardCommand}"
+        behaviors:GlobalKeyboardBehavior.RightKeyCommand="{Binding StepForwardCommand}"
+        behaviors:GlobalKeyboardBehavior.SpaceKeyCommand="{Binding TogglePlayCommand}">
     
     <Grid>
         <Grid.RowDefinitions>
@@ -251,34 +250,7 @@
                                     <Button Content="Smooth Selected Marker" Command="{Binding SmoothDataCommand}" 
                                             Style="{DynamicResource ActionButton}" Margin="10,5,0,5" HorizontalAlignment="Left"/>
                                     
-                                    <Separator Background="{DynamicResource B_Separator}" Margin="0,10"/>
-                                    
-                                    <!-- Labels Section -->
-                                    <TextBlock Text="Labels" Style="{DynamicResource SectionLabel}"/>
-                                    <ListBox x:Name="LabelsListBox"
-                                             Background="{DynamicResource B_Input}" BorderThickness="0" MaxHeight="400"
-                                             ItemsSource="{Binding ViewportViewModel.MarkerNames}"
-                                             SelectedIndex="{Binding ViewportViewModel.SelectedMarkerIndex}"
-                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                             PreviewKeyDown="LabelsListBox_PreviewKeyDown">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Height="20">
-                                                    <TextBlock Text="{Binding}" Foreground="{DynamicResource B_Text}" VerticalAlignment="Center" FontSize="11"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                        <ListBox.ItemContainerStyle>
-                                            <Style TargetType="ListBoxItem">
-                                                <Setter Property="Padding" Value="5,2"/>
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource B_Accent}"/>
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ListBox.ItemContainerStyle>
-                                    </ListBox>
+                                    <!-- Note: Marker selection is now done by clicking directly in the 3D viewport -->
                                     
                                 </StackPanel>
                             </ScrollViewer>

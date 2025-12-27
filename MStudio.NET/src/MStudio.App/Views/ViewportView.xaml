@@ -19,7 +19,8 @@
                          RotateAroundMouseDownPoint="True"
                          ZoomAroundMouseDownPoint="True"
                          ShowCameraTarget="False"
-                         Focusable="False">
+                         Focusable="False"
+                         PreviewMouseLeftButtonDown="Viewport_PreviewMouseLeftButtonDown">
             
             <helix:Viewport3DX.InputBindings>
                 <MouseBinding Command="{x:Static helix:ViewportCommands.Rotate}" MouseAction="LeftClick" />
@@ -87,6 +88,10 @@
                 <!-- Trajectory Toggle -->
                 <ToggleButton IsChecked="{Binding IsShowTrajectory}" Width="24" Height="24" Margin="2,0,0,0" ToolTip="Toggle Trajectory" Focusable="False">
                     <TextBlock Text="〰" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+                <!-- Marker Names Toggle -->
+                <ToggleButton IsChecked="{Binding IsShowMarkerNames}" Width="24" Height="24" Margin="2,0,0,0" ToolTip="Toggle Marker Names" Focusable="False">
+                    <TextBlock Text="Aa" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </ToggleButton>
                 <!-- Y/Z Up Toggle -->
                 <ToggleButton IsChecked="{Binding IsZUp}" Width="24" Height="24" Margin="2,0,0,0" ToolTip="Toggle Y-up / Z-up">
