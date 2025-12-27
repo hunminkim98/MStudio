@@ -1,0 +1,16 @@
+# Python metadata
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Project specific docs to ignore
+SKILL.md
+plan-template.md
+
+# Build artifacts
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
