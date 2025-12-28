@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Media.Media3D;
 using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,6 +15,7 @@ using HelixToolkit.Wpf.SharpDX;
 using MStudio.Core.Interfaces;
 using MStudio.Core.Messaging;
 using MStudio.Core.Models;
+using MStudio.Services.Implementations;
 using MStudio.Services.Interfaces;
 
 namespace MStudio.App.ViewModels
@@ -22,6 +25,7 @@ namespace MStudio.App.ViewModels
         private readonly ISessionService _sessionService;
         private readonly ITimelineService _timelineService;
         private readonly IVisualizationSettingsService _visualizationSettings;
+        private readonly ITrialService? _trialService;
 
         // 3D Scene Elements
         public ObservableCollection<Element3D> SceneElements { get; } = new();
@@ -274,11 +278,13 @@ namespace MStudio.App.ViewModels
         public MStudioViewportViewModel(
             ISessionService sessionService, 
             ITimelineService timelineService,
-            IVisualizationSettingsService visualizationSettings)
+            IVisualizationSettingsService visualizationSettings,
+            ITrialService? trialService = null)
         {
             _sessionService = sessionService;
             _timelineService = timelineService;
             _visualizationSettings = visualizationSettings;
+            _trialService = trialService;
 
             // Sync initial values from service
             SyncFromVisualizationSettings();
@@ -324,6 +330,15 @@ namespace MStudio.App.ViewModels
                 }
             };
 
+            // Subscribe to trial selection changes for multi-trial rendering
+            if (_trialService != null)
+            {
+                _trialService.SelectionChanged += (s, e) =>
+                {
+                    OnTrialSelectionChanged();
+                };
+            }
+
             // Subscribe to visualization settings changes (Clean Architecture: Service -> ViewModel)
             _visualizationSettings.PropertyChanged += OnVisualizationSettingsChanged;
 
@@ -342,6 +357,22 @@ namespace MStudio.App.ViewModels
                     SelectedMarkerIndex = m.SelectedMarkerIndex;
                 }
             });
+        }
+
+        /// <summary>
+        /// Called when trial selection changes. Updates visualization for all selected trials.
+        /// </summary>
+        private void OnTrialSelectionChanged()
+        {
+            // Re-initialize bones for the first selected trial (if any)
+            if (_trialService?.SelectedTrials.Count > 0)
+            {
+                var firstTrial = _trialService.SelectedTrials[0];
+                _boneLinks.Clear();
+                AutoGenerateBones(firstTrial.MotionData);
+            }
+            
+            UpdateMarkersAndVisuals();
         }
 
         /// <summary>
@@ -393,18 +424,18 @@ namespace MStudio.App.ViewModels
         private void SyncFromVisualizationSettings()
         {
             var mc = _visualizationSettings.MarkerColor;
-            _markerSize = _visualizationSettings.MarkerSize;
-            _markerOpacity = _visualizationSettings.MarkerOpacity;
-            _markerColor = new Color4(mc.R, mc.G, mc.B, _markerOpacity);
+            MarkerSize = _visualizationSettings.MarkerSize;
+            MarkerOpacity = _visualizationSettings.MarkerOpacity;
+            MarkerColor = new Color4(mc.R, mc.G, mc.B, MarkerOpacity);
             
             var smc = _visualizationSettings.SelectedMarkerColor;
-            _selectedMarkerColor = System.Windows.Media.Color.FromScRgb(smc.A, smc.R, smc.G, smc.B);
+            SelectedMarkerColor = System.Windows.Media.Color.FromScRgb(smc.A, smc.R, smc.G, smc.B);
             
-            _boneThickness = _visualizationSettings.BoneThickness;
-            _boneOpacity = _visualizationSettings.BoneOpacity;
+            BoneThickness = _visualizationSettings.BoneThickness;
+            BoneOpacity = _visualizationSettings.BoneOpacity;
             var bc = _visualizationSettings.BoneColor;
-            _boneColor = System.Windows.Media.Color.FromScRgb(_boneOpacity, bc.R, bc.G, bc.B);
-            _isShowMarkerNames = _visualizationSettings.ShowMarkerNames;
+            BoneColor = System.Windows.Media.Color.FromScRgb(BoneOpacity, bc.R, bc.G, bc.B);
+            IsShowMarkerNames = _visualizationSettings.ShowMarkerNames;
         }
 
         /// <summary>
@@ -625,7 +656,7 @@ namespace MStudio.App.ViewModels
                 _markerModel = new InstancingMeshGeometryModel3D
                 {
                     Geometry = _markerSphereGeometry,
-                    Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = _markerColor }
+                    Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = MarkerColor }
                 };
                 SceneElements.Add(_markerModel);
             }
@@ -722,8 +753,20 @@ namespace MStudio.App.ViewModels
             UpdateBones();
         }
 
+        /// <summary>
+        /// Updates marker positions for all selected trials or the current session motion.
+        /// Supports multi-trial rendering with color coding and frame freeze for shorter trials.
+        /// </summary>
         public void UpdateMarkerPositions()
         {
+            // Use TrialService if available
+            if (_trialService != null)
+            {
+                UpdateMarkerPositionsFromTrials();
+                return;
+            }
+            
+            // Fallback to session service (single motion)
             var motion = _sessionService.CurrentMotion;
             if (motion == null || _markerModel == null) return;
 
@@ -750,15 +793,121 @@ namespace MStudio.App.ViewModels
         }
 
         /// <summary>
+        /// Updates marker positions from all selected trials.
+        /// Combines markers from multiple trials with color coding.
+        /// Implements frame freeze for shorter trials (displays last available frame).
+        /// </summary>
+        private void UpdateMarkerPositionsFromTrials()
+        {
+            if (_trialService == null || _markerModel == null) return;
+            
+            var selectedTrials = _trialService.SelectedTrials;
+            if (selectedTrials.Count == 0)
+            {
+                _markerModel.Instances = null;
+                FrameInfoText = "No trials selected";
+                return;
+            }
+
+            int currentFrame = _timelineService.CurrentFrame;
+            int maxFrame = _trialService.MaxSelectedFrameCount;
+            
+            FrameInfoText = $"Frame: {currentFrame + 1} / {maxFrame} ({selectedTrials.Count} trials)";
+
+            // Count total markers across all selected trials
+            int totalMarkers = selectedTrials.Sum(t => t.MarkerCount);
+            var instances = new Matrix4x4[totalMarkers];
+            
+            int instanceIndex = 0;
+            
+            foreach (var trial in selectedTrials)
+            {
+                var motion = trial.MotionData;
+                
+                // Frame freeze: use last frame if current frame exceeds trial's frame count
+                int trialFrame = Math.Min(currentFrame, motion.Markers.FrameCount - 1);
+                if (trialFrame < 0) trialFrame = 0;
+                
+                for (int i = 0; i < motion.Markers.MarkerCount; i++)
+                {
+                    var pos = motion.Markers.GetPosition(i, trialFrame);
+                    if (float.IsNaN(pos.X) || (pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+                    {
+                        instances[instanceIndex] = Matrix4x4.CreateScale(0);
+                    }
+                    else
+                    {
+                        instances[instanceIndex] = Matrix4x4.CreateTranslation(pos.X, pos.Y, pos.Z);
+                    }
+                    instanceIndex++;
+                }
+            }
+            
+            _markerModel.Instances = instances;
+            
+            // Update marker material with first trial's color (for now)
+            // TODO: Support per-instance colors when HelixToolkit supports it
+            if (selectedTrials.Count == 1)
+            {
+                var color = GetTrialColor(selectedTrials[0].ColorIndex);
+                _markerModel.Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
+                { 
+                    DiffuseColor = new Color4(color.R, color.G, color.B, MarkerOpacity) 
+                };
+            }
+            else
+            {
+                // Multiple trials: use default green color
+                _markerModel.Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
+                { 
+                    DiffuseColor = MarkerColor 
+                };
+            }
+        }
+
+        /// <summary>
+        /// Gets the color for a trial based on its color index.
+        /// </summary>
+        private (float R, float G, float B) GetTrialColor(int colorIndex)
+        {
+            var palette = TrialService.TrialColorPalette;
+            int idx = colorIndex % palette.Length;
+            return palette[idx];
+        }
+
+        /// <summary>
         /// Updates the billboard text labels showing marker names in 3D space.
         /// </summary>
         public void UpdateMarkerNames()
         {
-            var motion = _sessionService.CurrentMotion;
-            if (motion == null || _markerNamesModel == null) return;
+            // Check if we have any data to render
+            MotionData? motion = null;
+            
+            if (_trialService?.HasSelectedTrials == true)
+            {
+                // Use first selected trial for marker names
+                motion = _trialService.SelectedTrials[0].MotionData;
+            }
+            else if (_trialService == null)
+            {
+                // Fallback to session service
+                motion = _sessionService.CurrentMotion;
+            }
+            
+            if (motion == null || _markerNamesModel == null)
+            {
+                if (_markerNamesModel != null) _markerNamesModel.Geometry = null;
+                return;
+            }
 
             int frame = _timelineService.CurrentFrame;
-            if (frame < 0 || frame >= motion.Markers.FrameCount)
+            
+            // Frame freeze for trials shorter than current frame
+            if (frame >= motion.Markers.FrameCount)
+            {
+                frame = motion.Markers.FrameCount - 1;
+            }
+            if (frame < 0)
             {
                 _markerNamesModel.Geometry = null;
                 return;
@@ -793,7 +942,20 @@ namespace MStudio.App.ViewModels
 
         public void UpdateTrajectories()
         {
-            var motion = _sessionService.CurrentMotion;
+            // Check if we have any data to render
+            MotionData? motion = null;
+            
+            if (_trialService?.HasSelectedTrials == true)
+            {
+                // Use first selected trial for trajectory
+                motion = _trialService.SelectedTrials[0].MotionData;
+            }
+            else if (_trialService == null)
+            {
+                // Fallback to session service
+                motion = _sessionService.CurrentMotion;
+            }
+            
             if (motion == null || _trajectoryModel == null || SelectedMarkerIndex < 0)
             {
                 if (_trajectoryModel != null) _trajectoryModel.Geometry = null;
@@ -829,7 +991,20 @@ namespace MStudio.App.ViewModels
 
         public void UpdateBones()
         {
-            var motion = _sessionService.CurrentMotion;
+            // Check if we have any data to render
+            MotionData? motion = null;
+            
+            if (_trialService?.HasSelectedTrials == true)
+            {
+                // Use first selected trial for bones
+                motion = _trialService.SelectedTrials[0].MotionData;
+            }
+            else if (_trialService == null)
+            {
+                // Fallback to session service
+                motion = _sessionService.CurrentMotion;
+            }
+            
             if (motion == null || _boneModel == null || _boneLinks.Count == 0)
             {
                 if (_boneModel != null) _boneModel.Geometry = null;
@@ -837,6 +1012,14 @@ namespace MStudio.App.ViewModels
             }
 
             int frame = _timelineService.CurrentFrame;
+            
+            // Frame freeze for trials shorter than current frame
+            if (frame >= motion.Markers.FrameCount)
+            {
+                frame = motion.Markers.FrameCount - 1;
+            }
+            if (frame < 0) frame = 0;
+            
             var builder = new LineBuilder();
 
             foreach (var link in _boneLinks)

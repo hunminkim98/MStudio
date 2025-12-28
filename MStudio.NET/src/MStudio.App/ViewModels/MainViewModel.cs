@@ -1,12 +1,15 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MStudio.Core.Messaging;
+using MStudio.Core.Models;
 using MStudio.Services.Interfaces;
 
 namespace MStudio.App.ViewModels
@@ -25,6 +28,7 @@ namespace MStudio.App.ViewModels
         private readonly ISessionService _sessionService;
         private readonly ITimelineService _timelineService;
         private readonly IDialogService _dialogService;
+        private readonly ITrialService _trialService;
 
         // Track selected marker locally (synced via messaging)
         [ObservableProperty]
@@ -45,10 +49,17 @@ namespace MStudio.App.ViewModels
         // DataViewModel for file management (exposed for DataContext binding in XAML)
         public DataViewModel DataViewModel { get; }
 
+        // Trial items for the Trials panel (left sidebar)
+        public ObservableCollection<TrialItemViewModel> Trials { get; } = new();
+
+        // Indicates if any trials are loaded
+        public bool HasTrials => _trialService.HasTrials;
+
         public MainViewModel(
             ISessionService sessionService, 
             ITimelineService timelineService,
             IDialogService dialogService,
+            ITrialService trialService,
             MStudioViewportViewModel viewportViewModel, 
             GraphViewModel graphViewModel,
             DataViewModel dataViewModel)
@@ -56,6 +67,7 @@ namespace MStudio.App.ViewModels
             _sessionService = sessionService;
             _timelineService = timelineService;
             _dialogService = dialogService;
+            _trialService = trialService;
             ViewportViewModel = viewportViewModel;
             GraphViewModel = graphViewModel;
             DataViewModel = dataViewModel;
@@ -78,6 +90,16 @@ namespace MStudio.App.ViewModels
                 if (e.PropertyName == nameof(ISessionService.CurrentMotion))
                 {
                     OnPropertyChanged(nameof(CurrentMotionName));
+                }
+            };
+
+            // Subscribe to trial collection changes
+            _trialService.TrialsCollectionChanged += OnTrialsCollectionChanged;
+            _trialService.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(ITrialService.HasTrials))
+                {
+                    OnPropertyChanged(nameof(HasTrials));
                 }
             };
 
@@ -215,6 +237,7 @@ namespace MStudio.App.ViewModels
         /// <summary>
         /// Opens a file using the abstracted dialog service.
         /// This maintains Clean Architecture by not depending on platform-specific UI elements.
+        /// Now adds the file as a trial to the TrialService.
         /// </summary>
         [RelayCommand]
         private async Task OpenFile()
@@ -228,8 +251,13 @@ namespace MStudio.App.ViewModels
                 StatusText = $"Loading {Path.GetFileName(filePath)}...";
                 try
                 {
+                    // Add as a trial (primary method for multi-trial support)
+                    var trial = await _trialService.AddTrialAsync(filePath);
+                    
+                    // Also load into session for backward compatibility
                     await _sessionService.LoadMotionAsync(filePath);
-                    StatusText = $"Loaded {Path.GetFileName(filePath)}";
+                    
+                    StatusText = $"Added trial: {trial.Name}";
                 }
                 catch (Exception ex)
                 {
@@ -237,6 +265,100 @@ namespace MStudio.App.ViewModels
                     StatusText = $"Error: {ex.Message}";
                 }
             }
+        }
+
+        /// <summary>
+        /// Handles trial collection changes and syncs with TrialItemViewModel collection.
+        /// </summary>
+        private void OnTrialsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    if (e.NewItems != null)
+                    {
+                        foreach (Trial trial in e.NewItems)
+                        {
+                            Trials.Add(new TrialItemViewModel(trial, _trialService));
+                        }
+                    }
+                    break;
+                    
+                case NotifyCollectionChangedAction.Remove:
+                    if (e.OldItems != null)
+                    {
+                        foreach (Trial trial in e.OldItems)
+                        {
+                            var vm = Trials.FirstOrDefault(t => t.Id == trial.Id);
+                            if (vm != null)
+                            {
+                                vm.Dispose();
+                                Trials.Remove(vm);
+                            }
+                        }
+                    }
+                    break;
+                    
+                case NotifyCollectionChangedAction.Reset:
+                    // Make a copy to avoid modifying collection while iterating
+                    var viewModelsToDispose = Trials.ToList();
+                    Trials.Clear();
+                    
+                    // Dispose after clearing to avoid event handler issues
+                    foreach (var vm in viewModelsToDispose)
+                    {
+                        try
+                        {
+                            vm.Dispose();
+                        }
+                        catch
+                        {
+                            // Ignore dispose errors during clear
+                        }
+                    }
+                    break;
+            }
+            
+            OnPropertyChanged(nameof(HasTrials));
+        }
+
+        /// <summary>
+        /// Removes a trial by ID.
+        /// </summary>
+        [RelayCommand]
+        private void RemoveTrial(string? trialId)
+        {
+            if (trialId != null)
+            {
+                _trialService.RemoveTrial(trialId);
+            }
+        }
+
+        /// <summary>
+        /// Clears all trials.
+        /// </summary>
+        [RelayCommand]
+        private void ClearAllTrials()
+        {
+            _trialService.ClearTrials();
+        }
+
+        /// <summary>
+        /// Selects all trials.
+        /// </summary>
+        [RelayCommand]
+        private void SelectAllTrials()
+        {
+            _trialService.SelectAllTrials();
+        }
+
+        /// <summary>
+        /// Deselects all trials.
+        /// </summary>
+        [RelayCommand]
+        private void DeselectAllTrials()
+        {
+            _trialService.DeselectAllTrials();
         }
     }
 }

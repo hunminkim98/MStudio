@@ -1,16 +1,20 @@
+using System;
 using System.IO;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MStudio.Core.Models;
 using MStudio.Services.Interfaces;
 
 namespace MStudio.App.ViewModels
 {
     /// <summary>
     /// ViewModel for the Data panel.
-    /// Displays current file information.
+    /// Displays information about the currently selected trial(s).
     /// </summary>
     public partial class DataViewModel : ObservableObject
     {
         private readonly ISessionService _sessionService;
+        private readonly ITrialService? _trialService;
 
         /// <summary>
         /// Currently loaded file path
@@ -49,6 +53,12 @@ namespace MStudio.App.ViewModels
         private double _dataValidity;
 
         /// <summary>
+        /// Number of selected trials (for multi-trial info)
+        /// </summary>
+        [ObservableProperty]
+        private int _selectedTrialCount;
+
+        /// <summary>
         /// Whether a file is currently loaded
         /// </summary>
         public bool HasLoadedFile => !string.IsNullOrEmpty(CurrentFilePath);
@@ -63,6 +73,18 @@ namespace MStudio.App.ViewModels
         /// </summary>
         public string? CurrentFileName => Path.GetFileName(CurrentFilePath);
 
+        // Primary constructor with TrialService support
+        public DataViewModel(ISessionService sessionService, ITrialService trialService)
+            : this(sessionService)
+        {
+            _trialService = trialService;
+            
+            // Subscribe to trial selection changes
+            _trialService.SelectionChanged += (s, e) => UpdateFileInfo();
+            _trialService.TrialsCollectionChanged += (s, e) => UpdateFileInfo();
+        }
+
+        // Legacy constructor for backward compatibility
         public DataViewModel(ISessionService sessionService)
         {
             _sessionService = sessionService;
@@ -81,20 +103,23 @@ namespace MStudio.App.ViewModels
         }
 
         /// <summary>
-        /// Updates file info from current session
+        /// Updates file info from selected trials or current session
         /// </summary>
         private void UpdateFileInfo()
         {
+            // Use TrialService if available
+            if (_trialService != null)
+            {
+                UpdateFromTrialService();
+                return;
+            }
+            
+            // Fallback to SessionService
             var motion = _sessionService.CurrentMotion;
             
             if (motion == null)
             {
-                CurrentFilePath = null;
-                MarkerCount = 0;
-                FrameCount = 0;
-                FrameRate = 0;
-                DurationText = "--:--";
-                DataValidity = 0;
+                ClearFileInfo();
             }
             else
             {
@@ -102,6 +127,7 @@ namespace MStudio.App.ViewModels
                 MarkerCount = motion.Metadata.MarkerNames.Count;
                 FrameCount = motion.Metadata.TotalFrames;
                 FrameRate = motion.Metadata.FrameRate;
+                SelectedTrialCount = 1;
 
                 // Calculate duration
                 if (FrameRate > 0)
@@ -118,6 +144,62 @@ namespace MStudio.App.ViewModels
             OnPropertyChanged(nameof(HasLoadedFile));
             OnPropertyChanged(nameof(HasNoFile));
             OnPropertyChanged(nameof(CurrentFileName));
+        }
+
+        /// <summary>
+        /// Updates info from TrialService (first selected trial)
+        /// </summary>
+        private void UpdateFromTrialService()
+        {
+            if (_trialService == null || !_trialService.HasSelectedTrials)
+            {
+                ClearFileInfo();
+                OnPropertyChanged(nameof(HasLoadedFile));
+                OnPropertyChanged(nameof(HasNoFile));
+                OnPropertyChanged(nameof(CurrentFileName));
+                return;
+            }
+
+            var selectedTrials = _trialService.SelectedTrials;
+            SelectedTrialCount = selectedTrials.Count;
+
+            // Use first selected trial for basic info
+            var firstTrial = selectedTrials[0];
+            var motion = firstTrial.MotionData;
+
+            CurrentFilePath = firstTrial.FilePath;
+            MarkerCount = motion.Metadata.MarkerNames.Count;
+            FrameCount = _trialService.MaxSelectedFrameCount; // Use max for multi-trial
+            FrameRate = _trialService.MaxSelectedFrameRate;
+
+            // Calculate duration based on max frame count
+            if (FrameRate > 0)
+            {
+                var seconds = FrameCount / FrameRate;
+                var ts = TimeSpan.FromSeconds(seconds);
+                DurationText = $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}.{ts.Milliseconds / 10:D2}";
+            }
+
+            // Calculate data validity for first trial
+            DataValidity = CalculateDataValidity(motion);
+
+            OnPropertyChanged(nameof(HasLoadedFile));
+            OnPropertyChanged(nameof(HasNoFile));
+            OnPropertyChanged(nameof(CurrentFileName));
+        }
+
+        /// <summary>
+        /// Clears all file info (no file/trial loaded or selected)
+        /// </summary>
+        private void ClearFileInfo()
+        {
+            CurrentFilePath = null;
+            MarkerCount = 0;
+            FrameCount = 0;
+            FrameRate = 0;
+            DurationText = "--:--";
+            DataValidity = 0;
+            SelectedTrialCount = 0;
         }
 
         /// <summary>

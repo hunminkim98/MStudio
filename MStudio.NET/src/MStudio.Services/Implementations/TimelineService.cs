@@ -11,6 +11,7 @@ namespace MStudio.Services.Implementations
     public class TimelineService : ITimelineService, IDisposable
     {
         private readonly ISessionService _sessionService;
+        private readonly ITrialService? _trialService;
         private readonly System.Timers.Timer _timer;
         private readonly SynchronizationContext? _syncContext;
         private int _currentFrame;
@@ -20,6 +21,16 @@ namespace MStudio.Services.Implementations
         private bool _isReverse;
         private double _accumulatedFrame;
 
+        // Primary constructor with TrialService support
+        public TimelineService(ISessionService sessionService, ITrialService trialService)
+            : this(sessionService)
+        {
+            _trialService = trialService;
+            _trialService.SelectionChanged += OnTrialSelectionChanged;
+            _trialService.PropertyChanged += OnTrialServicePropertyChanged;
+        }
+
+        // Legacy constructor for backward compatibility
         public TimelineService(ISessionService sessionService)
         {
             _sessionService = sessionService;
@@ -47,8 +58,23 @@ namespace MStudio.Services.Implementations
             }
         }
 
-        public int TotalFrames => _sessionService.CurrentMotion?.Metadata.TotalFrames ?? 0;
-        public float FrameRate => _sessionService.CurrentMotion?.Metadata.FrameRate ?? 30.0f;
+        /// <summary>
+        /// Total frames based on selected trials (if available) or current session motion.
+        /// When multiple trials are selected, uses the maximum frame count.
+        /// </summary>
+        public int TotalFrames => 
+            _trialService?.HasSelectedTrials == true 
+                ? _trialService.MaxSelectedFrameCount 
+                : _sessionService.CurrentMotion?.Metadata.TotalFrames ?? 0;
+
+        /// <summary>
+        /// Frame rate based on selected trials (if available) or current session motion.
+        /// When multiple trials are selected, uses the maximum frame rate.
+        /// </summary>
+        public float FrameRate => 
+            _trialService?.HasSelectedTrials == true 
+                ? _trialService.MaxSelectedFrameRate 
+                : _sessionService.CurrentMotion?.Metadata.FrameRate ?? 30.0f;
         
         public TimeSpan CurrentTime
         {
@@ -104,6 +130,27 @@ namespace MStudio.Services.Implementations
                 OnPropertyChanged(nameof(TotalFrames));
                 OnPropertyChanged(nameof(FrameRate));
                 OnPropertyChanged(nameof(CurrentTime));
+                UpdateTimerInterval();
+            }
+        }
+
+        private void OnTrialSelectionChanged(object? sender, EventArgs e)
+        {
+            // When trial selection changes, update timeline properties
+            CurrentFrame = Math.Min(CurrentFrame, TotalFrames > 0 ? TotalFrames - 1 : 0);
+            OnPropertyChanged(nameof(TotalFrames));
+            OnPropertyChanged(nameof(FrameRate));
+            OnPropertyChanged(nameof(CurrentTime));
+            UpdateTimerInterval();
+        }
+
+        private void OnTrialServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ITrialService.MaxSelectedFrameCount) ||
+                e.PropertyName == nameof(ITrialService.MaxSelectedFrameRate))
+            {
+                OnPropertyChanged(nameof(TotalFrames));
+                OnPropertyChanged(nameof(FrameRate));
                 UpdateTimerInterval();
             }
         }
@@ -208,6 +255,11 @@ namespace MStudio.Services.Implementations
             _timer.Stop();
             _timer.Dispose();
             _sessionService.PropertyChanged -= OnSessionChanged;
+            if (_trialService != null)
+            {
+                _trialService.SelectionChanged -= OnTrialSelectionChanged;
+                _trialService.PropertyChanged -= OnTrialServicePropertyChanged;
+            }
         }
     }
 }

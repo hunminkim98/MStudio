@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using MStudio.Core.Models;
@@ -85,5 +87,112 @@ namespace MStudio.Services.Interfaces
         /// </summary>
         /// <returns>True if user confirms, false otherwise</returns>
         bool ShowConfirmation(string message, string? title = null);
+    }
+
+    /// <summary>
+    /// Service for managing multiple motion capture trials.
+    /// Supports loading, selecting, and managing multiple trials simultaneously.
+    /// 
+    /// Clean Architecture Notes:
+    /// - This service manages the collection of trials
+    /// - Selection state affects what gets visualized
+    /// - Timeline service uses this to determine playback range
+    /// </summary>
+    public interface ITrialService : INotifyPropertyChanged
+    {
+        /// <summary>
+        /// All loaded trials.
+        /// </summary>
+        IReadOnlyList<Trial> Trials { get; }
+        
+        /// <summary>
+        /// Currently selected trials for visualization.
+        /// </summary>
+        IReadOnlyList<Trial> SelectedTrials { get; }
+        
+        /// <summary>
+        /// IDs of currently selected trials.
+        /// </summary>
+        IReadOnlySet<string> SelectedTrialIds { get; }
+        
+        /// <summary>
+        /// Maximum frame count among selected trials.
+        /// Used by TimelineService to determine playback range.
+        /// </summary>
+        int MaxSelectedFrameCount { get; }
+        
+        /// <summary>
+        /// Maximum frame rate among selected trials.
+        /// Used by TimelineService for playback timing.
+        /// </summary>
+        float MaxSelectedFrameRate { get; }
+        
+        /// <summary>
+        /// Indicates if any trials are currently loaded.
+        /// </summary>
+        bool HasTrials { get; }
+        
+        /// <summary>
+        /// Indicates if any trials are currently selected.
+        /// </summary>
+        bool HasSelectedTrials { get; }
+        
+        /// <summary>
+        /// Adds a new trial from the specified file path.
+        /// </summary>
+        /// <param name="filePath">Path to the motion file</param>
+        /// <returns>The newly created Trial</returns>
+        Task<Trial> AddTrialAsync(string filePath);
+        
+        /// <summary>
+        /// Removes a trial by its ID.
+        /// </summary>
+        /// <param name="trialId">The trial ID to remove</param>
+        void RemoveTrial(string trialId);
+        
+        /// <summary>
+        /// Clears all trials and releases resources.
+        /// </summary>
+        void ClearTrials();
+        
+        /// <summary>
+        /// Sets the selection state of a trial.
+        /// </summary>
+        /// <param name="trialId">The trial ID</param>
+        /// <param name="isSelected">Whether the trial should be selected</param>
+        void SetTrialSelected(string trialId, bool isSelected);
+        
+        /// <summary>
+        /// Toggles the selection state of a trial.
+        /// </summary>
+        /// <param name="trialId">The trial ID to toggle</param>
+        void ToggleTrialSelection(string trialId);
+        
+        /// <summary>
+        /// Checks if a specific trial is selected.
+        /// </summary>
+        /// <param name="trialId">The trial ID to check</param>
+        /// <returns>True if selected, false otherwise</returns>
+        bool IsTrialSelected(string trialId);
+        
+        /// <summary>
+        /// Selects all loaded trials.
+        /// </summary>
+        void SelectAllTrials();
+        
+        /// <summary>
+        /// Deselects all trials.
+        /// </summary>
+        void DeselectAllTrials();
+        
+        /// <summary>
+        /// Raised when the trials collection changes (add/remove).
+        /// </summary>
+        event NotifyCollectionChangedEventHandler? TrialsCollectionChanged;
+        
+        /// <summary>
+        /// Raised when the selection state changes.
+        /// </summary>
+        event EventHandler? SelectionChanged;
     }
 }

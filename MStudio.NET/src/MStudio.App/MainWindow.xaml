@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:MStudio.App"
         xmlns:views="clr-namespace:MStudio.App.Views"
         xmlns:behaviors="clr-namespace:MStudio.App.Behaviors"
+        xmlns:converters="clr-namespace:MStudio.App.Converters"
         xmlns:dock="clr-namespace:AvalonDock;assembly=AvalonDock"
         xmlns:dockControls="clr-namespace:AvalonDock.Controls;assembly=AvalonDock"
         xmlns:layout="clr-namespace:AvalonDock.Layout;assembly=AvalonDock"
@@ -19,6 +20,11 @@
         behaviors:GlobalKeyboardBehavior.LeftKeyCommand="{Binding StepBackwardCommand}"
         behaviors:GlobalKeyboardBehavior.RightKeyCommand="{Binding StepForwardCommand}"
         behaviors:GlobalKeyboardBehavior.SpaceKeyCommand="{Binding TogglePlayCommand}">
+    
+    <Window.Resources>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+    </Window.Resources>
     
     <Grid>
         <Grid.RowDefinitions>
@@ -120,38 +126,107 @@
             <layout:LayoutRoot>
                 <layout:LayoutPanel Orientation="Horizontal">
                     
-                    <!-- LEFT PANEL: Assets -->
-                    <layout:LayoutAnchorablePane DockWidth="200">
-                        <layout:LayoutAnchorable Title="Assets" CanClose="False">
+                    <!-- LEFT PANEL: Trials -->
+                    <layout:LayoutAnchorablePane DockWidth="220">
+                        <layout:LayoutAnchorable Title="Trials" CanClose="False">
                             <Grid Background="{DynamicResource B_Panel}">
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 
+                                <!-- Toolbar -->
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4" Background="#2A2A2A">
+                                    <Button Content="Select All" Command="{Binding SelectAllTrialsCommand}" 
+                                            Style="{DynamicResource ToolbarIconButton}" Width="Auto" Padding="6,2" Margin="2"/>
+                                    <Button Content="Deselect" Command="{Binding DeselectAllTrialsCommand}" 
+                                            Style="{DynamicResource ToolbarIconButton}" Width="Auto" Padding="6,2" Margin="2"/>
+                                    <Button Content="Clear" Command="{Binding ClearAllTrialsCommand}" 
+                                            Style="{DynamicResource ToolbarIconButton}" Width="Auto" Padding="6,2" Margin="2"/>
+                                </StackPanel>
+                                
                                 <!-- Column Headers -->
-                                <Grid Background="#2A2A2A" Height="22">
+                                <Grid Grid.Row="1" Background="#2A2A2A" Height="22">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="24"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="40"/>
-                                        <ColumnDefinition Width="40"/>
+                                        <ColumnDefinition Width="12"/>
                                     </Grid.ColumnDefinitions>
-                                    <CheckBox Grid.Column="0" IsChecked="True" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="Name" Foreground="{DynamicResource B_TextDim}" VerticalAlignment="Center" Margin="4,0"/>
-                                    <TextBlock Grid.Column="2" Text="Kind" Foreground="{DynamicResource B_TextDim}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="Solved" Foreground="{DynamicResource B_TextDim}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="0" Text="✓" Foreground="{DynamicResource B_TextDim}" 
+                                               VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10"/>
+                                    <TextBlock Grid.Column="1" Text="Trial Name" Foreground="{DynamicResource B_TextDim}" 
+                                               VerticalAlignment="Center" Margin="4,0"/>
                                 </Grid>
                                 
-                                <!-- Asset List -->
-                                <ListView Grid.Row="1" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource B_Text}">
-                                    <ListViewItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <CheckBox IsChecked="True" Margin="0,0,8,0"/>
-                                            <TextBlock Text="{Binding CurrentMotionName}"/>
-                                        </StackPanel>
-                                    </ListViewItem>
-                                </ListView>
+                                <!-- Trial List -->
+                                <ListBox Grid.Row="2" 
+                                         ItemsSource="{Binding Trials}" 
+                                         Background="Transparent" 
+                                         BorderThickness="0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="2"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="#3A3A3A"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#333333"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="2,1">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="10"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- Selection Checkbox -->
+                                                <CheckBox Grid.Column="0" 
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}" 
+                                                          VerticalAlignment="Center"
+                                                          Margin="0,0,4,0"/>
+                                                
+                                                <!-- Trial Info -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" 
+                                                               Foreground="{DynamicResource B_Text}" 
+                                                               FontSize="11"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding SummaryText}"/>
+                                                    <TextBlock Text="{Binding DurationText}" 
+                                                               Foreground="{DynamicResource B_TextDim}" 
+                                                               FontSize="9"/>
+                                                </StackPanel>
+                                                
+                                                <!-- Color Indicator -->
+                                                <Ellipse Grid.Column="2" 
+                                                         Width="8" Height="8" 
+                                                         Fill="{Binding TrialBrush}"
+                                                         VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                
+                                <!-- Empty State -->
+                                <TextBlock Grid.Row="2" 
+                                           Text="No trials loaded.&#x0a;Use File → Open to add trials."
+                                           Foreground="{DynamicResource B_TextDim}"
+                                           FontSize="10"
+                                           FontStyle="Italic"
+                                           TextAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           Visibility="{Binding HasTrials, Converter={StaticResource InverseBoolToVisibility}}"/>
                             </Grid>
                         </layout:LayoutAnchorable>
                         

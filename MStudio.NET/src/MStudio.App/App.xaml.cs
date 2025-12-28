@@ -44,16 +44,28 @@ namespace MStudio.App
 
             // Services
             services.AddSingleton<ISessionService, SessionService>();
-            services.AddSingleton<ITimelineService, TimelineService>();
+            services.AddSingleton<ITrialService, TrialService>();
+            services.AddSingleton<ITimelineService>(sp => 
+                new TimelineService(
+                    sp.GetRequiredService<ISessionService>(),
+                    sp.GetRequiredService<ITrialService>()));
             services.AddSingleton<IVisualizationSettingsService, VisualizationSettingsService>();
             
             // UI Services (Clean Architecture: platform-specific implementations in App layer)
             services.AddSingleton<IDialogService, DialogService>();
 
             // ViewModels / Windows
-            services.AddSingleton<MStudioViewportViewModel>();
+            services.AddSingleton<MStudioViewportViewModel>(sp => 
+                new MStudioViewportViewModel(
+                    sp.GetRequiredService<ISessionService>(),
+                    sp.GetRequiredService<ITimelineService>(),
+                    sp.GetRequiredService<IVisualizationSettingsService>(),
+                    sp.GetRequiredService<ITrialService>()));
             services.AddSingleton<GraphViewModel>();
-            services.AddSingleton<DataViewModel>();
+            services.AddSingleton<DataViewModel>(sp =>
+                new DataViewModel(
+                    sp.GetRequiredService<ISessionService>(),
+                    sp.GetRequiredService<ITrialService>()));
             services.AddSingleton<MainViewModel>();
             services.AddTransient<MainWindow>();
         }
