@@ -26,6 +26,7 @@ namespace MStudio.App.ViewModels
         private readonly ITimelineService _timelineService;
         private readonly IVisualizationSettingsService _visualizationSettings;
         private readonly ITrialService? _trialService;
+        private readonly IFootLevelingService? _footLevelingService;
 
         // 3D Scene Elements
         public ObservableCollection<Element3D> SceneElements { get; } = new();
@@ -93,6 +94,116 @@ namespace MStudio.App.ViewModels
                 Camera.LookDirection = new Vector3D(-2, -2, -2);
                 Camera.UpDirection = IsZUp ? new Vector3D(0, 0, 1) : new Vector3D(0, 1, 0);
             }
+        }
+
+        // ========== Foot Leveling ==========
+        
+        /// <summary>
+        /// Foot leveling이 현재 적용되어 있는지 여부 (UI 바인딩용)
+        /// </summary>
+        [ObservableProperty]
+        private bool _isFootLevelingApplied;
+
+        /// <summary>
+        /// Foot leveling 토글 (Apply ↔ Undo)
+        /// </summary>
+        [RelayCommand]
+        private void ToggleFootLeveling()
+        {
+            if (_footLevelingService == null) return;
+
+            // TrialService 사용 시 선택된 Trial의 MotionData 사용
+            MotionData? motionData = null;
+            if (_trialService != null && _trialService.SelectedTrials.Count > 0)
+            {
+                // 첫 번째 선택된 Trial에 적용 (모든 Trial에 동일 오프셋 적용)
+                motionData = _trialService.SelectedTrials[0].MotionData;
+            }
+            else
+            {
+                motionData = _sessionService.CurrentMotion;
+            }
+
+            if (motionData == null) return;
+
+            if (_footLevelingService.IsApplied)
+            {
+                _footLevelingService.UndoFootLeveling(motionData);
+                
+                // 다른 선택된 Trial들에도 Undo 적용
+                if (_trialService != null)
+                {
+                    for (int i = 1; i < _trialService.SelectedTrials.Count; i++)
+                    {
+                        var trialMotion = _trialService.SelectedTrials[i].MotionData;
+                        if (trialMotion != null)
+                        {
+                            // 동일 오프셋으로 복원
+                            for (int frame = 0; frame < trialMotion.Markers.FrameCount; frame++)
+                            {
+                                for (int marker = 0; marker < trialMotion.Markers.MarkerCount; marker++)
+                                {
+                                    var pos = trialMotion.Markers.GetPosition(marker, frame);
+                                    if (!float.IsNaN(pos.X))
+                                    {
+                                        trialMotion.Markers.SetPosition(marker, frame, pos.X, pos.Y + _footLevelingService.AppliedOffset, pos.Z);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // 발 마커가 없으면 안내 메시지 표시
+                bool success = _footLevelingService.ApplyFootLeveling(motionData);
+                if (!success)
+                {
+                    System.Windows.MessageBox.Show(
+                        "현재 모델에는 발 마커(BigToe, SmallToe, Heel)가 없습니다.\n\n" +
+                        "이 기능을 사용하려면 발 마커가 포함된 키포인트셋을 사용해 주세요.\n" +
+                        "예: HALPE_26, BODY_25, COCO_133 등",
+                        "Foot Leveling 불가",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+
+                // 다른 선택된 Trial들에도 동일 오프셋 적용
+                if (_trialService != null)
+                {
+                    float offset = _footLevelingService.AppliedOffset;
+                    for (int i = 1; i < _trialService.SelectedTrials.Count; i++)
+                    {
+                        var trialMotion = _trialService.SelectedTrials[i].MotionData;
+                        if (trialMotion != null)
+                        {
+                            for (int frame = 0; frame < trialMotion.Markers.FrameCount; frame++)
+                            {
+                                for (int marker = 0; marker < trialMotion.Markers.MarkerCount; marker++)
+                                {
+                                    var pos = trialMotion.Markers.GetPosition(marker, frame);
+                                    if (!float.IsNaN(pos.X))
+                                    {
+                                        trialMotion.Markers.SetPosition(marker, frame, pos.X, pos.Y - offset, pos.Z);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 조정된 오프셋 알림
+                System.Windows.MessageBox.Show(
+                    $"Y축 오프셋 {_footLevelingService.AppliedOffset:F4} m 만큼 조정되었습니다.",
+                    "Set to Zero 완료",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+            }
+
+            IsFootLevelingApplied = _footLevelingService.IsApplied;
+            UpdateMarkersAndVisuals();
         }
 
         // Marker Rendering
@@ -279,12 +390,14 @@ namespace MStudio.App.ViewModels
             ISessionService sessionService, 
             ITimelineService timelineService,
             IVisualizationSettingsService visualizationSettings,
-            ITrialService? trialService = null)
+            ITrialService? trialService = null,
+            IFootLevelingService? footLevelingService = null)
         {
             _sessionService = sessionService;
             _timelineService = timelineService;
             _visualizationSettings = visualizationSettings;
             _trialService = trialService;
+            _footLevelingService = footLevelingService;
 
             // Sync initial values from service
             SyncFromVisualizationSettings();
@@ -1093,7 +1206,17 @@ namespace MStudio.App.ViewModels
         /// <returns>True if a marker was selected</returns>
         public bool SelectMarkerByRay(Vector3 rayOrigin, Vector3 rayDirection, float maxRayDistance = 0.05f)
         {
-            var motion = _sessionService.CurrentMotion;
+            // TrialService 사용 시 선택된 Trial의 MotionData 사용
+            MotionData? motion = null;
+            if (_trialService != null && _trialService.SelectedTrials.Count > 0)
+            {
+                motion = _trialService.SelectedTrials[0].MotionData;
+            }
+            else
+            {
+                motion = _sessionService.CurrentMotion;
+            }
+            
             if (motion == null || motion.Markers.MarkerCount == 0)
                 return false;
 

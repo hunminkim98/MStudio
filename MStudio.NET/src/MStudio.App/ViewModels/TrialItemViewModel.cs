@@ -119,8 +119,8 @@ namespace MStudio.App.ViewModels
         
         partial void OnIsSelectedChanged(bool value)
         {
-            // Don't update service if disposed
-            if (_isDisposed) return;
+            // Don't update service if disposed or updating from service
+            if (_isDisposed || _updatingFromService) return;
             
             // Update service when UI changes selection
             try
@@ -133,6 +133,8 @@ namespace MStudio.App.ViewModels
             }
         }
         
+        private bool _updatingFromService;
+        
         private void OnServiceSelectionChanged(object? sender, EventArgs e)
         {
             // Don't update if disposed
@@ -142,15 +144,18 @@ namespace MStudio.App.ViewModels
             {
                 // Sync selection state from service (e.g., when other code changes selection)
                 var newState = _trialService.IsTrialSelected(_trial.Id);
-                if (newState != _isSelected)
+                if (newState != IsSelected)
                 {
-                    // Use SetProperty to avoid triggering OnIsSelectedChanged again
-                    SetProperty(ref _isSelected, newState, nameof(IsSelected));
+                    // Use flag to avoid triggering OnIsSelectedChanged recursively
+                    _updatingFromService = true;
+                    IsSelected = newState;
+                    _updatingFromService = false;
                 }
             }
             catch
             {
                 // Trial may have been removed, ignore
+                _updatingFromService = false;
             }
         }
         

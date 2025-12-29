@@ -5549,11 +5549,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
+      "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
       "projectName": "MStudio.Tests",
-      "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
+      "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\MStudio.Tests.csproj",
       "packagesPath": "C:\\Users\\gnsal\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\tests\\MStudio.Tests\\obj\\",
+      "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\tests\\MStudio.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -5574,11 +5574,11 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj": {
-              "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.Core\\MStudio.Core.csproj"
+            "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj": {
+              "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Core\\MStudio.Core.csproj"
             },
-            "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj": {
-              "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.Services\\MStudio.Services.csproj"
+            "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj": {
+              "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\mstudio.net\\src\\MStudio.Services\\MStudio.Services.csproj"
             }
           }
         }

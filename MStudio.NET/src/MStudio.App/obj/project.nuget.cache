@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "soIra5NTdss=",
+  "dgSpecHash": "UuHTEQ+BN18=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj",
+  "projectFilePath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\mstudio.app\\MStudio.App.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\gnsal\\.nuget\\packages\\communitytoolkit.common\\8.3.2\\communitytoolkit.common.8.3.2.nupkg.sha512",
     "C:\\Users\\gnsal\\.nuget\\packages\\communitytoolkit.diagnostics\\8.3.2\\communitytoolkit.diagnostics.8.3.2.nupkg.sha512",

@@ -6659,11 +6659,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj",
+      "projectUniqueName": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\mstudio.app\\MStudio.App.csproj",
       "projectName": "MStudio.App",
-      "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.App\\MStudio.App.csproj",
+      "projectPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\mstudio.app\\MStudio.App.csproj",
       "packagesPath": "C:\\Users\\gnsal\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\MStudio.App\\obj\\",
+      "outputPath": "C:\\Users\\gnsal\\OneDrive\\Desktop\\Projects\\SideProjects\\MStudio\\MStudio.NET\\src\\mstudio.app\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
