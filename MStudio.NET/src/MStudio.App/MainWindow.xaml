@@ -161,10 +161,26 @@
                                 
                                 <!-- Trial List -->
                                 <ListBox Grid.Row="2" 
+                                         x:Name="TrialsListBox"
                                          ItemsSource="{Binding Trials}" 
                                          Background="Transparent" 
                                          BorderThickness="0"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         Tag="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=DataContext}">
+                                    <ListBox.ContextMenu>
+                                        <ContextMenu Background="{DynamicResource B_Panel}" 
+                                                     Foreground="{DynamicResource B_Text}"
+                                                     BorderBrush="{DynamicResource B_BorderDark}">
+                                            <MenuItem Header="Save" 
+                                                      Command="{Binding PlacementTarget.Tag.SaveTrialCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Foreground="Black"/>
+                                            <MenuItem Header="Save as..." 
+                                                      Command="{Binding PlacementTarget.Tag.SaveTrialAsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      Foreground="Black"/>
+                                        </ContextMenu>
+                                    </ListBox.ContextMenu>
                                     <ListBox.ItemContainerStyle>
                                         <Style TargetType="ListBoxItem">
                                             <Setter Property="Padding" Value="2"/>

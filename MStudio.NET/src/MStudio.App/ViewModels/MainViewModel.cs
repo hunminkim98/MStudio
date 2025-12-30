@@ -29,6 +29,7 @@ namespace MStudio.App.ViewModels
         private readonly ITimelineService _timelineService;
         private readonly IDialogService _dialogService;
         private readonly ITrialService _trialService;
+        private readonly IExportService _exportService;
 
         // Track selected marker locally (synced via messaging)
         [ObservableProperty]
@@ -60,6 +61,7 @@ namespace MStudio.App.ViewModels
             ITimelineService timelineService,
             IDialogService dialogService,
             ITrialService trialService,
+            IExportService exportService,
             MStudioViewportViewModel viewportViewModel, 
             GraphViewModel graphViewModel,
             DataViewModel dataViewModel)
@@ -68,6 +70,7 @@ namespace MStudio.App.ViewModels
             _timelineService = timelineService;
             _dialogService = dialogService;
             _trialService = trialService;
+            _exportService = exportService;
             ViewportViewModel = viewportViewModel;
             GraphViewModel = graphViewModel;
             DataViewModel = dataViewModel;
@@ -359,6 +362,26 @@ namespace MStudio.App.ViewModels
         private void DeselectAllTrials()
         {
             _trialService.DeselectAllTrials();
+        }
+
+        /// <summary>
+        /// Saves a trial to its original file path (overwrite).
+        /// </summary>
+        [RelayCommand]
+        private async Task SaveTrial(TrialItemViewModel? trialVm)
+        {
+            if (trialVm == null) return;
+            await _exportService.SaveAsync(trialVm.Trial);
+        }
+
+        /// <summary>
+        /// Opens a save dialog and saves the trial to the selected path.
+        /// </summary>
+        [RelayCommand]
+        private async Task SaveTrialAs(TrialItemViewModel? trialVm)
+        {
+            if (trialVm == null) return;
+            await _exportService.SaveAsAsync(trialVm.Trial);
         }
     }
 }

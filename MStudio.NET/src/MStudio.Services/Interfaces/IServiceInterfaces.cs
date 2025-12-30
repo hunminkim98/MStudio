@@ -195,4 +195,24 @@ namespace MStudio.Services.Interfaces
         /// </summary>
         event EventHandler? SelectionChanged;
     }
+    
+    /// <summary>
+    /// Service for exporting motion data to various file formats (TRC, C3D).
+    /// </summary>
+    public interface IExportService
+    {
+        /// <summary>
+        /// Saves the trial data to its original file path (overwrite).
+        /// </summary>
+        /// <param name="trial">The trial to save</param>
+        /// <returns>True if saved successfully, false otherwise</returns>
+        Task<bool> SaveAsync(Trial trial);
+        
+        /// <summary>
+        /// Opens a save dialog and saves the trial data to the selected path.
+        /// </summary>
+        /// <param name="trial">The trial to save</param>
+        /// <returns>True if saved successfully, false otherwise</returns>
+        Task<bool> SaveAsAsync(Trial trial);
+    }
 }

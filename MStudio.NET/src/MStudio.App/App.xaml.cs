@@ -54,6 +54,9 @@ namespace MStudio.App
             
             // UI Services (Clean Architecture: platform-specific implementations in App layer)
             services.AddSingleton<IDialogService, DialogService>();
+            
+            // Export Service
+            services.AddSingleton<IExportService, ExportService>();
 
             // ViewModels / Windows
             services.AddSingleton<MStudioViewportViewModel>(sp => 
