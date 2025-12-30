@@ -502,6 +502,20 @@ namespace MStudio.App.ViewModels
         private System.Windows.Media.Color TrajectoryColor => 
             System.Windows.Media.Color.FromArgb(128, SelectedMarkerColor.R, SelectedMarkerColor.G, SelectedMarkerColor.B);
 
+        /// <summary>
+        /// 현재 활성화된 MotionData를 반환합니다.
+        /// TrialService에서 선택된 Trial이 있으면 그것을 우선 사용하고,
+        /// 없으면 SessionService.CurrentMotion을 사용합니다.
+        /// </summary>
+        private MotionData? GetActiveMotionData()
+        {
+            if (_trialService != null && _trialService.SelectedTrials.Count > 0)
+            {
+                return _trialService.SelectedTrials[0].MotionData;
+            }
+            return _sessionService.CurrentMotion;
+        }
+
         public MStudioViewportViewModel(
             ISessionService sessionService,
             ITimelineService timelineService,
@@ -1460,49 +1474,138 @@ namespace MStudio.App.ViewModels
 
         public void UpdateBones()
         {
-            // Check if we have any data to render
-            MotionData? motion = null;
-            
-            if (_trialService?.HasSelectedTrials == true)
+            if (_boneModel == null)
             {
-                // Use first selected trial for bones
-                motion = _trialService.SelectedTrials[0].MotionData;
-            }
-            else if (_trialService == null)
-            {
-                // Fallback to session service
-                motion = _sessionService.CurrentMotion;
-            }
-            
-            if (motion == null || _boneModel == null || _boneLinks.Count == 0)
-            {
-                if (_boneModel != null) _boneModel.Geometry = null;
                 return;
             }
 
-            int frame = _timelineService.CurrentFrame;
-            
-            // Frame freeze for trials shorter than current frame
-            if (frame >= motion.Markers.FrameCount)
-            {
-                frame = motion.Markers.FrameCount - 1;
-            }
-            if (frame < 0) frame = 0;
-            
             var builder = new LineBuilder();
+            
+            // Get the current skeleton definition
+            var skeleton = PredefinedSkeletons.GetByName(SelectedSkeleton) ?? PredefinedSkeletons.Halpe26;
 
-            foreach (var link in _boneLinks)
+            // Multi-trial bone rendering: draw bones for ALL selected trials
+            // Each trial gets its own bone links based on its marker name ordering
+            if (_trialService?.HasSelectedTrials == true)
             {
-                var p1 = motion.Markers.GetPosition(link.start, frame);
-                var p2 = motion.Markers.GetPosition(link.end, frame);
+                foreach (var trial in _trialService.SelectedTrials)
+                {
+                    var motion = trial.MotionData;
+                    if (motion == null) continue;
 
-                if (float.IsNaN(p1.X) || float.IsNaN(p2.X)) continue;
-                if ((p1.X == 0 && p1.Y == 0 && p1.Z == 0) || (p2.X == 0 && p2.Y == 0 && p2.Z == 0)) continue;
+                    // Generate bone links dynamically for THIS trial's marker ordering
+                    var trialBoneLinks = GenerateBoneLinksForMotion(motion, skeleton);
+                    if (trialBoneLinks.Count == 0) continue;
 
-                builder.AddLine(p1, p2);
+                    int frame = _timelineService.CurrentFrame;
+                    
+                    // Frame freeze for trials shorter than current frame
+                    if (frame >= motion.Markers.FrameCount)
+                    {
+                        frame = motion.Markers.FrameCount - 1;
+                    }
+                    if (frame < 0) frame = 0;
+
+                    foreach (var link in trialBoneLinks)
+                    {
+                        var p1 = motion.Markers.GetPosition(link.start, frame);
+                        var p2 = motion.Markers.GetPosition(link.end, frame);
+
+                        if (float.IsNaN(p1.X) || float.IsNaN(p2.X)) continue;
+                        if ((p1.X == 0 && p1.Y == 0 && p1.Z == 0) || (p2.X == 0 && p2.Y == 0 && p2.Z == 0)) continue;
+
+                        builder.AddLine(p1, p2);
+                    }
+                }
+            }
+            else if (_trialService == null)
+            {
+                // Fallback to session service (single motion)
+                var motion = _sessionService.CurrentMotion;
+                if (motion == null)
+                {
+                    _boneModel.Geometry = null;
+                    return;
+                }
+
+                // Use shared _boneLinks for single motion mode
+                if (_boneLinks.Count == 0)
+                {
+                    _boneModel.Geometry = null;
+                    return;
+                }
+
+                int frame = _timelineService.CurrentFrame;
+                
+                // Frame freeze for trials shorter than current frame
+                if (frame >= motion.Markers.FrameCount)
+                {
+                    frame = motion.Markers.FrameCount - 1;
+                }
+                if (frame < 0) frame = 0;
+
+                foreach (var link in _boneLinks)
+                {
+                    var p1 = motion.Markers.GetPosition(link.start, frame);
+                    var p2 = motion.Markers.GetPosition(link.end, frame);
+
+                    if (float.IsNaN(p1.X) || float.IsNaN(p2.X)) continue;
+                    if ((p1.X == 0 && p1.Y == 0 && p1.Z == 0) || (p2.X == 0 && p2.Y == 0 && p2.Z == 0)) continue;
+
+                    builder.AddLine(p1, p2);
+                }
+            }
+            else
+            {
+                // No trials selected - clear bones
+                _boneModel.Geometry = null;
+                return;
             }
 
             _boneModel.Geometry = builder.ToLineGeometry3D();
+        }
+
+        /// <summary>
+        /// Generates bone links for a specific MotionData based on its marker name ordering.
+        /// This ensures each trial uses correct marker index mapping for skeleton rendering.
+        /// </summary>
+        private List<(int start, int end)> GenerateBoneLinksForMotion(MotionData motion, SkeletonDefinition skeleton)
+        {
+            var boneLinks = new List<(int start, int end)>();
+            
+            if (motion == null || skeleton == null) return boneLinks;
+
+            // Build name-to-index lookup for THIS motion's marker ordering
+            var nameToIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < motion.Metadata.MarkerNames.Count; i++)
+            {
+                nameToIndex[motion.Metadata.MarkerNames[i]] = i;
+            }
+
+            // Map skeleton joint IDs to marker indices
+            var jointToMarkerIndex = new Dictionary<int, int>();
+            foreach (var kvp in skeleton.JointMap)
+            {
+                int jointId = kvp.Key;
+                string jointName = kvp.Value;
+                
+                if (nameToIndex.TryGetValue(jointName, out int markerIdx))
+                {
+                    jointToMarkerIndex[jointId] = markerIdx;
+                }
+            }
+
+            // Create bone links from skeleton definition
+            foreach (var bone in skeleton.Bones)
+            {
+                if (jointToMarkerIndex.TryGetValue(bone.Parent, out int parentIdx) &&
+                    jointToMarkerIndex.TryGetValue(bone.Child, out int childIdx))
+                {
+                    boneLinks.Add((parentIdx, childIdx));
+                }
+            }
+
+            return boneLinks;
         }
 
         /// <summary>
@@ -1676,7 +1779,15 @@ namespace MStudio.App.ViewModels
             _minLeftFootY = float.MaxValue;
             _minRightFootY = float.MaxValue;
 
-            var motion = _sessionService.CurrentMotion;
+            // FootLeveling이 적용된 상태라면 minLevel은 0에 가까워야 함
+            if (_footLevelingService != null && _footLevelingService.IsApplied)
+            {
+                _minLeftFootY = 0f;
+                _minRightFootY = 0f;
+                return;
+            }
+
+            var motion = GetActiveMotionData();
             if (motion == null || motion.Markers == null) return;
 
             // Define foot markers
@@ -1696,7 +1807,7 @@ namespace MStudio.App.ViewModels
 
             if (leftIndices.Count == 0 && rightIndices.Count == 0) return;
 
-            // Helper to get avg Y
+            // Helper to get avg Y (returns null if any marker has negative Y - indicating bad frame)
             float? GetAvgY(List<int> indices, int frame)
             {
                 float sum = 0;
@@ -1706,6 +1817,8 @@ namespace MStudio.App.ViewModels
                     var pos = motion.Markers.GetPosition(idx, frame);
                     if (!float.IsNaN(pos.Y) && !(pos.X == 0 && pos.Y == 0 && pos.Z == 0))
                     {
+                        // 음수 Y값이 있으면 이 프레임 제외 (FootLevelingService와 동일한 로직)
+                        if (pos.Y < 0) return null;
                         sum += pos.Y;
                         count++;
                     }
@@ -1726,18 +1839,17 @@ namespace MStudio.App.ViewModels
 
         private void UpdateFootContactVisuals()
         {
-            if (!IsShowFootContact || _sessionService.CurrentMotion == null)
+            var motion = GetActiveMotionData();
+            if (!IsShowFootContact || motion == null)
             {
                 if (_leftFootContactModel != null) _leftFootContactModel.IsRendering = false;
                 if (_rightFootContactModel != null) _rightFootContactModel.IsRendering = false;
                 return;
             }
-
-            var motion = _sessionService.CurrentMotion;
             int frame = _timelineService.CurrentFrame;
             
             // Get current positions
-             string[] leftFootNames = { "LBigToe", "LSmallToe", "LHeel" };
+            string[] leftFootNames = { "LBigToe", "LSmallToe", "LHeel" };
             string[] rightFootNames = { "RBigToe", "RSmallToe", "RHeel" };
 
             var markers = motion.Markers;
@@ -1755,14 +1867,15 @@ namespace MStudio.App.ViewModels
                     if (targetNames.Any(n => string.Equals(n, names[i], StringComparison.OrdinalIgnoreCase)))
                     {
                         var pos = markers.GetPosition(i, frame);
-                         if (!float.IsNaN(pos.Y) && !(pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+                        if (!float.IsNaN(pos.Y) && !(pos.X == 0 && pos.Y == 0 && pos.Z == 0))
                         {
                             sumX += pos.X;
                             sumZ += pos.Z;
                             count++;
 
+                            float diff = pos.Y - minLevel;
                             // Check individual marker contact
-                            if (minLevel != float.MaxValue && (pos.Y - minLevel) <= 0.0002f) // 2mm Threshold
+                            if (minLevel != float.MaxValue && diff <= 0.0002f) // 2mm Threshold
                             {
                                 contact = true;
                             }
@@ -1771,7 +1884,7 @@ namespace MStudio.App.ViewModels
                 }
 
                 if (count == 0) return (false, Vector3.Zero);
-                return (contact, new Vector3(sumX / count, 0, sumZ / count)); // Y is unused for center
+                return (contact, new Vector3(sumX / count, 0, sumZ / count));
             }
 
             // Check Left
@@ -1782,7 +1895,6 @@ namespace MStudio.App.ViewModels
                 if (_leftFootContactModel != null)
                 {
                     _leftFootContactModel.IsRendering = true;
-                    // Lift slightly to avoid Z-fighting with floor
                     var translation = Matrix4x4.CreateTranslation(leftResult.center.X, 0.01f, leftResult.center.Z);
                     _leftFootContactModel.Transform = new MatrixTransform3D(translation.ToMatrix3D());
                 }
@@ -1790,7 +1902,7 @@ namespace MStudio.App.ViewModels
             else
             {
                 _isLeftFootContacting = false;
-                 if (_leftFootContactModel != null) _leftFootContactModel.IsRendering = false;
+                if (_leftFootContactModel != null) _leftFootContactModel.IsRendering = false;
             }
 
             // Check Right
@@ -1801,7 +1913,6 @@ namespace MStudio.App.ViewModels
                 if (_rightFootContactModel != null)
                 {
                     _rightFootContactModel.IsRendering = true;
-                    // Lift slightly to avoid Z-fighting with floor
                     var translation = Matrix4x4.CreateTranslation(rightResult.center.X, 0.01f, rightResult.center.Z);
                     _rightFootContactModel.Transform = new MatrixTransform3D(translation.ToMatrix3D());
                 }
@@ -1877,7 +1988,7 @@ namespace MStudio.App.ViewModels
                 return;
             }
 
-            var motion = _sessionService.CurrentMotion;
+            var motion = GetActiveMotionData();
             if (motion == null) return;
 
             int frame = _timelineService.CurrentFrame;
