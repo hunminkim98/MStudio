@@ -4,8 +4,8 @@ __pycache__/
 *.pyc
 
 # Project specific docs to ignore
-#SKILL.md
-#plan-template.md
+SKILL.md
+plan-template.md
 
 # Build artifacts
 bin/
