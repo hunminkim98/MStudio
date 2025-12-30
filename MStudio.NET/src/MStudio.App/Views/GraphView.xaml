@@ -4,61 +4,288 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:behaviors="clr-namespace:MStudio.App.Behaviors"
+             xmlns:converters="clr-namespace:MStudio.App.Converters"
+             xmlns:vm="clr-namespace:MStudio.App.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="100" d:DesignWidth="800">
+    
+    <UserControl.Resources>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:AddConverter x:Key="AddConverter"/>
+        
+        <!-- Grid Lines Template for reuse -->
+        <ControlTemplate x:Key="GridLinesTemplate">
+            <Grid Opacity="0.15" IsHitTestVisible="False">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Rectangle Grid.Row="0" VerticalAlignment="Bottom" Height="1" Fill="White" Opacity="0.7"/>
+                <Rectangle Grid.Row="1" VerticalAlignment="Bottom" Height="1" Fill="White"/>
+                <Rectangle Grid.Row="2" VerticalAlignment="Bottom" Height="1" Fill="White" Opacity="0.7"/>
+            </Grid>
+        </ControlTemplate>
+    </UserControl.Resources>
+    
     <Grid Background="#1A1A1A">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="40"/>  <!-- Y-axis labels -->
-            <ColumnDefinition Width="*"/>   <!-- Graph area -->
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="22"/>  <!-- Toolbar -->
+            <RowDefinition Height="*"/>   <!-- Graph area -->
+        </Grid.RowDefinitions>
+        
+        <!-- TOP TOOLBAR (outside graph area) -->
+        <Border Grid.Row="0" Background="#2A2A2A" BorderBrush="#3A3A3A" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Edit Mode Indicator -->
+                <Border Grid.Column="0" 
+                        Background="#2D5A27" CornerRadius="3" Padding="6,2" Margin="4,2"
+                        Visibility="{Binding IsEditModeEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="EDIT MODE" Foreground="#90EE90" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                </Border>
+                
+                <!-- Display Mode Dropdown (Motive Style) -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,2">
+                    <TextBlock Text="📊" FontSize="10" VerticalAlignment="Center" Foreground="{DynamicResource B_TextDim}" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding DisplayModes}"
+                              SelectedItem="{Binding SelectedDisplayMode}"
+                              Background="#333333"
+                              BorderThickness="1"
+                              BorderBrush="#444444"
+                              Foreground="{DynamicResource B_Text}"
+                              FontSize="10"
+                              Width="95"
+                              Padding="4,2"
+                              Focusable="False">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="Black"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <!-- Y-Axis Labels -->
-        <Grid Grid.Column="0" Margin="2,5">
-            <TextBlock Text="{Binding YAxisMax}" Foreground="{DynamicResource B_TextDim}" 
-                       FontSize="9" FontFamily="Consolas"
-                       VerticalAlignment="Top" HorizontalAlignment="Right"/>
-            <TextBlock Text="{Binding YAxisMid}" Foreground="{DynamicResource B_TextDim}" 
-                       FontSize="9" FontFamily="Consolas"
-                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
-            <TextBlock Text="{Binding YAxisMin}" Foreground="{DynamicResource B_TextDim}" 
-                       FontSize="9" FontFamily="Consolas"
-                       VerticalAlignment="Bottom" HorizontalAlignment="Right"/>
-        </Grid>
+        <!-- MAIN CONTENT AREA -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="40"/>  <!-- Y-axis labels -->
+                <ColumnDefinition Width="*"/>   <!-- Graph area -->
+            </Grid.ColumnDefinitions>
 
-        <!-- Graph Area with Behaviors (Clean Architecture: no code-behind needed) -->
-        <!-- Background="Transparent" is required for mouse hit testing on the Grid -->
-        <Grid Grid.Column="1" x:Name="GraphArea"
-              Background="Transparent"
-              behaviors:SizeObserverBehavior.IsEnabled="True"
-              behaviors:SizeObserverBehavior.ObservedWidth="{Binding ViewWidth, Mode=OneWayToSource}"
-              behaviors:SizeObserverBehavior.ObservedHeight="{Binding ViewHeight, Mode=OneWayToSource}"
-              behaviors:MouseSeekBehavior.IsEnabled="True"
-              behaviors:MouseSeekBehavior.SeekCommand="{Binding SeekCommand}">
-            <!-- Background Grid Lines -->
-            <Canvas Opacity="0.15">
-                <Line X1="0" Y1="25" X2="10000" Y2="25" Stroke="White" StrokeThickness="1" StrokeDashArray="4,4"/>
-                <Line X1="0" Y1="50" X2="10000" Y2="50" Stroke="White" StrokeThickness="1"/>
-                <Line X1="0" Y1="75" X2="10000" Y2="75" Stroke="White" StrokeThickness="1" StrokeDashArray="4,4"/>
-            </Canvas>
+            <!-- Y-Axis Labels -->
+            <Grid Grid.Column="0" Margin="2,5">
+                <TextBlock Text="{Binding YAxisMax}" Foreground="{DynamicResource B_TextDim}" 
+                           FontSize="9" FontFamily="Consolas"
+                           VerticalAlignment="Top" HorizontalAlignment="Right"/>
+                <TextBlock Text="{Binding YAxisMid}" Foreground="{DynamicResource B_TextDim}" 
+                           FontSize="9" FontFamily="Consolas"
+                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                <TextBlock Text="{Binding YAxisMin}" Foreground="{DynamicResource B_TextDim}" 
+                           FontSize="9" FontFamily="Consolas"
+                           VerticalAlignment="Bottom" HorizontalAlignment="Right"/>
+            </Grid>
 
-            <!-- Data Curves -->
-            <Polyline Points="{Binding PointsX}" Stroke="#E63946" StrokeThickness="1.2" Opacity="0.8"/>
-            <Polyline Points="{Binding PointsY}" Stroke="#F1FA8C" StrokeThickness="1.2" Opacity="0.8"/>
-            <Polyline Points="{Binding PointsZ}" Stroke="#00B4D8" StrokeThickness="1.2" Opacity="0.8"/>
+            <!-- Graph Area Container -->
+            <Grid Grid.Column="1">
+                
+                <!-- COMBINED/SINGLE MODE: Single graph with all/selected curves -->
+                <Grid x:Name="CombinedGraphArea"
+                      Background="Transparent"
+                      Visibility="{Binding IsCombinedOrSingleMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                      behaviors:SizeObserverBehavior.IsEnabled="True"
+                      behaviors:SizeObserverBehavior.ObservedWidth="{Binding ViewWidth, Mode=OneWayToSource}"
+                      behaviors:SizeObserverBehavior.ObservedHeight="{Binding ViewHeight, Mode=OneWayToSource}"
+                      behaviors:MouseSeekBehavior.IsEnabled="True"
+                      behaviors:MouseSeekBehavior.SeekCommand="{Binding SeekCommand}"
+                      behaviors:RangeSelectionBehavior.IsEnabled="{Binding IsEditModeEnabled}"
+                      behaviors:RangeSelectionBehavior.StartSelectionCommand="{Binding StartSelectionCommand}"
+                      behaviors:RangeSelectionBehavior.UpdateSelectionCommand="{Binding UpdateSelectionCommand}"
+                      behaviors:RangeSelectionBehavior.EndSelectionCommand="{Binding EndSelectionCommand}">
+                    
+                    <!-- Background Grid Lines -->
+                    <Control Template="{StaticResource GridLinesTemplate}"/>
 
-            <!-- Cursor -->
-            <Canvas IsHitTestVisible="False">
-                <Line X1="{Binding CursorPosition}" Y1="0" X2="{Binding CursorPosition}" Y2="{Binding ViewHeight}" 
-                      Stroke="{DynamicResource B_Accent}" StrokeThickness="2" Opacity="0.8"/>
-            </Canvas>
+                    <!-- Selection Highlight -->
+                    <Canvas IsHitTestVisible="False" Visibility="{Binding SelectionVisibility}">
+                        <Rectangle Canvas.Left="{Binding SelectionLeft}"
+                                   Width="{Binding SelectionWidth}"
+                                   Height="{Binding ViewHeight}"
+                                   Fill="#40808000"/>
+                        <Line X1="{Binding SelectionLeft}" Y1="0" 
+                              X2="{Binding SelectionLeft}" Y2="{Binding ViewHeight}"
+                              Stroke="#CCCC00" StrokeThickness="1"/>
+                        <Line Y1="0" Y2="{Binding ViewHeight}" Stroke="#CCCC00" StrokeThickness="1">
+                            <Line.X1>
+                                <MultiBinding Converter="{StaticResource AddConverter}">
+                                    <Binding Path="SelectionLeft"/>
+                                    <Binding Path="SelectionWidth"/>
+                                </MultiBinding>
+                            </Line.X1>
+                            <Line.X2>
+                                <MultiBinding Converter="{StaticResource AddConverter}">
+                                    <Binding Path="SelectionLeft"/>
+                                    <Binding Path="SelectionWidth"/>
+                                </MultiBinding>
+                            </Line.X2>
+                        </Line>
+                        <Border Canvas.Bottom="2" Background="#AA000000" CornerRadius="2" Padding="3,1">
+                            <Canvas.Left>
+                                <Binding Path="SelectionLeft"/>
+                            </Canvas.Left>
+                            <TextBlock Text="{Binding SelectionStartFrame}"
+                                       Foreground="#FFCC00" FontSize="9" FontFamily="Consolas"/>
+                        </Border>
+                        <Border Canvas.Bottom="2" Background="#AA000000" CornerRadius="2" Padding="3,1">
+                            <Canvas.Left>
+                                <MultiBinding Converter="{StaticResource AddConverter}">
+                                    <Binding Path="SelectionLeft"/>
+                                    <Binding Path="SelectionWidth"/>
+                                </MultiBinding>
+                            </Canvas.Left>
+                            <TextBlock Text="{Binding SelectionEndFrame}"
+                                       Foreground="#FFCC00" FontSize="9" FontFamily="Consolas"/>
+                        </Border>
+                    </Canvas>
 
-            <!-- Labels Overlay -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="5">
-                <TextBlock Text="X" Foreground="#E63946" FontSize="9" Margin="5,0"/>
-                <TextBlock Text="Y" Foreground="#F1FA8C" FontSize="9" Margin="5,0"/>
-                <TextBlock Text="Z" Foreground="#00B4D8" FontSize="9" Margin="5,0"/>
-            </StackPanel>
+                    <!-- Data Curves with Visibility binding -->
+                    <Polyline Points="{Binding PointsX}" Stroke="#E63946" StrokeThickness="1.2" Opacity="0.8"
+                              Visibility="{Binding ShowXCurve, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Polyline Points="{Binding PointsY}" Stroke="#F1FA8C" StrokeThickness="1.2" Opacity="0.8"
+                              Visibility="{Binding ShowYCurve, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Polyline Points="{Binding PointsZ}" Stroke="#00B4D8" StrokeThickness="1.2" Opacity="0.8"
+                              Visibility="{Binding ShowZCurve, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- Cursor -->
+                    <Canvas IsHitTestVisible="False">
+                        <Line X1="{Binding CursorPosition}" Y1="0" X2="{Binding CursorPosition}" Y2="{Binding ViewHeight}" 
+                              Stroke="{DynamicResource B_Accent}" StrokeThickness="2" Opacity="0.8"/>
+                    </Canvas>
+                    
+                    <!-- Axis Labels (bottom right) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="5">
+                        <TextBlock Text="X" Foreground="#E63946" FontSize="9" Margin="5,0"
+                                   Visibility="{Binding ShowXCurve, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <TextBlock Text="Y" Foreground="#F1FA8C" FontSize="9" Margin="5,0"
+                                   Visibility="{Binding ShowYCurve, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <TextBlock Text="Z" Foreground="#00B4D8" FontSize="9" Margin="5,0"
+                                   Visibility="{Binding ShowZCurve, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Grid>
+                
+                <!-- SEPARATION MODE: 3 columns for X, Y, Z -->
+                <Grid Visibility="{Binding IsSeparationMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                      behaviors:SizeObserverBehavior.IsEnabled="True"
+                      behaviors:SizeObserverBehavior.ObservedWidth="{Binding ViewWidth, Mode=OneWayToSource}"
+                      behaviors:SizeObserverBehavior.ObservedHeight="{Binding ViewHeight, Mode=OneWayToSource}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="1"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="1"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- X Column -->
+                    <Grid Grid.Column="0" Background="Transparent"
+                          behaviors:MouseSeekBehavior.IsEnabled="True"
+                          behaviors:MouseSeekBehavior.SeekCommand="{Binding SeekCommand}"
+                          behaviors:RangeSelectionBehavior.IsEnabled="{Binding IsEditModeEnabled}"
+                          behaviors:RangeSelectionBehavior.StartSelectionCommand="{Binding StartSelectionCommand}"
+                          behaviors:RangeSelectionBehavior.UpdateSelectionCommand="{Binding UpdateSelectionCommand}"
+                          behaviors:RangeSelectionBehavior.EndSelectionCommand="{Binding EndSelectionCommand}">
+                        <Control Template="{StaticResource GridLinesTemplate}"/>
+                        <!-- Selection Highlight -->
+                        <Canvas IsHitTestVisible="False" Visibility="{Binding SelectionVisibility}">
+                            <Rectangle Canvas.Left="{Binding SelectionLeft_Sep}"
+                                       Width="{Binding SelectionWidth_Sep}"
+                                       Height="{Binding ViewHeight}"
+                                       Fill="#40808000"/>
+                            <Line X1="{Binding SelectionLeft_Sep}" Y1="0" 
+                                  X2="{Binding SelectionLeft_Sep}" Y2="{Binding ViewHeight}"
+                                  Stroke="#CCCC00" StrokeThickness="1"/>
+                        </Canvas>
+                        <Polyline Points="{Binding PointsX_Sep}" Stroke="#E63946" StrokeThickness="1.2" Opacity="0.8"/>
+                        <Canvas IsHitTestVisible="False">
+                            <Line X1="{Binding CursorPosition_Sep}" Y1="0" X2="{Binding CursorPosition_Sep}" Y2="{Binding ViewHeight}" 
+                                  Stroke="{DynamicResource B_Accent}" StrokeThickness="2" Opacity="0.8"/>
+                        </Canvas>
+                        <TextBlock Text="X" Foreground="#E63946" FontSize="10" FontWeight="Bold"
+                                   VerticalAlignment="Top" HorizontalAlignment="Left" Margin="5"/>
+                    </Grid>
+                    
+                    <!-- Separator 1 -->
+                    <Rectangle Grid.Column="1" Fill="#333333"/>
+                    
+                    <!-- Y Column -->
+                    <Grid Grid.Column="2" Background="Transparent"
+                          behaviors:MouseSeekBehavior.IsEnabled="True"
+                          behaviors:MouseSeekBehavior.SeekCommand="{Binding SeekCommand}"
+                          behaviors:RangeSelectionBehavior.IsEnabled="{Binding IsEditModeEnabled}"
+                          behaviors:RangeSelectionBehavior.StartSelectionCommand="{Binding StartSelectionCommand}"
+                          behaviors:RangeSelectionBehavior.UpdateSelectionCommand="{Binding UpdateSelectionCommand}"
+                          behaviors:RangeSelectionBehavior.EndSelectionCommand="{Binding EndSelectionCommand}">
+                        <Control Template="{StaticResource GridLinesTemplate}"/>
+                        <!-- Selection Highlight -->
+                        <Canvas IsHitTestVisible="False" Visibility="{Binding SelectionVisibility}">
+                            <Rectangle Canvas.Left="{Binding SelectionLeft_Sep}"
+                                       Width="{Binding SelectionWidth_Sep}"
+                                       Height="{Binding ViewHeight}"
+                                       Fill="#40808000"/>
+                            <Line X1="{Binding SelectionLeft_Sep}" Y1="0" 
+                                  X2="{Binding SelectionLeft_Sep}" Y2="{Binding ViewHeight}"
+                                  Stroke="#CCCC00" StrokeThickness="1"/>
+                        </Canvas>
+                        <Polyline Points="{Binding PointsY_Sep}" Stroke="#F1FA8C" StrokeThickness="1.2" Opacity="0.8"/>
+                        <Canvas IsHitTestVisible="False">
+                            <Line X1="{Binding CursorPosition_Sep}" Y1="0" X2="{Binding CursorPosition_Sep}" Y2="{Binding ViewHeight}" 
+                                  Stroke="{DynamicResource B_Accent}" StrokeThickness="2" Opacity="0.8"/>
+                        </Canvas>
+                        <TextBlock Text="Y" Foreground="#F1FA8C" FontSize="10" FontWeight="Bold"
+                                   VerticalAlignment="Top" HorizontalAlignment="Left" Margin="5"/>
+                    </Grid>
+                    
+                    <!-- Separator 2 -->
+                    <Rectangle Grid.Column="3" Fill="#333333"/>
+                    
+                    <!-- Z Column -->
+                    <Grid Grid.Column="4" Background="Transparent"
+                          behaviors:MouseSeekBehavior.IsEnabled="True"
+                          behaviors:MouseSeekBehavior.SeekCommand="{Binding SeekCommand}"
+                          behaviors:RangeSelectionBehavior.IsEnabled="{Binding IsEditModeEnabled}"
+                          behaviors:RangeSelectionBehavior.StartSelectionCommand="{Binding StartSelectionCommand}"
+                          behaviors:RangeSelectionBehavior.UpdateSelectionCommand="{Binding UpdateSelectionCommand}"
+                          behaviors:RangeSelectionBehavior.EndSelectionCommand="{Binding EndSelectionCommand}">
+                        <Control Template="{StaticResource GridLinesTemplate}"/>
+                        <!-- Selection Highlight -->
+                        <Canvas IsHitTestVisible="False" Visibility="{Binding SelectionVisibility}">
+                            <Rectangle Canvas.Left="{Binding SelectionLeft_Sep}"
+                                       Width="{Binding SelectionWidth_Sep}"
+                                       Height="{Binding ViewHeight}"
+                                       Fill="#40808000"/>
+                            <Line X1="{Binding SelectionLeft_Sep}" Y1="0" 
+                                  X2="{Binding SelectionLeft_Sep}" Y2="{Binding ViewHeight}"
+                                  Stroke="#CCCC00" StrokeThickness="1"/>
+                        </Canvas>
+                        <Polyline Points="{Binding PointsZ_Sep}" Stroke="#00B4D8" StrokeThickness="1.2" Opacity="0.8"/>
+                        <Canvas IsHitTestVisible="False">
+                            <Line X1="{Binding CursorPosition_Sep}" Y1="0" X2="{Binding CursorPosition_Sep}" Y2="{Binding ViewHeight}" 
+                                  Stroke="{DynamicResource B_Accent}" StrokeThickness="2" Opacity="0.8"/>
+                        </Canvas>
+                        <TextBlock Text="Z" Foreground="#00B4D8" FontSize="10" FontWeight="Bold"
+                                   VerticalAlignment="Top" HorizontalAlignment="Left" Margin="5"/>
+                    </Grid>
+                </Grid>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>
-

@@ -56,4 +56,60 @@ namespace MStudio.App.Converters
             return false;
         }
     }
+
+    /// <summary>
+    /// Inverts a boolean value.
+    /// True -> False, False -> True
+    /// </summary>
+    [ValueConversion(typeof(bool), typeof(bool))]
+    public class InverseBoolConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+            {
+                return !boolValue;
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+            {
+                return !boolValue;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Adds multiple double values together.
+    /// Used for calculating positions in XAML.
+    /// </summary>
+    public class AddConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            double sum = 0;
+            foreach (var value in values)
+            {
+                if (value is double d)
+                {
+                    sum += d;
+                }
+                else if (value is int i)
+                {
+                    sum += i;
+                }
+            }
+            return sum;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
+
