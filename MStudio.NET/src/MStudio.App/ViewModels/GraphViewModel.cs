@@ -76,6 +76,22 @@ namespace MStudio.App.ViewModels
         [ObservableProperty]
         private string _yAxisMin = "";
 
+        // Separation Mode Y-axis labels
+        [ObservableProperty]
+        private string _yAxisMax_SepX = "";
+        [ObservableProperty]
+        private string _yAxisMin_SepX = "";
+
+        [ObservableProperty]
+        private string _yAxisMax_SepY = "";
+        [ObservableProperty]
+        private string _yAxisMin_SepY = "";
+
+        [ObservableProperty]
+        private string _yAxisMax_SepZ = "";
+        [ObservableProperty]
+        private string _yAxisMin_SepZ = "";
+
         // Graph Display Mode
         [ObservableProperty]
         private GraphDisplayMode _selectedDisplayMode = GraphDisplayMode.Combined;
@@ -134,6 +150,24 @@ namespace MStudio.App.ViewModels
         /// Whether the graph is in Combined or single-axis mode.
         /// </summary>
         public bool IsCombinedOrSingleMode => SelectedDisplayMode != GraphDisplayMode.Separation;
+
+        // Value Visibility
+        [ObservableProperty]
+        private bool _isValueVisible = false;
+
+        partial void OnIsValueVisibleChanged(bool value)
+        {
+            if (value) UpdateCursor();
+        }
+
+        [ObservableProperty]
+        private string _currentXValue = "";
+
+        [ObservableProperty]
+        private string _currentYValue = "";
+
+        [ObservableProperty]
+        private string _currentZValue = "";
 
         // Edit Mode properties
         [ObservableProperty]
@@ -520,18 +554,19 @@ namespace MStudio.App.ViewModels
             PointsZ_Sep = pz_sep;
 
             // Update Y-axis labels based on MAIN range (Combined/X/Y/Z)
-            // Note: In separation mode, these labels might refer to Combined logic or be ignored by user context.
-            // But we keep them updated for consistency.
-            float originalMax = mainMin + mainRange - (mainRange * 0.05f / 1.05f); // approximate reverse padding
-            float originalMin = mainMin + (mainRange * 0.05f / 1.05f);
-            
-            // To be precise, just use the values we derived padding from, but we lost them in switch.
-            // Let's just use mainMin/Range for display, it is accurate enough for the view.
-            // Actually, let's just display the padded range, or the data range? 
-            // Typically labels show the visible range limits.
             YAxisMax = (mainMin + mainRange).ToString("F2");
             YAxisMid = (mainMin + (mainRange / 2)).ToString("F2");
             YAxisMin = mainMin.ToString("F2");
+
+            // Update Separation Mode Y-axis labels
+            YAxisMax_SepX = (minX_p + rangeX).ToString("F2");
+            YAxisMin_SepX = minX_p.ToString("F2");
+
+            YAxisMax_SepY = (minY_p + rangeY).ToString("F2");
+            YAxisMin_SepY = minY_p.ToString("F2");
+
+            YAxisMax_SepZ = (minZ_p + rangeZ).ToString("F2");
+            YAxisMin_SepZ = minZ_p.ToString("F2");
 
             UpdateCursor();
         }
@@ -566,6 +601,7 @@ namespace MStudio.App.ViewModels
             {
                 CursorPosition = 0;
                 CursorPosition_Sep = 0;
+                CurrentXValue = ""; CurrentYValue = ""; CurrentZValue = "";
                 return;
             }
 
@@ -576,6 +612,27 @@ namespace MStudio.App.ViewModels
             double columnWidth = ViewWidth / 3.0;
             double stepX_Sep = columnWidth / Math.Max(1, motion.Markers.FrameCount - 1);
             CursorPosition_Sep = _timelineService.CurrentFrame * stepX_Sep;
+
+            // Update current values if visible
+            if (IsValueVisible && SelectedMarkerIndex >= 0 && SelectedMarkerIndex < motion.Markers.MarkerCount)
+            {
+                int frame = _timelineService.CurrentFrame;
+                if (frame >= 0 && frame < motion.Markers.FrameCount)
+                {
+                    var pos = motion.Markers.GetPosition(SelectedMarkerIndex, frame);
+                    
+                    if (!float.IsNaN(pos.X) && !(pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+                    {
+                        CurrentXValue = pos.X.ToString("F2");
+                        CurrentYValue = pos.Y.ToString("F2");
+                        CurrentZValue = pos.Z.ToString("F2");
+                    }
+                    else
+                    {
+                        CurrentXValue = ""; CurrentYValue = ""; CurrentZValue = "";
+                    }
+                }
+            }
         }
 
         /// <summary>

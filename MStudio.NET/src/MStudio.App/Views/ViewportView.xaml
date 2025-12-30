@@ -132,6 +132,13 @@
                 </Button>
             </StackPanel>
 
+            <!-- 2nd Row: Ruler -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <ToggleButton IsChecked="{Binding IsShowRuler}" Width="24" Height="24" ToolTip="Toggle Ruler" Focusable="False">
+                    <TextBlock Text="📏" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+            </StackPanel>
+
             <TextBlock Text="{Binding MarkerCountText, FallbackValue=''}" FontSize="9" Foreground="#666666" Margin="3,0,0,0"/>
             
             <!-- Skeleton Model Selector -->

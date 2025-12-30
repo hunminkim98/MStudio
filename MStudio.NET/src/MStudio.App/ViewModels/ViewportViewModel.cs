@@ -47,6 +47,9 @@ namespace MStudio.App.ViewModels
         private bool _isShowOriginAxis = true;
 
         [ObservableProperty]
+        private bool _isShowRuler = false;
+
+        [ObservableProperty]
         private bool _isShowTrajectory = true;
 
         partial void OnIsShowTrajectoryChanged(bool value)
@@ -67,6 +70,13 @@ namespace MStudio.App.ViewModels
             if (_originModel != null) _originModel.IsRendering = value;
         }
 
+        partial void OnIsShowRulerChanged(bool value)
+        {
+            if (_rulerLabelsModel != null) _rulerLabelsModel.IsRendering = value;
+            if (_rulerMarkersModelX != null) _rulerMarkersModelX.IsRendering = value;
+            if (_rulerMarkersModelOther != null) _rulerMarkersModelOther.IsRendering = value;
+        }
+
         partial void OnIsZUpChanged(bool value)
         {
             // Re-create Grid and Axis to match orientation
@@ -75,6 +85,7 @@ namespace MStudio.App.ViewModels
             
             CreateGrid();
             CreateAxis();
+            CreateRulerLabels();
 
             // Adjust Camera and Control orientation
             var up = value ? new Vector3D(0, 0, 1) : new Vector3D(0, 1, 0);
@@ -209,6 +220,11 @@ namespace MStudio.App.ViewModels
         // Marker Rendering
         private InstancingMeshGeometryModel3D? _markerModel;
         private HelixToolkit.SharpDX.MeshGeometry3D? _markerSphereGeometry;
+
+        // Ruler Labels and Markers
+        private BillboardTextModel3D? _rulerLabelsModel;
+        private InstancingMeshGeometryModel3D? _rulerMarkersModelX; // Red Axis
+        private InstancingMeshGeometryModel3D? _rulerMarkersModelOther; // Yellow or Blue Axis
 
         // Marker Names (billboard text)
         private BillboardTextModel3D? _markerNamesModel;
@@ -425,6 +441,7 @@ namespace MStudio.App.ViewModels
 
             CreateGrid();
             CreateAxis();
+            CreateRulerLabels();
             CreateTrajectoryAndBoneModels();
 
             _sessionService.PropertyChanged += (s, e) =>
@@ -663,7 +680,7 @@ namespace MStudio.App.ViewModels
         {
             var builder = new LineBuilder();
             int gridSize = 15;
-            float gridSpacing = 0.3f; // Slightly wider grid spacing
+            float gridSpacing = 0.5f; // 0.5m per grid line
 
             if (IsZUp)
             {
@@ -701,7 +718,7 @@ namespace MStudio.App.ViewModels
         private void CreateAxis()
         {
             _originModel = new GroupModel3D();
-            float axisLength = 0.3f; 
+            float axisLength = 0.5f; // Same as grid spacing
             float offset = 0.001f;   // Lift slightly above grid
 
             if (IsZUp)
@@ -743,6 +760,124 @@ namespace MStudio.App.ViewModels
 
             _originModel.IsRendering = IsShowOriginAxis;
             SceneElements.Add(_originModel);
+        }
+
+        private void CreateRulerLabels()
+        {
+            // 1. Clear existing models
+            if (_rulerLabelsModel != null) SceneElements.Remove(_rulerLabelsModel);
+            if (_rulerMarkersModelX != null) SceneElements.Remove(_rulerMarkersModelX);
+            if (_rulerMarkersModelOther != null) SceneElements.Remove(_rulerMarkersModelOther);
+
+            // 2. Initialize Models
+            _rulerLabelsModel = new BillboardTextModel3D
+            {
+                IsRendering = IsShowRuler
+            };
+
+            // Ruler Marker Geometry (Small Sphere)
+            var rulerMarkerBuilder = new MeshBuilder(true, false);
+            rulerMarkerBuilder.AddSphere(Vector3.Zero, 0.02f, 8, 8); // Radius 0.02m
+            var rulerMarkerGeometry = rulerMarkerBuilder.ToMeshGeometry3D();
+
+            // Model for X-Axis (Red)
+            _rulerMarkersModelX = new InstancingMeshGeometryModel3D
+            {
+                Geometry = rulerMarkerGeometry,
+                IsRendering = IsShowRuler,
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = new Color4(1, 0, 0, 1) } // Red
+            };
+
+            // Model for Other Axis (Yellow or Blue)
+            var otherColor = IsZUp ? new Color4(1, 1, 0, 1) : new Color4(0, 0, 1, 1); // Yellow or Blue
+            _rulerMarkersModelOther = new InstancingMeshGeometryModel3D
+            {
+                Geometry = rulerMarkerGeometry,
+                IsRendering = IsShowRuler,
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = otherColor }
+            };
+
+            // 3. Data Collection
+            var textInfo = new BillboardText3D();
+            var instancesX = new List<Matrix4x4>();
+            var instancesOther = new List<Matrix4x4>();
+
+            int gridSize = 15;
+            float gridSpacing = 0.5f;
+
+            float verticalOffset = 0.1f; // Lift text slightly off the grid
+            float labelScale = 0.4f;      // Text size
+
+            // Iterate 0.5m steps
+            for (int i = 1; i <= gridSize; i++)
+            {
+                float dist = i * gridSpacing;
+                string text = $"{dist:0.##}m";
+
+                if (IsZUp)
+                {
+                    // === Z-UP System (Ground is XY) ===
+                    
+                    // X-Axis (Red)
+                    var xPos = new Vector3(dist, 0, 0);
+                    // Label
+                    textInfo.TextInfo.Add(new TextInfo(text, xPos + new Vector3(0, 0, verticalOffset)) 
+                    { 
+                        Foreground = new Color4(1, 0, 0, 1), 
+                        Scale = labelScale 
+                    });
+                    // Marker (X)
+                    instancesX.Add(Matrix4x4.CreateTranslation(xPos));
+
+                    // Y-Axis (Yellow)
+                    var yPos = new Vector3(0, dist, 0);
+                    // Label
+                    textInfo.TextInfo.Add(new TextInfo(text, yPos + new Vector3(0, 0, verticalOffset)) 
+                    { 
+                        Foreground = new Color4(1, 1, 0, 1), 
+                        Scale = labelScale 
+                    });
+                    // Marker (Other)
+                    instancesOther.Add(Matrix4x4.CreateTranslation(yPos));
+                }
+                else
+                {
+                    // === Y-UP System (Ground is XZ) ===
+
+                    // X-Axis (Red)
+                    var xPos = new Vector3(dist, 0, 0);
+                    // Label
+                    textInfo.TextInfo.Add(new TextInfo(text, xPos + new Vector3(0, verticalOffset, 0)) 
+                    { 
+                        Foreground = new Color4(1, 0, 0, 1), 
+                        Scale = labelScale 
+                    });
+                    // Marker (X)
+                    instancesX.Add(Matrix4x4.CreateTranslation(xPos));
+
+                    // Z-Axis (Blue)
+                    var zPos = new Vector3(0, 0, dist);
+                    // Label
+                    textInfo.TextInfo.Add(new TextInfo(text, zPos + new Vector3(0, verticalOffset, 0)) 
+                    { 
+                        Foreground = new Color4(0, 0, 1, 1), 
+                        Scale = labelScale 
+                    });
+                    // Marker (Other)
+                    instancesOther.Add(Matrix4x4.CreateTranslation(zPos));
+                }
+            }
+            
+            // 4. Finalize Models
+            _rulerLabelsModel.Geometry = textInfo;
+            
+            _rulerMarkersModelX.Instances = instancesX.ToArray();
+            _rulerMarkersModelOther.Instances = instancesOther.ToArray();
+
+            // Add to Scene
+            SceneElements.Add(_rulerLabelsModel);
+            SceneElements.Add(_rulerMarkersModelX);
+            SceneElements.Add(_rulerMarkersModelOther);
         }
 
         private void OnMotionLoaded()
