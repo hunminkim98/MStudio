@@ -27,6 +27,7 @@ namespace MStudio.App.ViewModels
         private readonly IVisualizationSettingsService _visualizationSettings;
         private readonly ITrialService? _trialService;
         private readonly IFootLevelingService? _footLevelingService;
+        private readonly IAnalysisService _analysisService;
 
         // 3D Scene Elements
         public ObservableCollection<Element3D> SceneElements { get; } = new();
@@ -71,7 +72,67 @@ namespace MStudio.App.ViewModels
                 CalculateFootMinLevels();
                 UpdateFootContactVisuals();
             }
+            if (value)
+            {
+                CalculateFootMinLevels();
+                UpdateFootContactVisuals();
+            }
         }
+
+        // Analysis Mode
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(AnalysisResultText))]
+        private bool _isAnalysisMode = false;
+
+        partial void OnIsAnalysisModeChanged(bool value)
+        {
+            if (value)
+            {
+                // Enter analysis mode: clear standard selection
+                SelectedMarkerIndex = -1;
+                AnalysisSelectedMarkers.Clear();
+                AnalysisResultText = "Select markers to analyze...";
+                UpdateAnalysisOverlay();
+            }
+            else
+            {
+                // Exit analysis mode: clear analysis selection
+                AnalysisSelectedMarkers.Clear();
+                AnalysisResultText = "";
+                UpdateAnalysisOverlay();
+            }
+        }
+
+        public ObservableCollection<int> AnalysisSelectedMarkers { get; } = new();
+
+        [ObservableProperty]
+        private string _analysisResultText = "";
+
+        [ObservableProperty]
+        private AnalysisAxis _selectedAnalysisAxis = AnalysisAxis.Y; // Default to Y-axis (Vertical)
+
+        partial void OnSelectedAnalysisAxisChanged(AnalysisAxis value)
+        {
+            UpdateAnalysisOverlay();
+        }
+
+        [RelayCommand]
+        private void ToggleAnalysisMode()
+        {
+            IsAnalysisMode = !IsAnalysisMode;
+        }
+
+        // Analysis Visualization Models
+        private InstancingMeshGeometryModel3D? _analysisMarkersModel; // Orange (Target/Default)
+        private InstancingMeshGeometryModel3D? _analysisRefMarkersModel; // Cyan (Reference)
+        private BillboardTextModel3D? _analysisLabelModel;
+        private LineGeometryModel3D? _analysisLinesModel;
+        private MeshGeometryModel3D? _analysisArcMeshModel; // Filled Fan for Arc
+        
+        // Analysis Settings
+        private readonly Color4 _analysisMarkerColor = new Color4(1.0f, 0.4f, 0.0f, 1.0f); // Orange
+        private readonly Color4 _analysisRefMarkerColor = new Color4(0.0f, 1.0f, 1.0f, 1.0f); // Cyan
+        private readonly Color4 _analysisLineColor = new Color4(1.0f, 1.0f, 1.0f, 0.8f); // White lines
 
         private MeshGeometryModel3D? _leftFootContactModel;
         private MeshGeometryModel3D? _rightFootContactModel;
@@ -248,7 +309,13 @@ namespace MStudio.App.ViewModels
 
         // Marker Rendering
         private InstancingMeshGeometryModel3D? _markerModel;
+        private InstancingMeshGeometryModel3D? _selectedMarkerModel;
         private HelixToolkit.SharpDX.MeshGeometry3D? _markerSphereGeometry;
+        private HelixToolkit.SharpDX.MeshGeometry3D? _selectedMarkerSphereGeometry;
+        
+        // Selected marker highlight settings
+        private const float SelectedMarkerSizeMultiplier = 1.5f;
+        private static readonly Color4 SelectedMarkerHighlightColor = new Color4(1.0f, 0.85f, 0.2f, 1.0f); // Bright gold
 
         // Ruler Labels and Markers
         private BillboardTextModel3D? _rulerLabelsModel;
@@ -436,15 +503,17 @@ namespace MStudio.App.ViewModels
             System.Windows.Media.Color.FromArgb(128, SelectedMarkerColor.R, SelectedMarkerColor.G, SelectedMarkerColor.B);
 
         public MStudioViewportViewModel(
-            ISessionService sessionService, 
+            ISessionService sessionService,
             ITimelineService timelineService,
             IVisualizationSettingsService visualizationSettings,
+            IAnalysisService analysisService,
             ITrialService? trialService = null,
             IFootLevelingService? footLevelingService = null)
         {
             _sessionService = sessionService;
             _timelineService = timelineService;
             _visualizationSettings = visualizationSettings;
+            _analysisService = analysisService;
             _trialService = trialService;
             _footLevelingService = footLevelingService;
 
@@ -456,6 +525,11 @@ namespace MStudio.App.ViewModels
             var meshBuilder = new MeshBuilder(true, false);
             meshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerSize, 12, 12);
             _markerSphereGeometry = meshBuilder.ToMeshGeometry3D();
+            
+            // Create larger geometry for selected marker
+            var selectedMeshBuilder = new MeshBuilder(true, false);
+            selectedMeshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerSize * SelectedMarkerSizeMultiplier, 16, 16);
+            _selectedMarkerSphereGeometry = selectedMeshBuilder.ToMeshGeometry3D();
 
             Camera = new HelixToolkit.Wpf.SharpDX.PerspectiveCamera
             {
@@ -477,6 +551,7 @@ namespace MStudio.App.ViewModels
             CreateRulerLabels();
             CreateTrajectoryAndBoneModels();
             CreateFootContactModels();
+            CreateAnalysisModels();
 
             _sessionService.PropertyChanged += (s, e) =>
             {
@@ -677,10 +752,20 @@ namespace MStudio.App.ViewModels
             var meshBuilder = new MeshBuilder(true, false);
             meshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerSize, 12, 12);
             _markerSphereGeometry = meshBuilder.ToMeshGeometry3D();
+            
+            // Rebuild selected marker geometry (larger size)
+            var selectedMeshBuilder = new MeshBuilder(true, false);
+            selectedMeshBuilder.AddSphere(new Vector3(0, 0, 0), MarkerSize * SelectedMarkerSizeMultiplier, 16, 16);
+            _selectedMarkerSphereGeometry = selectedMeshBuilder.ToMeshGeometry3D();
 
             if (_markerModel != null)
             {
                 _markerModel.Geometry = _markerSphereGeometry;
+            }
+            
+            if (_selectedMarkerModel != null)
+            {
+                _selectedMarkerModel.Geometry = _selectedMarkerSphereGeometry;
             }
         }
 
@@ -698,16 +783,54 @@ namespace MStudio.App.ViewModels
             }
         }
 
+
+        
+        /// <summary>
+        /// Handles marker selection. In Analysis Mode, manages multi-selection.
+        /// </summary>
+        public void HandleMarkerSelection(int markerIndex)
+        {
+            if (markerIndex < 0) return;
+
+            if (IsAnalysisMode)
+            {
+                // Analysis Mode: Multi-select up to 3 markers
+                if (AnalysisSelectedMarkers.Contains(markerIndex))
+                {
+                    AnalysisSelectedMarkers.Remove(markerIndex);
+                }
+                else
+                {
+                    if (AnalysisSelectedMarkers.Count >= 4)
+                    {
+                        AnalysisSelectedMarkers.RemoveAt(0); // FIFO
+                    }
+                    AnalysisSelectedMarkers.Add(markerIndex);
+                }
+                UpdateAnalysisOverlay();
+            }
+            else
+            {
+                // Standard Mode: Single select
+                SelectedMarkerIndex = markerIndex;
+            }
+        }
+
         partial void OnSelectedMarkerIndexChanged(int value)
         {
-            UpdateTrajectories();
-
-            // Publish selection change message for other ViewModels to sync
-            WeakReferenceMessenger.Default.Send(new MarkerSelectionChangedMessage
+            // Only update standard visuals if NOT in analysis mode (or if clearing selection)
+            if (!IsAnalysisMode || value == -1)
             {
-                SelectedMarkerIndex = value,
-                Source = this
-            });
+                UpdateTrajectories();
+                UpdateSelectedMarkerHighlight();
+                
+                // Publish selection change message
+                WeakReferenceMessenger.Default.Send(new MarkerSelectionChangedMessage
+                {
+                    SelectedMarkerIndex = value,
+                    Source = this
+                });
+            }
         }
 
         private void CreateGrid()
@@ -917,6 +1040,7 @@ namespace MStudio.App.ViewModels
         private void OnMotionLoaded()
         {
             if (_markerModel != null) _markerModel.Instances = null;
+            if (_selectedMarkerModel != null) _selectedMarkerModel.Instances = null;
             if (_trajectoryModel != null) _trajectoryModel.Geometry = null;
             if (_boneModel != null) _boneModel.Geometry = null;
             
@@ -941,6 +1065,17 @@ namespace MStudio.App.ViewModels
                     Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = MarkerColor }
                 };
                 SceneElements.Add(_markerModel);
+            }
+            
+            // Ensure selected marker highlight model
+            if (_selectedMarkerModel == null)
+            {
+                _selectedMarkerModel = new InstancingMeshGeometryModel3D
+                {
+                    Geometry = _selectedMarkerSphereGeometry,
+                    Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = SelectedMarkerHighlightColor }
+                };
+                SceneElements.Add(_selectedMarkerModel);
             }
 
             // Ensure marker names billboard model
@@ -1031,10 +1166,13 @@ namespace MStudio.App.ViewModels
         public void UpdateMarkersAndVisuals()
         {
             UpdateMarkerPositions();
+            UpdateSelectedMarkerHighlight();
             UpdateMarkerNames();
             UpdateFootContactVisuals();
             UpdateTrajectories();
+            UpdateTrajectories();
             UpdateBones();
+            UpdateAnalysisOverlay(); // Update analysis every frame
         }
 
         /// <summary>
@@ -1203,6 +1341,72 @@ namespace MStudio.App.ViewModels
             }
 
             _markerNamesModel.Geometry = textInfo;
+        }
+
+        /// <summary>
+        /// Updates the selected marker highlight - renders a larger, brighter sphere at the selected marker position.
+        /// </summary>
+        public void UpdateSelectedMarkerHighlight()
+        {
+            if (_selectedMarkerModel == null)
+            {
+                return;
+            }
+
+            // No marker selected
+            if (SelectedMarkerIndex < 0)
+            {
+                _selectedMarkerModel.Instances = null;
+                return;
+            }
+
+            // Check if we have any data to render
+            MotionData? motion = null;
+            
+            if (_trialService?.HasSelectedTrials == true)
+            {
+                // Use first selected trial for highlight
+                motion = _trialService.SelectedTrials[0].MotionData;
+            }
+            else if (_trialService == null)
+            {
+                // Fallback to session service
+                motion = _sessionService.CurrentMotion;
+            }
+            
+            if (motion == null || SelectedMarkerIndex >= motion.Markers.MarkerCount)
+            {
+                _selectedMarkerModel.Instances = null;
+                return;
+            }
+
+            int frame = _timelineService.CurrentFrame;
+            
+            // Frame freeze for trials shorter than current frame
+            if (frame >= motion.Markers.FrameCount)
+            {
+                frame = motion.Markers.FrameCount - 1;
+            }
+            if (frame < 0)
+            {
+                _selectedMarkerModel.Instances = null;
+                return;
+            }
+
+            var pos = motion.Markers.GetPosition(SelectedMarkerIndex, frame);
+            
+            // Skip invalid marker position
+            if (float.IsNaN(pos.X) || (pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+            {
+                _selectedMarkerModel.Instances = null;
+                return;
+            }
+
+            // Render single instance at the selected marker position
+            _selectedMarkerModel.Instances = new[]
+            {
+                Matrix4x4.CreateTranslation(pos.X, pos.Y, pos.Z)
+            };
         }
 
         public void UpdateTrajectories()
@@ -1416,7 +1620,7 @@ namespace MStudio.App.ViewModels
 
             if (bestMarkerIndex >= 0)
             {
-                SelectedMarkerIndex = bestMarkerIndex;
+                HandleMarkerSelection(bestMarkerIndex);
                 return true;
             }
 
@@ -1608,7 +1812,423 @@ namespace MStudio.App.ViewModels
                 if (_rightFootContactModel != null) _rightFootContactModel.IsRendering = false;
             }
         }
+        
+        private void CreateAnalysisModels()
+        {
+            // Analysis Markers (Orange Highlights)
+            var sphereBuilder = new MeshBuilder(true, false);
+            sphereBuilder.AddSphere(Vector3.Zero, MarkerSize * 1.5f, 16, 16);
+            
+            _analysisMarkersModel = new InstancingMeshGeometryModel3D
+            {
+                Geometry = sphereBuilder.ToMeshGeometry3D(),
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = _analysisMarkerColor },
+                IsRendering = false
+            };
+            SceneElements.Add(_analysisMarkersModel);
+
+            _analysisRefMarkersModel = new InstancingMeshGeometryModel3D
+            {
+                Geometry = sphereBuilder.ToMeshGeometry3D(),
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = _analysisRefMarkerColor },
+                IsRendering = false
+            };
+            SceneElements.Add(_analysisRefMarkersModel);
+
+            // Analysis Lines/Arcs
+            _analysisLinesModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromScRgb(0.3f, 1.0f, 1.0f, 0.0f), // Yellow with 0.3 Alpha
+                Thickness = 2.0,
+                IsRendering = false
+            };
+            SceneElements.Add(_analysisLinesModel);
+
+            // Analysis Arc Mesh (Filled)
+            _analysisArcMeshModel = new MeshGeometryModel3D
+            {
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
+                { 
+                    DiffuseColor = new Color4(1.0f, 1.0f, 0.0f, 0.3f) // Yellow with 0.3 Alpha (same as lines) 
+                },
+                IsRendering = false,
+                IsTransparent = true,
+                CullMode = SharpDX.Direct3D11.CullMode.Back
+            };
+            SceneElements.Add(_analysisArcMeshModel);
+
+            // Analysis Labels
+            _analysisLabelModel = new BillboardTextModel3D
+            {
+                IsRendering = false
+            };
+            SceneElements.Add(_analysisLabelModel);
+        }
+
+        private void UpdateAnalysisOverlay()
+        {
+            if (!IsAnalysisMode)
+            {
+                if (_analysisMarkersModel != null) _analysisMarkersModel.IsRendering = false;
+                if (_analysisRefMarkersModel != null) _analysisRefMarkersModel.IsRendering = false;
+                if (_analysisLinesModel != null) _analysisLinesModel.IsRendering = false;
+                if (_analysisArcMeshModel != null) _analysisArcMeshModel.IsRendering = false;
+                if (_analysisLabelModel != null) _analysisLabelModel.IsRendering = false;
+                return;
+            }
+
+            var motion = _sessionService.CurrentMotion;
+            if (motion == null) return;
+
+            int frame = _timelineService.CurrentFrame;
+            float fps = motion.Metadata.FrameRate;
+            if (fps <= 0) fps = 30.0f; // Fallback
+
+            // 1. Update Selected Markers Highlight
+            if (_analysisMarkersModel != null && _analysisRefMarkersModel != null)
+            {
+                var instancesTrg = new List<Matrix4x4>();
+                var instancesRef = new List<Matrix4x4>();
+
+                int totalSelected = AnalysisSelectedMarkers.Count;
+                
+                for (int i = 0; i < totalSelected; i++)
+                {
+                    int idx = AnalysisSelectedMarkers[i];
+                    var pos = motion.Markers.GetPosition(idx, frame);
+                    if (!float.IsNaN(pos.X))
+                    {
+                        var mat = Matrix4x4.CreateTranslation(pos.X, pos.Y, pos.Z);
+
+                        // If 4 markers selected (Twist Mode), split 0,1 (Ref) and 2,3 (Target)
+                        if (totalSelected == 4)
+                        {
+                            if (i < 2) instancesRef.Add(mat);
+                            else instancesTrg.Add(mat);
+                        }
+                        else
+                        {
+                            // Otherwise all Orange (Target color)
+                            instancesTrg.Add(mat);
+                        }
+                    }
+                }
+                
+                _analysisMarkersModel.Instances = instancesTrg;
+                _analysisMarkersModel.IsRendering = instancesTrg.Count > 0;
+
+                _analysisRefMarkersModel.Instances = instancesRef;
+                _analysisRefMarkersModel.IsRendering = instancesRef.Count > 0;
+            }
+
+            // 2. Perform Analysis & Update Visuals
+            var lineBuilder = new LineBuilder();
+            var meshBuilder = new MeshBuilder(false, false); // For Arc Fill
+            var textInfo = new BillboardText3D();
+
+            int count = AnalysisSelectedMarkers.Count;
+            string resultText = "";
+
+            if (count == 1)
+            {
+                // Velocity & Acceleration
+                int idx = AnalysisSelectedMarkers[0];
+                var posPrev = frame > 0 ? motion.Markers.GetPosition(idx, frame - 1) : new Vector3(float.NaN);
+                var posCurr = motion.Markers.GetPosition(idx, frame);
+                var posNext = frame < motion.Markers.FrameCount - 1 ? motion.Markers.GetPosition(idx, frame + 1) : new Vector3(float.NaN);
+
+                if (!float.IsNaN(posCurr.X))
+                {
+                    // Velocity
+                    var vel = _analysisService.CalculateVelocity(posPrev, posCurr, posNext, fps);
+                    
+                    // Acceleration (need adjacent velocities)
+                    Vector3? acc = null;
+                    if (frame > 1 && frame < motion.Markers.FrameCount - 2)
+                    {
+                        var posPrev2 = motion.Markers.GetPosition(idx, frame - 2);
+                        var posNext2 = motion.Markers.GetPosition(idx, frame + 2);
+                        
+                        var velPrev = _analysisService.CalculateVelocity(posPrev2, posPrev, posCurr, fps);
+                        var velNext = _analysisService.CalculateVelocity(posCurr, posNext, posNext2, fps);
+                        
+                        if (velPrev.HasValue && velNext.HasValue)
+                        {
+                            acc = _analysisService.CalculateAcceleration(velPrev.Value, velNext.Value, fps);
+                        }
+                    }
+
+                    resultText = $"Marker: {motion.Metadata.MarkerNames[idx]}\n";
+                    if (vel.HasValue) resultText += $"Vel: {vel.Value.Length():F3} m/s\n";
+                    if (acc.HasValue) resultText += $"Acc: {acc.Value.Length():F3} m/s²";
+
+                    // Visualize Velocity Vector? (Optional: draw arrow)
+                    if (vel.HasValue)
+                    {
+                        lineBuilder.AddLine(posCurr, posCurr + Vector3.Normalize(vel.Value) * 0.2f); // 20cm arrow base
+                    }
+                }
+            }
+            else if (count == 2)
+            {
+                // Absolute Angle
+                int idx1 = AnalysisSelectedMarkers[0];
+                int idx2 = AnalysisSelectedMarkers[1];
+                var p1 = motion.Markers.GetPosition(idx1, frame);
+                var p2 = motion.Markers.GetPosition(idx2, frame);
+
+                if (!float.IsNaN(p1.X) && !float.IsNaN(p2.X))
+                {
+                    lineBuilder.AddLine(p1, p2);
+                    
+                    float? angle = _analysisService.CalculateAbsoluteAngle(p1, p2, SelectedAnalysisAxis);
+                    
+                    if (angle.HasValue)
+                    {
+                        resultText = $"Absolute Angle ({SelectedAnalysisAxis}-axis)\n{angle.Value:F1}°";
+                        
+                        // Draw Axis Ref
+                        Vector3 axisDir = SelectedAnalysisAxis switch
+                        {
+                            AnalysisAxis.X => Vector3.UnitX,
+                            AnalysisAxis.Y => Vector3.UnitY,
+                            AnalysisAxis.Z => Vector3.UnitZ, // Z-up handled by logic
+                            _ => Vector3.UnitY
+                        };
+                        // Visual ref line
+                        lineBuilder.AddLine(p1, p1 + axisDir * 0.3f);
+
+                        // Draw Arc for Absolute Angle (Filled)
+                        var pVectorEnd = p1 + Vector3.Normalize(p2 - p1) * 0.3f;
+                        var pAxisEnd = p1 + axisDir * 0.3f;
+                        var arcPoints = _analysisService.CalculateArcPoints(p1, pVectorEnd, pAxisEnd, 0.1f);
+                        
+                        if (arcPoints != null && arcPoints.Count > 1)
+                        {
+                            // Outline
+                            for(int i=0; i<arcPoints.Count-1; i++)
+                            {
+                                lineBuilder.AddLine(arcPoints[i], arcPoints[i+1]);
+                            }
+                            // Fill (Triangle Fan)
+                            for(int i=0; i<arcPoints.Count-1; i++)
+                            {
+                                meshBuilder.AddTriangle(p1, arcPoints[i], arcPoints[i+1]); // Vertex, P[i], P[i+1]
+                                meshBuilder.AddTriangle(p1, arcPoints[i+1], arcPoints[i]); // Backface
+                            }
+                        }
+                        
+                        // Label mid-point
+                        textInfo.TextInfo.Add(new TextInfo($"{angle.Value:F1}°", (p1 + p2) * 0.5f + new Vector3(0, 0.05f, 0)) 
+                        { 
+                            Foreground = Color4.White, Scale = 0.5f 
+                        });
+                    }
+                }
+            }
+            else if (count == 3)
+            {
+                // Relative Angle
+                int idx1 = AnalysisSelectedMarkers[0];
+                int vertexIdx = AnalysisSelectedMarkers[1]; // Middle selected is vertex
+                int idx3 = AnalysisSelectedMarkers[2];
+
+                var p1 = motion.Markers.GetPosition(idx1, frame);
+                var vertex = motion.Markers.GetPosition(vertexIdx, frame);
+                var p3 = motion.Markers.GetPosition(idx3, frame);
+
+                if (!float.IsNaN(p1.X) && !float.IsNaN(vertex.X) && !float.IsNaN(p3.X))
+                {
+                    lineBuilder.AddLine(p1, vertex);
+                    lineBuilder.AddLine(vertex, p3);
+
+                    float? angle = _analysisService.CalculateRelativeAngle(p1, vertex, p3);
+                    
+                    if (angle.HasValue)
+                    {
+                        resultText = $"Relative Angle\n{angle.Value:F1}°";
+
+                        // Draw Arc (Filled)
+                        var arcPoints = _analysisService.CalculateArcPoints(vertex, p1, p3, 0.1f);
+                        if (arcPoints != null && arcPoints.Count > 1)
+                        {
+                            // Outline
+                            for(int i=0; i<arcPoints.Count-1; i++)
+                            {
+                                lineBuilder.AddLine(arcPoints[i], arcPoints[i+1]);
+                            }
+                            // Fill (Triangle Fan)
+                            for(int i=0; i<arcPoints.Count-1; i++)
+                            {
+                                meshBuilder.AddTriangle(vertex, arcPoints[i], arcPoints[i+1]); // Center, P[i], P[i+1]
+                                meshBuilder.AddTriangle(vertex, arcPoints[i+1], arcPoints[i]); // Backface
+                            }
+                        }
+                        
+                        // Label at vertex
+                        textInfo.TextInfo.Add(new TextInfo($"{angle.Value:F1}°", vertex + new Vector3(0, 0.05f, 0)) 
+                        { 
+                            Foreground = Color4.White, Scale = 0.5f 
+                        });
+                    }
+                }
+            }
+            else if (count == 4)
+            {
+                // Twist Analysis (Transverse Plane Rotation)
+                // [0-1]: Reference Vector (e.g., Pelvis)
+                // [2-3]: Target Vector (e.g., Shoulders)
+                
+                int idx1 = AnalysisSelectedMarkers[0];
+                int idx2 = AnalysisSelectedMarkers[1];
+                int idx3 = AnalysisSelectedMarkers[2];
+                int idx4 = AnalysisSelectedMarkers[3];
+
+                var p1 = motion.Markers.GetPosition(idx1, frame);
+                var p2 = motion.Markers.GetPosition(idx2, frame);
+                var p3 = motion.Markers.GetPosition(idx3, frame);
+                var p4 = motion.Markers.GetPosition(idx4, frame);
+
+                if (!float.IsNaN(p1.X) && !float.IsNaN(p2.X) && !float.IsNaN(p3.X) && !float.IsNaN(p4.X))
+                {
+                    // Draw Vector Lines
+                    lineBuilder.AddLine(p1, p2);
+                    lineBuilder.AddLine(p3, p4);
+
+                    // Calculate Angle
+                    float? twistAngle = _analysisService.CalculateTwistAngle(p1, p2, p3, p4);
+
+                    if (twistAngle.HasValue)
+                    {
+                        resultText = $"Twist Angle\n{twistAngle.Value:+0.0;-0.0}°";
+
+                        // --- Visualization: Holographic Compass ---
+                        
+                        // Colors
+                        var colorRef = new Color4(0.0f, 1.0f, 1.0f, 1.0f); // Cyan
+                        var colorTrg = new Color4(1.0f, 0.5f, 0.0f, 1.0f); // Orange
+                        var colorArc = new Color4(1.0f, 1.0f, 0.0f, 0.4f); // Yellow Ribbon
+
+                        // Center of the visualization (Average Position)
+                        Vector3 center = (p1 + p2 + p3 + p4) / 4.0f;
+                        float radius = 0.4f;
+                        float thickness = 0.05f; 
+
+                        // 1. Floating Disc Ring (Visual Base)
+                        int circleSegments = 64;
+                        for (int i = 0; i < circleSegments; i++)
+                        {
+                            float angle = i * (2 * MathF.PI) / circleSegments;
+                            float nextAngle = (i + 1) * (2 * MathF.PI) / circleSegments;
+                            
+                            Vector3 c1 = center + new Vector3(MathF.Cos(angle), 0, MathF.Sin(angle)) * radius;
+                            Vector3 c2 = center + new Vector3(MathF.Cos(nextAngle), 0, MathF.Sin(nextAngle)) * radius;
+                            
+                            lineBuilder.AddLine(c1, c2); 
+                        }
+
+                        // 2. Projected Vectors (Centered on Disc)
+                        // Project vectors to flat plane and normalize
+                        Vector3 vRef = p2 - p1; vRef.Y = 0; 
+                        if (vRef.LengthSquared() > 0) vRef = Vector3.Normalize(vRef);
+                        
+                        Vector3 vTar = p4 - p3; vTar.Y = 0; 
+                        if (vTar.LengthSquared() > 0) vTar = Vector3.Normalize(vTar);
+
+                        Vector3 centerRefEnd = center + vRef * radius;
+                        Vector3 centerTarEnd = center + vTar * radius;
+
+                        // Draw Arrows on Disc
+                        // Ref Arrow (Cyan)
+                        lineBuilder.AddLine(center, centerRefEnd);
+                        // Arrowhead logic could be added here, stick to lines for now or use specific geometry if needed
+                        // Just drawing a thicker recognizable line structure:
+                        lineBuilder.AddLine(centerRefEnd, centerRefEnd - vRef * 0.05f + Vector3.Cross(vRef, Vector3.UnitY) * 0.02f);
+                        lineBuilder.AddLine(centerRefEnd, centerRefEnd - vRef * 0.05f - Vector3.Cross(vRef, Vector3.UnitY) * 0.02f);
+
+                        // Target Arrow (Orange)
+                        lineBuilder.AddLine(center, centerTarEnd);
+                        lineBuilder.AddLine(centerTarEnd, centerTarEnd - vTar * 0.05f + Vector3.Cross(vTar, Vector3.UnitY) * 0.02f);
+                        lineBuilder.AddLine(centerTarEnd, centerTarEnd - vTar * 0.05f - Vector3.Cross(vTar, Vector3.UnitY) * 0.02f);
+
+                        // 3. Drop Lines (Vertical Projection Indicators)
+                        // Show where the vectors come from
+                        // Make these distinct colors
+                        lineBuilder.AddLine(p1, p2); // Source Body Line
+                        lineBuilder.AddLine(p3, p4); // Target Body Line
+                        
+                        // Dotted projection effect (simulated by segments? or just thin lines)
+                        // We'll just use thin lines from the actual markers to the disc plane
+                        float discY = center.Y;
+                        lineBuilder.AddLine(p1, new Vector3(p1.X, discY, p1.Z));
+                        lineBuilder.AddLine(p2, new Vector3(p2.X, discY, p2.Z));
+                        lineBuilder.AddLine(p3, new Vector3(p3.X, discY, p3.Z));
+                        lineBuilder.AddLine(p4, new Vector3(p4.X, discY, p4.Z));
+
+                        // 4. Ribbon Arc (Filled 3D Sector)
+                        float startAng = MathF.Atan2(vRef.Z, vRef.X);
+                        float sweepAng = twistAngle.Value * (MathF.PI / 180.0f);
+                        int segments = 30;
+
+                        var topCenter = center + Vector3.UnitY * (thickness / 2);
+                        var botCenter = center - Vector3.UnitY * (thickness / 2);
+
+                        for (int i = 0; i < segments; i++)
+                        {
+                            float ratio = (float)i / segments;
+                            float nextRatio = (float)(i + 1) / segments;
+
+                            float currentRad = startAng + sweepAng * ratio;
+                            float nextRad = startAng + sweepAng * nextRatio;
+
+                            Vector3 dir1 = new Vector3(MathF.Cos(currentRad), 0, MathF.Sin(currentRad));
+                            Vector3 dir2 = new Vector3(MathF.Cos(nextRad), 0, MathF.Sin(nextRad));
+
+                            Vector3 pTop1 = topCenter + dir1 * radius;
+                            Vector3 pTop2 = topCenter + dir2 * radius;
+                            Vector3 pBot1 = botCenter + dir1 * radius;
+                            Vector3 pBot2 = botCenter + dir2 * radius;
+
+                            // Fill
+                            meshBuilder.AddTriangle(topCenter, pTop1, pTop2);
+                            meshBuilder.AddTriangle(topCenter, pTop2, pTop1);
+                            meshBuilder.AddTriangle(botCenter, pBot2, pBot1); 
+                            meshBuilder.AddTriangle(botCenter, pBot1, pBot2);
+                            meshBuilder.AddTriangle(pTop1, pBot1, pBot2);
+                            meshBuilder.AddTriangle(pBot2, pTop2, pTop1);
+                            meshBuilder.AddTriangle(pTop1, pBot2, pBot1);
+                            meshBuilder.AddTriangle(pBot2, pTop1, pTop2);
+                        }
+
+                        // Labels
+                        textInfo.TextInfo.Add(new TextInfo("Ref", centerRefEnd + Vector3.UnitY * 0.05f) { Foreground = colorRef, Scale = 0.4f });
+                        textInfo.TextInfo.Add(new TextInfo("Trg", centerTarEnd + Vector3.UnitY * 0.05f) { Foreground = colorTrg, Scale = 0.4f });
+                        textInfo.TextInfo.Add(new TextInfo($"{twistAngle.Value:+0.0;-0.0}°", center + Vector3.UnitY * (thickness + 0.1f)) 
+                        { 
+                            Foreground = Color4.White, Scale = 0.6f 
+                        });
+                    }
+                }
+            }
+
+            AnalysisResultText = string.IsNullOrEmpty(resultText) ? "Select markers..." : resultText;
+
+            // Update Geometry
+            if (_analysisLinesModel != null)
+            {
+                _analysisLinesModel.Geometry = lineBuilder.ToLineGeometry3D();
+                _analysisLinesModel.IsRendering = true;
+            }
+            if (_analysisArcMeshModel != null)
+            {
+                _analysisArcMeshModel.Geometry = meshBuilder.ToMeshGeometry3D();
+                _analysisArcMeshModel.IsRendering = true;
+            }
+            if (_analysisLabelModel != null)
+            {
+                _analysisLabelModel.Geometry = textInfo;
+                _analysisLabelModel.IsRendering = true;
+            }
+        }
     }
 }
-
-

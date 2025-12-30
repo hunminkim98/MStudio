@@ -52,6 +52,8 @@ namespace MStudio.App
             services.AddSingleton<IVisualizationSettingsService, VisualizationSettingsService>();
             services.AddSingleton<IFootLevelingService, FootLevelingService>();
             
+            services.AddSingleton<IAnalysisService, AnalysisService>();
+            
             // UI Services (Clean Architecture: platform-specific implementations in App layer)
             services.AddSingleton<IDialogService, DialogService>();
             
@@ -64,6 +66,7 @@ namespace MStudio.App
                     sp.GetRequiredService<ISessionService>(),
                     sp.GetRequiredService<ITimelineService>(),
                     sp.GetRequiredService<IVisualizationSettingsService>(),
+                    sp.GetRequiredService<IAnalysisService>(),
                     sp.GetRequiredService<ITrialService>(),
                     sp.GetRequiredService<IFootLevelingService>()));
             services.AddSingleton<GraphViewModel>();

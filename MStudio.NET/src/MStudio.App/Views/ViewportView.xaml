@@ -132,15 +132,43 @@
                 </Button>
             </StackPanel>
 
-            <!-- 2nd Row: Ruler & Foot Contact -->
+            <!-- 2nd Row: Ruler, Foot Contact, Analysis -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                 <ToggleButton IsChecked="{Binding IsShowRuler}" Width="24" Height="24" ToolTip="Toggle Ruler" Focusable="False" Margin="0,0,2,0">
                     <TextBlock Text="📏" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </ToggleButton>
-                <ToggleButton IsChecked="{Binding IsShowFootContact}" Width="24" Height="24" ToolTip="Toggle Foot Contact Visualization" Focusable="False">
+                <ToggleButton IsChecked="{Binding IsShowFootContact}" Width="24" Height="24" ToolTip="Toggle Foot Contact Visualization" Focusable="False" Margin="0,0,2,0">
                     <TextBlock Text="🐾" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </ToggleButton>
+                <!-- Analysis Mode Toggle -->
+                <ToggleButton IsChecked="{Binding IsAnalysisMode}" Width="24" Height="24" ToolTip="Analysis Mode (Select Markers)" Focusable="False">
+                    <TextBlock Text="🔍" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
             </StackPanel>
+            
+            <!-- Analysis Result Overlay -->
+            <Border Visibility="{Binding IsAnalysisMode, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Background="#CC000000" CornerRadius="4" Padding="6" Margin="0,4,0,0" 
+                    HorizontalAlignment="Left" MinWidth="120">
+                <StackPanel>
+                    <TextBlock Text="ANALYSIS" FontSize="9" FontWeight="Bold" Foreground="#FF8800" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding AnalysisResultText}" FontSize="10" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    
+                    <!-- Axis Selector (visible conditionally could be done via VM logic or triggers, using simple visibility for now, relying on user) -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Axis:" Foreground="#AAAAAA" FontSize="9" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox SelectedItem="{Binding SelectedAnalysisAxis}" FontSize="9" Width="40" Height="16">
+                            <ComboBox.ItemsSource>
+                                <x:Array Type="{x:Type MStudio:AnalysisAxis}" xmlns:MStudio="clr-namespace:MStudio.Core.Interfaces;assembly=MStudio.Core">
+                                    <MStudio:AnalysisAxis>X</MStudio:AnalysisAxis>
+                                    <MStudio:AnalysisAxis>Y</MStudio:AnalysisAxis>
+                                    <MStudio:AnalysisAxis>Z</MStudio:AnalysisAxis>
+                                </x:Array>
+                            </ComboBox.ItemsSource>
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
             <TextBlock Text="{Binding MarkerCountText, FallbackValue=''}" FontSize="9" Foreground="#666666" Margin="3,0,0,0"/>
             
