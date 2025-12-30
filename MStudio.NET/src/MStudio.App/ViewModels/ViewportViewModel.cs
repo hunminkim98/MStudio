@@ -57,6 +57,31 @@ namespace MStudio.App.ViewModels
             if (_trajectoryModel != null) _trajectoryModel.IsRendering = value;
         }
 
+        // Foot Contact Visualization
+        [ObservableProperty]
+        private bool _isShowFootContact = false;
+
+        partial void OnIsShowFootContactChanged(bool value)
+        {
+            if (_leftFootContactModel != null) _leftFootContactModel.IsRendering = value && _isLeftFootContacting;
+            if (_rightFootContactModel != null) _rightFootContactModel.IsRendering = value && _isRightFootContacting;
+            
+            if (value)
+            {
+                CalculateFootMinLevels();
+                UpdateFootContactVisuals();
+            }
+        }
+
+        private MeshGeometryModel3D? _leftFootContactModel;
+        private MeshGeometryModel3D? _rightFootContactModel;
+        
+        // Ground levels (Lowest Average Y)
+        private float _minLeftFootY = float.MaxValue;
+        private float _minRightFootY = float.MaxValue;
+        private bool _isLeftFootContacting = false;
+        private bool _isRightFootContacting = false;
+
         [ObservableProperty]
         private Vector3D _modelUpDirection = new Vector3D(0, 1, 0);
 
@@ -214,6 +239,10 @@ namespace MStudio.App.ViewModels
             }
 
             IsFootLevelingApplied = _footLevelingService.IsApplied;
+            
+            // Recalculate Min Levels as Y values changed
+            CalculateFootMinLevels();
+            
             UpdateMarkersAndVisuals();
         }
 
@@ -349,6 +378,10 @@ namespace MStudio.App.ViewModels
 
         partial void OnSelectedMarkerColorChanged(System.Windows.Media.Color value)
         {
+            if (_trajectoryModel != null)
+            {
+                _trajectoryModel.Color = TrajectoryColor;
+            }
             UpdateTrajectories();
         }
 
@@ -443,6 +476,7 @@ namespace MStudio.App.ViewModels
             CreateAxis();
             CreateRulerLabels();
             CreateTrajectoryAndBoneModels();
+            CreateFootContactModels();
 
             _sessionService.PropertyChanged += (s, e) =>
             {
@@ -718,7 +752,7 @@ namespace MStudio.App.ViewModels
         private void CreateAxis()
         {
             _originModel = new GroupModel3D();
-            float axisLength = 0.5f; // Same as grid spacing
+            float axisLength = 0.3f; // Same as grid spacing
             float offset = 0.001f;   // Lift slightly above grid
 
             if (IsZUp)
@@ -920,6 +954,7 @@ namespace MStudio.App.ViewModels
             }
 
             AutoGenerateBones(motion);
+            CalculateFootMinLevels();
             UpdateMarkersAndVisuals();
 
             MarkerCountText = $"Markers: {motion.Markers.MarkerCount}";
@@ -997,6 +1032,7 @@ namespace MStudio.App.ViewModels
         {
             UpdateMarkerPositions();
             UpdateMarkerNames();
+            UpdateFootContactVisuals();
             UpdateTrajectories();
             UpdateBones();
         }
@@ -1092,25 +1128,6 @@ namespace MStudio.App.ViewModels
             }
             
             _markerModel.Instances = instances;
-            
-            // Update marker material with first trial's color (for now)
-            // TODO: Support per-instance colors when HelixToolkit supports it
-            if (selectedTrials.Count == 1)
-            {
-                var color = GetTrialColor(selectedTrials[0].ColorIndex);
-                _markerModel.Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
-                { 
-                    DiffuseColor = new Color4(color.R, color.G, color.B, MarkerOpacity) 
-                };
-            }
-            else
-            {
-                // Multiple trials: use default green color
-                _markerModel.Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
-                { 
-                    DiffuseColor = MarkerColor 
-                };
-            }
         }
 
         /// <summary>
@@ -1404,6 +1421,192 @@ namespace MStudio.App.ViewModels
             }
 
             return false;
+        }
+        private void CreateFootContactModels()
+        {
+            var builder = new MeshBuilder();
+            
+            // 1. Inner Core (Bright, concentrated contact point)
+            // Taller (0.015m) and smaller radius (0.05m)
+            builder.AddCylinder(Vector3.Zero, new Vector3(0, 0.015f, 0), 0.1f, 32);
+            
+            // 2. Outer Halo (Area of effect)
+            // Thinner (0.005m) but wider radius (0.25m)
+            builder.AddCylinder(Vector3.Zero, new Vector3(0, 0.005f, 0), 0.25f, 32);
+
+            var geometry = builder.ToMeshGeometry3D();
+
+            // High-Contrast Cyan Material (Reverted Color)
+            var material = new HelixToolkit.Wpf.SharpDX.PhongMaterial
+            {
+                DiffuseColor = new Color4(0f, 1f, 1f, 0.9f),      // Bright Cyan
+                EmissiveColor = new Color4(0f, 0.8f, 0.8f, 1.0f), // Glowing Effect
+                SpecularColor = new Color4(1f, 1f, 1f, 1.0f),     // Shiny highlights
+                SpecularShininess = 100f
+            };
+
+            _leftFootContactModel = new MeshGeometryModel3D
+            {
+                Geometry = geometry,
+                Material = material,
+                IsRendering = false, // Controlled by logic
+                IsTransparent = true,
+                CullMode = SharpDX.Direct3D11.CullMode.Back
+            };
+
+            _rightFootContactModel = new MeshGeometryModel3D
+            {
+                Geometry = geometry,
+                Material = material,
+                IsRendering = false,
+                IsTransparent = true,
+                CullMode = SharpDX.Direct3D11.CullMode.Back
+            };
+
+            SceneElements.Add(_leftFootContactModel);
+            SceneElements.Add(_rightFootContactModel);
+        }
+
+        private void CalculateFootMinLevels()
+        {
+            _minLeftFootY = float.MaxValue;
+            _minRightFootY = float.MaxValue;
+
+            var motion = _sessionService.CurrentMotion;
+            if (motion == null || motion.Markers == null) return;
+
+            // Define foot markers
+            string[] leftFootNames = { "LBigToe", "LSmallToe", "LHeel" };
+            string[] rightFootNames = { "RBigToe", "RSmallToe", "RHeel" };
+
+            // Get indices
+            var leftIndices = new List<int>();
+            var rightIndices = new List<int>();
+
+            for (int i = 0; i < motion.Metadata.MarkerNames.Count; i++)
+            {
+                string name = motion.Metadata.MarkerNames[i];
+                if (leftFootNames.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase))) leftIndices.Add(i);
+                if (rightFootNames.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase))) rightIndices.Add(i);
+            }
+
+            if (leftIndices.Count == 0 && rightIndices.Count == 0) return;
+
+            // Helper to get avg Y
+            float? GetAvgY(List<int> indices, int frame)
+            {
+                float sum = 0;
+                int count = 0;
+                foreach (var idx in indices)
+                {
+                    var pos = motion.Markers.GetPosition(idx, frame);
+                    if (!float.IsNaN(pos.Y) && !(pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+                    {
+                        sum += pos.Y;
+                        count++;
+                    }
+                }
+                return count > 0 ? sum / count : null;
+            }
+
+            // Scan frames
+            for (int f = 0; f < motion.Markers.FrameCount; f++)
+            {
+                var lY = GetAvgY(leftIndices, f);
+                if (lY.HasValue && lY.Value < _minLeftFootY) _minLeftFootY = lY.Value;
+
+                var rY = GetAvgY(rightIndices, f);
+                if (rY.HasValue && rY.Value < _minRightFootY) _minRightFootY = rY.Value;
+            }
+        }
+
+        private void UpdateFootContactVisuals()
+        {
+            if (!IsShowFootContact || _sessionService.CurrentMotion == null)
+            {
+                if (_leftFootContactModel != null) _leftFootContactModel.IsRendering = false;
+                if (_rightFootContactModel != null) _rightFootContactModel.IsRendering = false;
+                return;
+            }
+
+            var motion = _sessionService.CurrentMotion;
+            int frame = _timelineService.CurrentFrame;
+            
+            // Get current positions
+             string[] leftFootNames = { "LBigToe", "LSmallToe", "LHeel" };
+            string[] rightFootNames = { "RBigToe", "RSmallToe", "RHeel" };
+
+            var markers = motion.Markers;
+            var names = motion.Metadata.MarkerNames;
+
+            // Helper to get center and contact status
+            (bool isContact, Vector3 center) CheckFootContact(string[] targetNames, float minLevel)
+            {
+                float sumX = 0, sumZ = 0;
+                int count = 0;
+                bool contact = false;
+                
+                for(int i=0; i<names.Count; i++)
+                {
+                    if (targetNames.Any(n => string.Equals(n, names[i], StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var pos = markers.GetPosition(i, frame);
+                         if (!float.IsNaN(pos.Y) && !(pos.X == 0 && pos.Y == 0 && pos.Z == 0))
+                        {
+                            sumX += pos.X;
+                            sumZ += pos.Z;
+                            count++;
+
+                            // Check individual marker contact
+                            if (minLevel != float.MaxValue && (pos.Y - minLevel) <= 0.0002f) // 2mm Threshold
+                            {
+                                contact = true;
+                            }
+                        }
+                    }
+                }
+
+                if (count == 0) return (false, Vector3.Zero);
+                return (contact, new Vector3(sumX / count, 0, sumZ / count)); // Y is unused for center
+            }
+
+            // Check Left
+            var leftResult = CheckFootContact(leftFootNames, _minLeftFootY);
+            if (leftResult.isContact)
+            {
+                _isLeftFootContacting = true;
+                if (_leftFootContactModel != null)
+                {
+                    _leftFootContactModel.IsRendering = true;
+                    // Lift slightly to avoid Z-fighting with floor
+                    var translation = Matrix4x4.CreateTranslation(leftResult.center.X, 0.01f, leftResult.center.Z);
+                    _leftFootContactModel.Transform = new MatrixTransform3D(translation.ToMatrix3D());
+                }
+            }
+            else
+            {
+                _isLeftFootContacting = false;
+                 if (_leftFootContactModel != null) _leftFootContactModel.IsRendering = false;
+            }
+
+            // Check Right
+            var rightResult = CheckFootContact(rightFootNames, _minRightFootY);
+            if (rightResult.isContact)
+            {
+                _isRightFootContacting = true;
+                if (_rightFootContactModel != null)
+                {
+                    _rightFootContactModel.IsRendering = true;
+                    // Lift slightly to avoid Z-fighting with floor
+                    var translation = Matrix4x4.CreateTranslation(rightResult.center.X, 0.01f, rightResult.center.Z);
+                    _rightFootContactModel.Transform = new MatrixTransform3D(translation.ToMatrix3D());
+                }
+            }
+            else
+            {
+                _isRightFootContacting = false;
+                if (_rightFootContactModel != null) _rightFootContactModel.IsRendering = false;
+            }
         }
     }
 }
