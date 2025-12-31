@@ -8,8 +8,10 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using MStudio.Core.Interfaces;
 using MStudio.Core.Messaging;
 using MStudio.Core.Models;
+using MStudio.Core.Models.Analysis;
 using MStudio.Services.Interfaces;
 
 namespace MStudio.App.ViewModels
@@ -30,6 +32,8 @@ namespace MStudio.App.ViewModels
         private readonly IDialogService _dialogService;
         private readonly ITrialService _trialService;
         private readonly IExportService _exportService;
+        private readonly IMovementAnalysisService _movementAnalysisService;
+        private readonly ICMJAnalysisService _cmjAnalysisService;
 
         // Track selected marker locally (synced via messaging)
         [ObservableProperty]
@@ -62,6 +66,8 @@ namespace MStudio.App.ViewModels
             IDialogService dialogService,
             ITrialService trialService,
             IExportService exportService,
+            IMovementAnalysisService movementAnalysisService,
+            ICMJAnalysisService cmjAnalysisService,
             MStudioViewportViewModel viewportViewModel, 
             GraphViewModel graphViewModel,
             DataViewModel dataViewModel)
@@ -71,6 +77,8 @@ namespace MStudio.App.ViewModels
             _dialogService = dialogService;
             _trialService = trialService;
             _exportService = exportService;
+            _movementAnalysisService = movementAnalysisService;
+            _cmjAnalysisService = cmjAnalysisService;
             ViewportViewModel = viewportViewModel;
             GraphViewModel = graphViewModel;
             DataViewModel = dataViewModel;
@@ -79,7 +87,10 @@ namespace MStudio.App.ViewModels
             _timelineService.PropertyChanged += (s, e) => 
             {
                 if (e.PropertyName == nameof(ITimelineService.CurrentFrame))
+                {
                     OnPropertyChanged(nameof(CurrentFrame));
+                    OnPropertyChanged(nameof(DisplayFrame));
+                }
                 if (e.PropertyName == nameof(ITimelineService.TotalFrames))
                     OnPropertyChanged(nameof(TotalFrames));
                 if (e.PropertyName == nameof(ITimelineService.IsPlaying))
@@ -125,6 +136,11 @@ namespace MStudio.App.ViewModels
             get => _timelineService.CurrentFrame;
             set => _timelineService.CurrentFrame = value;
         }
+
+        /// <summary>
+        /// 1-indexed frame number for UI display (Frame 0 displays as Frame 1).
+        /// </summary>
+        public int DisplayFrame => _timelineService.CurrentFrame + 1;
 
         public int TotalFrames => _timelineService.TotalFrames;
 
@@ -188,6 +204,94 @@ namespace MStudio.App.ViewModels
 
         [RelayCommand]
         private void StepBackward() => _timelineService.StepBackward();
+
+        /// <summary>
+        /// Opens the analysis selection dialog and runs the selected analysis.
+        /// </summary>
+        [RelayCommand]
+        private async Task OpenAnalysis()
+        {
+            // Show the analysis selection dialog
+            var selectedType = _dialogService.ShowAnalysisSelectionDialog();
+            
+            if (selectedType == null)
+                return;
+
+            var analysisType = selectedType.Value;
+            
+            // Special handling for CMJ analysis
+            if (analysisType == AnalysisType.CounterMovementJump)
+            {
+                await RunCMJAnalysis();
+                return;
+            }
+
+            var typeInfo = _movementAnalysisService.GetAvailableAnalysisTypes()
+                .FirstOrDefault(t => t.Type == analysisType);
+
+            if (typeInfo == null)
+                return;
+
+            // Run mock analysis for other types
+            var result = await _movementAnalysisService.RunAnalysisAsync(analysisType, _sessionService.CurrentMotion);
+
+            // Show result in a message box (mock implementation)
+            _dialogService.ShowInfo(result.Summary, $"{typeInfo.DisplayName} Analysis");
+            StatusText = $"{typeInfo.DisplayName} analysis completed";
+        }
+
+        /// <summary>
+        /// Runs CMJ analysis with input dialog and result window.
+        /// </summary>
+        private async Task RunCMJAnalysis()
+        {
+            // Check if motion data is loaded
+            if (_sessionService.CurrentMotion == null)
+            {
+                _dialogService.ShowError("No motion data loaded. Please load a file first.", "CMJ Analysis");
+                return;
+            }
+
+            // Check if required markers exist
+            if (!_cmjAnalysisService.HasRequiredMarkers(_sessionService.CurrentMotion))
+            {
+                _dialogService.ShowWarning("Missing required markers for CMJ analysis (Hip, RHip, LHip, RKnee, LKnee, RAnkle, LAnkle).", "CMJ Analysis");
+            }
+
+            // Show input dialog
+            var inputDialog = new Views.CMJInputDialog
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (inputDialog.ShowDialog() != true || !inputDialog.Confirmed)
+                return;
+
+            StatusText = "Running CMJ analysis...";
+
+            try
+            {
+                // Run analysis
+                var result = await _cmjAnalysisService.AnalyzeAsync(
+                    _sessionService.CurrentMotion,
+                    inputDialog.SelectedGender,
+                    inputDialog.BodyMassKg);
+
+                // Show result window
+                var resultWindow = new Views.CMJResultWindow(result)
+                {
+                    Owner = System.Windows.Application.Current.MainWindow
+                };
+                resultWindow.Show();
+
+                StatusText = $"CMJ Analysis completed - {result.Dominance}";
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"CMJ Analysis failed: {ex.Message}", "CMJ Analysis Error");
+                StatusText = "CMJ Analysis failed";
+            }
+        }
 
         /// <summary>
         /// Fills gaps in the selected marker's data using interpolation.

@@ -87,6 +87,12 @@ namespace MStudio.Services.Interfaces
         /// </summary>
         /// <returns>True if user confirms, false otherwise</returns>
         bool ShowConfirmation(string message, string? title = null);
+
+        /// <summary>
+        /// Shows the analysis selection dialog.
+        /// </summary>
+        /// <returns>The selected AnalysisType or null if cancelled</returns>
+        MStudio.Core.Models.Analysis.AnalysisType? ShowAnalysisSelectionDialog();
     }
 
     /// <summary>

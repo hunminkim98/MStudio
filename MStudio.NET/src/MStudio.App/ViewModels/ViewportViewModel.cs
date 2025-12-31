@@ -1214,7 +1214,9 @@ namespace MStudio.App.ViewModels
                 return;
             }
 
-            FrameInfoText = $"Frame: {frame + 1} / {motion.Markers.FrameCount}";
+            // Display trial name from file path
+            var trialName = System.IO.Path.GetFileNameWithoutExtension(_sessionService.CurrentFilePath ?? "Unknown");
+            FrameInfoText = $"{trialName}, Frame: {frame + 1}/{motion.Markers.FrameCount}";
 
             var instances = new Matrix4x4[motion.Markers.MarkerCount];
             for (int i = 0; i < motion.Markers.MarkerCount; i++)
@@ -1248,7 +1250,20 @@ namespace MStudio.App.ViewModels
             int currentFrame = _timelineService.CurrentFrame;
             int maxFrame = _trialService.MaxSelectedFrameCount;
             
-            FrameInfoText = $"Frame: {currentFrame + 1} / {maxFrame} ({selectedTrials.Count} trials)";
+            // Display all selected trials with their frame info (each on a new line)
+            var frameInfoLines = new System.Text.StringBuilder();
+            for (int i = 0; i < selectedTrials.Count; i++)
+            {
+                var trial = selectedTrials[i];
+                // Each trial shows its own current frame (clamped to its frame count)
+                int trialFrameDisplay = Math.Min(currentFrame + 1, trial.FrameCount);
+                frameInfoLines.Append($"{trial.Name}, Frame: {trialFrameDisplay}/{trial.FrameCount}");
+                if (i < selectedTrials.Count - 1)
+                {
+                    frameInfoLines.AppendLine();
+                }
+            }
+            FrameInfoText = frameInfoLines.ToString();
 
             // Count total markers across all selected trials
             int totalMarkers = selectedTrials.Sum(t => t.MarkerCount);

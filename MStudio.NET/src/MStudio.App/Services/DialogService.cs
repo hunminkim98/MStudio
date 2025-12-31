@@ -82,5 +82,20 @@ namespace MStudio.App.Services
 
             return result == MessageBoxResult.Yes;
         }
+
+        public MStudio.Core.Models.Analysis.AnalysisType? ShowAnalysisSelectionDialog()
+        {
+            var dialog = new Views.AnalysisSelectionWindow
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                return dialog.SelectedAnalysisType;
+            }
+
+            return null;
+        }
     }
 }

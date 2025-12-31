@@ -44,6 +44,21 @@
                 <Separator/>
                 <MenuItem Header="Exit"/>
             </MenuItem>
+            <MenuItem Header="_Motion">
+                <MenuItem Header="_Analysis..." Command="{Binding OpenAnalysisCommand}">
+                    <MenuItem.Icon>
+                        <Path Data="M8,2 L8,4 M8,5 L8,10 M8,10 L5,14 M8,10 L11,14 M8,6 L5,8 M8,6 L11,8" 
+                              Stroke="{DynamicResource B_IconDark}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="_Reports" IsEnabled="False">
+                    <MenuItem.Icon>
+                        <Path Data="M4,2 L4,14 L12,14 L12,5 L9,2 Z M9,2 L9,5 L12,5" 
+                              Stroke="{DynamicResource B_IconDark}" StrokeThickness="1" Width="16" Height="16" Stretch="Uniform"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
             <MenuItem Header="_Edit"/>
             <MenuItem Header="_View"/>
             <MenuItem Header="_Layout"/>
@@ -427,7 +442,7 @@
                         <Run Text="{Binding CurrentTimeText, Mode=OneWay}" Foreground="{DynamicResource B_Text}"/>
                     </TextBlock>
                     <TextBlock Text="  " FontFamily="Consolas" FontSize="18"/>
-                    <TextBlock Text="{Binding CurrentFrame}" FontFamily="Consolas" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource B_Text}"/>
+                    <TextBlock Text="{Binding DisplayFrame}" FontFamily="Consolas" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource B_Text}"/>
                 </StackPanel>
 
                 <!-- LOOP / REVERSE -->
@@ -482,7 +497,7 @@
 
                 <!-- Frame Range -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding CurrentFrame}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource B_Accent}"/>
+                    <TextBlock Text="{Binding DisplayFrame}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource B_Accent}"/>
                     <TextBlock Text=" ▸ " FontSize="9" Foreground="{DynamicResource B_TextDim}"/>
                     <TextBlock Text="{Binding TotalFrames}" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource B_Text}"/>
                 </StackPanel>
