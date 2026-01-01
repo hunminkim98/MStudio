@@ -180,6 +180,21 @@ namespace MStudio.App.ViewModels
         
         // CMJ Valgus Visualization
         private LineGeometryModel3D? _cmjValgusLinesModel;
+        private LineGeometryModel3D? _cmjValgusArcModel;
+        private LineGeometryModel3D? _cmjLocalAxisXModel; // Red (Forward)
+        private LineGeometryModel3D? _cmjLocalAxisYModel; // Yellow (Up)
+        private LineGeometryModel3D? _cmjLocalAxisZModel; // Blue (Right)
+        private BillboardTextModel3D? _cmjValgusLabelsModel; // Separate labels for Valgus
+
+        // CMJ Visualization Layer Toggles
+        [ObservableProperty]
+        private bool _showCMJBasic = true; // Skeleton, CoM trajectory, Local axes
+
+        [ObservableProperty]
+        private bool _showCMJEvents = true; // Takeoff/Landing/Lowest CoM markers, Jump Height
+
+        [ObservableProperty]
+        private bool _showCMJValgus = true; // Valgus Arc, lines, labels
 
         [ObservableProperty]
         private Vector3D _modelUpDirection = new Vector3D(0, 1, 0);
@@ -193,6 +208,10 @@ namespace MStudio.App.ViewModels
         {
             if (_originModel != null) _originModel.IsRendering = value;
         }
+
+        partial void OnShowCMJBasicChanged(bool value) => UpdateCMJVisualization();
+        partial void OnShowCMJEventsChanged(bool value) => UpdateCMJVisualization();
+        partial void OnShowCMJValgusChanged(bool value) => UpdateCMJVisualization();
 
         partial void OnIsShowRulerChanged(bool value)
         {
@@ -2515,10 +2534,52 @@ namespace MStudio.App.ViewModels
             // Valgus Visualization (Lines)
             _cmjValgusLinesModel = new LineGeometryModel3D
             {
+                Color = System.Windows.Media.Color.FromScRgb(1.0f, 1.0f, 1.0f, 0.0f), // Yellow
                 Thickness = 2.5,
                 IsRendering = false
             };
             SceneElements.Add(_cmjValgusLinesModel);
+
+            // Valgus Visualization (Arc)
+            _cmjValgusArcModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromScRgb(1.0f, 1.0f, 1.0f, 0.0f), // Yellow
+                Thickness = 1.5,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjValgusArcModel);
+
+            // Local Coordinate Axis Visualization
+            _cmjLocalAxisXModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromRgb(255, 0, 0), // Pure Red
+                Thickness = 2.0,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjLocalAxisXModel);
+
+            _cmjLocalAxisYModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromRgb(255, 255, 0), // Yellow (same as global Y)
+                Thickness = 2.0,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjLocalAxisYModel);
+
+            _cmjLocalAxisZModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromRgb(0, 0, 255), // Pure Blue
+                Thickness = 2.0,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjLocalAxisZModel);
+
+            // Valgus Labels (separate from Event labels)
+            _cmjValgusLabelsModel = new BillboardTextModel3D
+            {
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjValgusLabelsModel);
         }
 
         /// <summary>
@@ -2570,19 +2631,36 @@ namespace MStudio.App.ViewModels
             Vector3 landingPos = GetActualCoMPosition(result, result.LandingFrame, motion, hipIndex);
             Vector3 peakPos = result.PeakFlightFrame > 0 ? GetActualCoMPosition(result, result.PeakFlightFrame, motion, hipIndex) : Vector3.Zero;
 
-            // 1. Update Event Markers
-            UpdateEventMarkerPosition(_cmjLowestCoMMarker, lowestCoMPos);
-            UpdateEventMarkerPosition(_cmjTakeoffMarker, takeoffPos);
-            UpdateEventMarkerPosition(_cmjLandingMarker, landingPos);
+            // 1. Update Event Markers (Events layer)
+            if (ShowCMJEvents)
+            {
+                UpdateEventMarkerPosition(_cmjLowestCoMMarker, lowestCoMPos);
+                UpdateEventMarkerPosition(_cmjTakeoffMarker, takeoffPos);
+                UpdateEventMarkerPosition(_cmjLandingMarker, landingPos);
+            }
+            else
+            {
+                if (_cmjLowestCoMMarker != null) _cmjLowestCoMMarker.IsRendering = false;
+                if (_cmjTakeoffMarker != null) _cmjTakeoffMarker.IsRendering = false;
+                if (_cmjLandingMarker != null) _cmjLandingMarker.IsRendering = false;
+            }
 
-            // 2. Update CoM Trajectory (using actual CoM data)
-            UpdateCoMTrajectory(result);
+            // 2. Update CoM Trajectory (Basic layer)
+            if (ShowCMJBasic)
+            {
+                UpdateCoMTrajectory(result);
+            }
+            else
+            {
+                if (_cmjCoMTrajectoryModel != null) _cmjCoMTrajectoryModel.IsRendering = false;
+                if (_cmjCoMPointsModel != null) _cmjCoMPointsModel.IsRendering = false;
+            }
 
 
 
 
-            // 5. Update Jump Height Visualization
-            if (peakPos != Vector3.Zero && takeoffPos != Vector3.Zero && result.JumpHeightMeters > 0)
+            // 5. Update Jump Height Visualization (Events layer)
+            if (ShowCMJEvents && peakPos != Vector3.Zero && takeoffPos != Vector3.Zero && result.JumpHeightMeters > 0)
             {
                 var jumpLineBuilder = new LineBuilder();
                 // Vertical line from take-off height to peak height
@@ -2605,12 +2683,52 @@ namespace MStudio.App.ViewModels
                     _cmjJumpHeightModel.IsRendering = true;
                 }
             }
+            else
+            {
+                if (_cmjJumpHeightModel != null) _cmjJumpHeightModel.IsRendering = false;
+            }
 
-            // 6. Update Labels
-            UpdateCMJLabels(result, lowestCoMPos, takeoffPos, landingPos);
+            // 6. Update Labels (Events layer - for event labels)
+            if (ShowCMJEvents)
+            {
+                UpdateCMJLabels(result, lowestCoMPos, takeoffPos, landingPos);
+            }
+            else
+            {
+                if (_cmjLabelsModel != null)
+                {
+                    _cmjLabelsModel.Geometry = new BillboardText3D(); // Clear text
+                    _cmjLabelsModel.IsRendering = false;
+                }
+            }
 
-            // 7. Update Valgus Visualization (Lines & Labels)
-            UpdateValgusVisualization(result, motion);
+            // 7. Update Valgus Visualization (Valgus layer)
+            if (ShowCMJValgus)
+            {
+                UpdateValgusVisualization(result, motion);
+            }
+            else
+            {
+                if (_cmjValgusLinesModel != null) _cmjValgusLinesModel.IsRendering = false;
+                if (_cmjValgusArcModel != null) _cmjValgusArcModel.IsRendering = false;
+                if (_cmjValgusLabelsModel != null)
+                {
+                    _cmjValgusLabelsModel.Geometry = new BillboardText3D();
+                    _cmjValgusLabelsModel.IsRendering = false;
+                }
+            }
+            
+            // 8. Update Local Axes (Basic layer) - Independent of Valgus
+            if (ShowCMJBasic)
+            {
+                UpdateLocalCoordinateAxes(motion);
+            }
+            else
+            {
+                if (_cmjLocalAxisXModel != null) _cmjLocalAxisXModel.IsRendering = false;
+                if (_cmjLocalAxisYModel != null) _cmjLocalAxisYModel.IsRendering = false;
+                if (_cmjLocalAxisZModel != null) _cmjLocalAxisZModel.IsRendering = false;
+            }
         }
 
         /// <summary>
@@ -2657,6 +2775,7 @@ namespace MStudio.App.ViewModels
 
         /// <summary>
         /// Updates CoM trajectory line and key point markers using actual CoM positions from analysis result.
+        /// Only draws trajectory from frame 0 to current frame (animated trajectory).
         /// </summary>
         private void UpdateCoMTrajectory(Core.Models.Analysis.CMJAnalysisResult result)
         {
@@ -2664,12 +2783,17 @@ namespace MStudio.App.ViewModels
 
             var lineBuilder = new LineBuilder();
             var pointInstances = new List<Matrix4x4>();
+            
+            int currentFrame = _timelineService.CurrentFrame;
 
             // Use actual CoM positions from De Leva segment model calculation
             if (result.CoMPositions != null && result.CoMPositions.Count > 0)
             {
                 Vector3 prevPos = Vector3.Zero;
-                for (int frame = 0; frame < result.CoMPositions.Count; frame++)
+                // Only draw up to current frame (animated trajectory)
+                int endFrame = Math.Min(currentFrame + 1, result.CoMPositions.Count);
+                
+                for (int frame = 0; frame < endFrame; frame++)
                 {
                     var pos = result.CoMPositions[frame];
                     if (pos == Vector3.Zero || float.IsNaN(pos.X)) continue;
@@ -2680,9 +2804,10 @@ namespace MStudio.App.ViewModels
                     }
                     prevPos = pos;
 
-                    // Add point markers at key frames
-                    if (frame == result.LowestCoMFrame || frame == result.TakeoffFrame || 
-                        frame == result.LandingFrame || frame == result.PeakFlightFrame)
+                    // Add point markers at key frames (only if we've reached that frame)
+                    if ((frame == result.LowestCoMFrame || frame == result.TakeoffFrame || 
+                        frame == result.LandingFrame || frame == result.PeakFlightFrame) &&
+                        frame <= currentFrame)
                     {
                         pointInstances.Add(Matrix4x4.CreateTranslation(pos));
                     }
@@ -2765,7 +2890,7 @@ namespace MStudio.App.ViewModels
         /// </summary>
         private void UpdateValgusVisualization(Core.Models.Analysis.CMJAnalysisResult result, MotionData motion)
         {
-            if (_cmjValgusLinesModel == null || _cmjLabelsModel == null) return;
+            if (_cmjValgusLinesModel == null || _cmjValgusArcModel == null || _cmjLabelsModel == null) return;
             
             // Get current frame from timeline
             int currentFrame = _timelineService.CurrentFrame;
@@ -2774,6 +2899,7 @@ namespace MStudio.App.ViewModels
             if (currentFrame < 0 || currentFrame >= motion.Markers.FrameCount)
             {
                  _cmjValgusLinesModel.IsRendering = false;
+                 _cmjValgusArcModel.IsRendering = false;
                  return;
             }
 
@@ -2783,6 +2909,7 @@ namespace MStudio.App.ViewModels
             
             if (result.TimeSeries != null && currentFrame < result.TimeSeries.Count)
             {
+                // ... (TimeSeries search logic remains same)
                 var point = result.TimeSeries[currentFrame];
                 if (point.Frame == currentFrame)
                 {
@@ -2791,7 +2918,6 @@ namespace MStudio.App.ViewModels
                 }
                 else
                 {
-                    // Fallback search if frames don't match indices 1:1
                     var p = result.TimeSeries.FirstOrDefault(x => x.Frame == currentFrame);
                     if (p != null)
                     {
@@ -2802,6 +2928,7 @@ namespace MStudio.App.ViewModels
             }
 
             var lineBuilder = new LineBuilder();
+            var arcBuilder = new LineBuilder(); // Builder for Arcs
             var textInfo = _cmjLabelsModel.Geometry as BillboardText3D;
             if (textInfo == null) textInfo = new BillboardText3D();
             
@@ -2824,22 +2951,123 @@ namespace MStudio.App.ViewModels
                     if (hipPos != Vector3.Zero && kneePos != Vector3.Zero && anklePos != Vector3.Zero &&
                         !float.IsNaN(hipPos.X) && !float.IsNaN(kneePos.X) && !float.IsNaN(anklePos.X))
                     {
-                        // Color based on simplified risk thresholds (e.g. > 20 deg is high)
-                        // Note: Full risk classification logic is in Service, simplified here for dynamic vis
+                        // Risk Color for Label
                         Color4 color = Math.Abs(valgusAngle) < 15f ? 
                             new Color4(0.2f, 0.8f, 0.2f, 1.0f) : // Green (Normal)
                             (Math.Abs(valgusAngle) > 30f ? 
-                                new Color4(1.0f, 0.2f, 0.2f, 1.0f) : // Red (High)
+                                new Color4(1.0f, 0.2f, 0.2f, 1.0f) : // Red (High chain)
                                 new Color4(1.0f, 0.6f, 0.0f, 1.0f)); // Orange (Caution)
 
-                        // Draw Hip-Knee and Knee-Ankle lines
+                        // 1. Draw Lines (Yellow)
                         lineBuilder.AddLine(hipPos, kneePos);
                         lineBuilder.AddLine(kneePos, anklePos);
 
-                        // Add Label
-                        string sign = valgusAngle > 0 ? "Valgus" : "Varus";
+                        // 2. Draw Arc - Local Frontal Plane (based on Pelvis orientation)
+                        // Get LHip and RHip for pelvis orientation
+                        int lHipIdx = GetMarkerIndex(motion, "LHip");
+                        int rHipIdx = GetMarkerIndex(motion, "RHip");
+                        
+                        if (lHipIdx >= 0 && rHipIdx >= 0)
+                        {
+                            var lHipPos = motion.Markers.GetPosition(lHipIdx, currentFrame);
+                            var rHipPos = motion.Markers.GetPosition(rHipIdx, currentFrame);
+                            
+                            if (lHipPos != Vector3.Zero && rHipPos != Vector3.Zero)
+                            {
+                                // Define Local Coordinate System
+                                Vector3 pelvisRight = rHipPos - lHipPos;
+                                if (pelvisRight.LengthSquared() > 0.001f)
+                                {
+                                    Vector3 localZ = Vector3.Normalize(pelvisRight);
+                                    Vector3 localY = new Vector3(0, 1, 0);
+                                    Vector3 localX = Vector3.Cross(localY, localZ);
+                                    if (localX.LengthSquared() > 0.001f)
+                                    {
+                                        localX = Vector3.Normalize(localX);
+                                        localY = Vector3.Normalize(Vector3.Cross(localZ, localX));
+                                        
+                                        // Thigh Extended and Shank vectors
+                                        Vector3 thighExtended = kneePos - hipPos;
+                                        Vector3 shank = anklePos - kneePos;
+                                        
+                                        // Project to Local Z-Y plane
+                                        float thighLocalZ = Vector3.Dot(thighExtended, localZ);
+                                        float thighLocalY = Vector3.Dot(thighExtended, localY);
+                                        float shankLocalZ = Vector3.Dot(shank, localZ);
+                                        float shankLocalY = Vector3.Dot(shank, localY);
+                                        
+                                        float thighLen = MathF.Sqrt(thighLocalZ * thighLocalZ + thighLocalY * thighLocalY);
+                                        float shankLen = MathF.Sqrt(shankLocalZ * shankLocalZ + shankLocalY * shankLocalY);
+                                        
+                                        if (thighLen > 0.001f && shankLen > 0.001f)
+                                        {
+                                            Vector3 thighDir = (localZ * (thighLocalZ / thighLen) + localY * (thighLocalY / thighLen));
+                                            Vector3 shankDir = (localZ * (shankLocalZ / shankLen) + localY * (shankLocalY / shankLen));
+                                            
+                                            // Draw dashed extension line (thigh extended below knee)
+                                            float extensionLength = shank.Length() * 0.4f; // 70% of shank length
+                                            float dashLength = 0.012f;
+                                            float gapLength = 0.008f;
+                                            float currentDist = 0f;
+                                            bool isDash = true;
+                                            
+                                            while (currentDist < extensionLength)
+                                            {
+                                                float segmentLen = isDash ? dashLength : gapLength;
+                                                float nextDist = Math.Min(currentDist + segmentLen, extensionLength);
+                                                
+                                                if (isDash)
+                                                {
+                                                    Vector3 startP = kneePos + thighDir * currentDist;
+                                                    Vector3 endP = kneePos + thighDir * nextDist;
+                                                    arcBuilder.AddLine(startP, endP);
+                                                }
+                                                
+                                                currentDist = nextDist;
+                                                isDash = !isDash;
+                                            }
+                                            
+                                            float arcRadius = 0.10f;
+                                            int segments = Math.Max(6, (int)(Math.Abs(valgusAngle) / 5) + 4);
+                                            
+                                            // Slerp from thighDir to shankDir
+                                            Vector3 prevP = kneePos + thighDir * arcRadius;
+                                            
+                                            for (int i = 1; i <= segments; i++)
+                                            {
+                                                float t = (float)i / segments;
+                                                
+                                                float dot = Vector3.Dot(thighDir, shankDir);
+                                                dot = Math.Clamp(dot, -1f, 1f);
+                                                float theta = MathF.Acos(dot);
+                                                float sinTheta = MathF.Sin(theta);
+                                                
+                                                Vector3 currDir;
+                                                if (sinTheta > 0.001f)
+                                                {
+                                                    float w1 = MathF.Sin((1 - t) * theta) / sinTheta;
+                                                    float w2 = MathF.Sin(t * theta) / sinTheta;
+                                                    currDir = thighDir * w1 + shankDir * w2;
+                                                }
+                                                else
+                                                {
+                                                    currDir = Vector3.Lerp(thighDir, shankDir, t);
+                                                }
+                                                
+                                                Vector3 currP = kneePos + Vector3.Normalize(currDir) * arcRadius;
+                                                arcBuilder.AddLine(prevP, currP);
+                                                prevP = currP;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Add Label (Negative = Valgus, Positive = Varus)
+                        string sign = valgusAngle < 0 ? "Valgus" : "Varus";
                         textInfo.TextInfo.Add(new TextInfo($"{side} {sign}: {Math.Abs(valgusAngle):F1}°", 
-                            kneePos + new Vector3(side == "R" ? 0.1f : -0.1f, 0, 0))
+                            kneePos + new Vector3(side == "R" ? 0.15f : -0.15f, 0, 0))
                         {
                             Foreground = color,
                             Scale = 0.6f
@@ -2854,10 +3082,109 @@ namespace MStudio.App.ViewModels
             // Apply geometry
             _cmjValgusLinesModel.Geometry = lineBuilder.ToLineGeometry3D();
             _cmjValgusLinesModel.IsRendering = true;
+            
+            _cmjValgusArcModel.Geometry = arcBuilder.ToLineGeometry3D();
+            _cmjValgusArcModel.IsRendering = true;
 
-            // Update labels model
-            _cmjLabelsModel.Geometry = textInfo;
-            _cmjLabelsModel.IsRendering = textInfo.TextInfo.Count > 0;
+
+
+            // Update Valgus labels model (separate from Event labels)
+            _cmjValgusLabelsModel!.Geometry = textInfo;
+            _cmjValgusLabelsModel.IsRendering = textInfo.TextInfo.Count > 0;
+        }
+
+        /// <summary>
+        /// Updates the visualization of local coordinate axes at Pelvis and Knees.
+        /// Independent of Valgus/Varus visualization status.
+        /// </summary>
+        private void UpdateLocalCoordinateAxes(MotionData motion)
+        {
+            if (_cmjLocalAxisXModel == null || _cmjLocalAxisYModel == null || _cmjLocalAxisZModel == null) return;
+            
+            int currentFrame = _timelineService.CurrentFrame;
+            
+            // Validate frame range
+            if (currentFrame < 0 || currentFrame >= motion.Markers.FrameCount)
+            {
+                _cmjLocalAxisXModel.IsRendering = false;
+                _cmjLocalAxisYModel.IsRendering = false;
+                _cmjLocalAxisZModel.IsRendering = false;
+                return;
+            }
+
+            int lHipIdx = GetMarkerIndex(motion, "LHip");
+            int rHipIdx = GetMarkerIndex(motion, "RHip");
+            int lKneeIdx = GetMarkerIndex(motion, "LKnee");
+            int rKneeIdx = GetMarkerIndex(motion, "RKnee");
+            
+            if (lHipIdx >= 0 && rHipIdx >= 0)
+            {
+                var lHipPos = motion.Markers.GetPosition(lHipIdx, currentFrame);
+                var rHipPos = motion.Markers.GetPosition(rHipIdx, currentFrame);
+                
+                if (lHipPos != Vector3.Zero && rHipPos != Vector3.Zero)
+                {
+                    Vector3 pelvisCenter = (lHipPos + rHipPos) / 2f;
+                    Vector3 pelvisRight = rHipPos - lHipPos;
+                    
+                    if (pelvisRight.LengthSquared() > 0.001f)
+                    {
+                        Vector3 localZ = Vector3.Normalize(pelvisRight);
+                        Vector3 localY = new Vector3(0, 1, 0);
+                        Vector3 localX = Vector3.Cross(localY, localZ);
+                        
+                        if (localX.LengthSquared() > 0.001f)
+                        {
+                            localX = Vector3.Normalize(localX);
+                            localY = Vector3.Normalize(Vector3.Cross(localZ, localX));
+                            
+                            // Size = 1/2 of global coordinate system (assumed ~0.3m, so 0.075m)
+                            float axisLength = 0.075f;
+                            
+                            var xBuilder = new LineBuilder();
+                            var yBuilder = new LineBuilder();
+                            var zBuilder = new LineBuilder();
+                            
+                            // Helper to add axis at a position
+                            void AddAxesAt(Vector3 pos)
+                            {
+                                xBuilder.AddLine(pos, pos + localX * axisLength);
+                                yBuilder.AddLine(pos, pos + localY * axisLength);
+                                zBuilder.AddLine(pos, pos + localZ * axisLength);
+                            }
+                            
+                            // Add at Pelvis Center
+                            AddAxesAt(pelvisCenter);
+                            
+                            // Add at LKnee
+                            if (lKneeIdx >= 0)
+                            {
+                                var lKneePos = motion.Markers.GetPosition(lKneeIdx, currentFrame);
+                                if (lKneePos != Vector3.Zero) AddAxesAt(lKneePos);
+                            }
+                            
+                            // Add at RKnee
+                            if (rKneeIdx >= 0)
+                            {
+                                var rKneePos = motion.Markers.GetPosition(rKneeIdx, currentFrame);
+                                if (rKneePos != Vector3.Zero) AddAxesAt(rKneePos);
+                            }
+                            
+                            // X Axis (Red - Forward)
+                            _cmjLocalAxisXModel!.Geometry = xBuilder.ToLineGeometry3D();
+                            _cmjLocalAxisXModel.IsRendering = true;
+                            
+                            // Y Axis (Green - Up) - Same as global coordinate system
+                            _cmjLocalAxisYModel!.Geometry = yBuilder.ToLineGeometry3D();
+                            _cmjLocalAxisYModel.IsRendering = true;
+                            
+                            // Z Axis (Blue - Right)
+                            _cmjLocalAxisZModel!.Geometry = zBuilder.ToLineGeometry3D();
+                            _cmjLocalAxisZModel.IsRendering = true;
+                        }
+                    }
+                }
+            }
         }
 
         // Helper to get marker index case-insensitively
@@ -2882,8 +3209,21 @@ namespace MStudio.App.ViewModels
             if (_cmjCoMTrajectoryModel != null) _cmjCoMTrajectoryModel.IsRendering = false;
             if (_cmjCoMPointsModel != null) _cmjCoMPointsModel.IsRendering = false;
             if (_cmjJumpHeightModel != null) _cmjJumpHeightModel.IsRendering = false;
-            if (_cmjLabelsModel != null) _cmjLabelsModel.IsRendering = false;
+            if (_cmjLabelsModel != null)
+            {
+                _cmjLabelsModel.Geometry = new BillboardText3D();
+                _cmjLabelsModel.IsRendering = false;
+            }
             if (_cmjValgusLinesModel != null) _cmjValgusLinesModel.IsRendering = false;
+            if (_cmjValgusArcModel != null) _cmjValgusArcModel.IsRendering = false;
+            if (_cmjLocalAxisXModel != null) _cmjLocalAxisXModel.IsRendering = false;
+            if (_cmjLocalAxisYModel != null) _cmjLocalAxisYModel.IsRendering = false;
+            if (_cmjLocalAxisZModel != null) _cmjLocalAxisZModel.IsRendering = false;
+            if (_cmjValgusLabelsModel != null)
+            {
+                _cmjValgusLabelsModel.Geometry = new BillboardText3D();
+                _cmjValgusLabelsModel.IsRendering = false;
+            }
         }
 
         /// <summary>
@@ -2909,6 +3249,7 @@ namespace MStudio.App.ViewModels
             if (_cmjJumpHeightModel != null) SceneElements.Remove(_cmjJumpHeightModel);
             if (_cmjLabelsModel != null) SceneElements.Remove(_cmjLabelsModel);
             if (_cmjValgusLinesModel != null) SceneElements.Remove(_cmjValgusLinesModel);
+            if (_cmjValgusArcModel != null) SceneElements.Remove(_cmjValgusArcModel);
         }
 
 

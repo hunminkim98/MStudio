@@ -146,6 +146,21 @@
                 </ToggleButton>
             </StackPanel>
             
+            <!-- 3rd Row: CMJ Visualization Layer Toggles (visible only when CMJ is active) -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2"
+                        Visibility="{Binding IsCMJVisualizationActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                <TextBlock Text="CMJ:" FontSize="8" Foreground="#666" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <ToggleButton IsChecked="{Binding ShowCMJBasic}" Width="24" Height="24" ToolTip="Basic (CoM, Axes)" Focusable="False" Margin="0,0,2,0">
+                    <TextBlock Text="📍" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+                <ToggleButton IsChecked="{Binding ShowCMJEvents}" Width="24" Height="24" ToolTip="Events (Markers, Jump Height)" Focusable="False" Margin="0,0,2,0">
+                    <TextBlock Text="🏃" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+                <ToggleButton IsChecked="{Binding ShowCMJValgus}" Width="24" Height="24" ToolTip="Valgus (Knee Analysis)" Focusable="False">
+                    <TextBlock Text="🦵" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+            </StackPanel>
+            
             <!-- Analysis Result Overlay -->
             <Border Visibility="{Binding IsAnalysisMode, Converter={StaticResource BoolToVisibilityConverter}}"
                     Background="#CC000000" CornerRadius="4" Padding="6" Margin="0,4,0,0" 

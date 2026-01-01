@@ -507,8 +507,8 @@ namespace MStudio.Services.Implementations
 
             // Calculate valgus angle in frontal plane (Z-Y projection)
             // Pass isRightLeg to handle sign correctly (Valgus +, Varus -)
-            float rightValgus = CalculateFrontalPlaneAngle(rHip, rKnee, rAnkle, isRightLeg: true);
-            float leftValgus = CalculateFrontalPlaneAngle(lHip, lKnee, lAnkle, isRightLeg: false);
+            float rightValgus = CalculateFrontalPlaneAngle(rHip, rKnee, rAnkle, lHip, rHip, isRightLeg: true);
+            float leftValgus = CalculateFrontalPlaneAngle(lHip, lKnee, lAnkle, lHip, rHip, isRightLeg: false);
 
             // Get normal ranges based on gender
             float minRange = gender == Gender.Male ? MaleValgusMin : FemaleValgusMin;
@@ -701,36 +701,81 @@ namespace MStudio.Services.Implementations
             return MathF.Acos(dot) * (180f / MathF.PI);
         }
 
-        private float CalculateFrontalPlaneAngle(Vector3 hip, Vector3 knee, Vector3 ankle, bool isRightLeg)
+        /// <summary>
+        /// Calculates knee valgus angle in the local frontal plane defined by pelvis orientation.
+        /// </summary>
+        private float CalculateFrontalPlaneAngle(Vector3 hip, Vector3 knee, Vector3 ankle, 
+            Vector3 lHip, Vector3 rHip, bool isRightLeg)
         {
             // Check for invalid positions (zero or NaN)
             if (hip == Vector3.Zero || knee == Vector3.Zero || ankle == Vector3.Zero)
                 return float.NaN;
+            if (lHip == Vector3.Zero || rHip == Vector3.Zero)
+                return float.NaN;
 
-            // Calculate angles relative to vertical axis in Frontal Plane (Z-Y)
-            // Based on user feedback/image: X is Forward(Depth), Z is Right(Width), Y is Up.
-            // So Frontal Plane is Z-Y.
-
-            // Thigh angle: Deviation of Hip-Knee vector from vertical
-            float dzThigh = knee.Z - hip.Z;
-            float dyThigh = knee.Y - hip.Y; // Negative value (Hip is higher)
+            // === Define Local Coordinate System based on Pelvis ===
+            // Local Z (Right) = RHip - LHip direction
+            Vector3 pelvisRight = rHip - lHip;
+            if (pelvisRight.LengthSquared() < 0.001f)
+                return float.NaN;
+            Vector3 localZ = Vector3.Normalize(pelvisRight);
             
-            if (Math.Abs(dyThigh) < 0.001f) return float.NaN; 
+            // Local Y (Up) = Global Y axis (vertical)
+            Vector3 localY = new Vector3(0, 1, 0);
             
-            float thighAngleRad = MathF.Atan2(dzThigh, -dyThigh); 
-
-            // Shank angle: Deviation of Knee-Ankle vector from vertical
-            float dzShank = ankle.Z - knee.Z;
-            float dyShank = ankle.Y - knee.Y; 
+            // Local X (Forward) = Y cross Z (right-hand rule)
+            Vector3 localX = Vector3.Cross(localY, localZ);
+            if (localX.LengthSquared() < 0.001f)
+                return float.NaN;
+            localX = Vector3.Normalize(localX);
             
-            if (Math.Abs(dyShank) < 0.001f) return float.NaN;
+            // Re-orthogonalize Y to ensure perfect orthogonality
+            localY = Vector3.Cross(localZ, localX);
+            localY = Vector3.Normalize(localY);
 
-            float shankAngleRad = MathF.Atan2(dzShank, -dyShank);
-
-            // Valgus = difference between thigh and shank angles
-            float valgusRad = thighAngleRad - shankAngleRad;
-            float valgusDeg = valgusRad * (180f / MathF.PI);
-
+            // === Calculate vectors ===
+            // Thigh extended direction (Knee - Hip) = direction from Hip toward Knee
+            Vector3 thighExtended = knee - hip;
+            
+            // Shank direction (Ankle - Knee)
+            Vector3 shank = ankle - knee;
+            
+            // === Project to Local Frontal Plane (Local Z - Local Y) ===
+            // Project by taking dot products with local axes
+            float thighLocalZ = Vector3.Dot(thighExtended, localZ);
+            float thighLocalY = Vector3.Dot(thighExtended, localY);
+            float shankLocalZ = Vector3.Dot(shank, localZ);
+            float shankLocalY = Vector3.Dot(shank, localY);
+            
+            // Calculate magnitudes in local Z-Y plane
+            float thighLen = MathF.Sqrt(thighLocalZ * thighLocalZ + thighLocalY * thighLocalY);
+            float shankLen = MathF.Sqrt(shankLocalZ * shankLocalZ + shankLocalY * shankLocalY);
+            
+            if (thighLen < 0.001f || shankLen < 0.001f)
+                return float.NaN;
+            
+            // Normalize
+            float thighZn = thighLocalZ / thighLen;
+            float thighYn = thighLocalY / thighLen;
+            float shankZn = shankLocalZ / shankLen;
+            float shankYn = shankLocalY / shankLen;
+            
+            // Dot product for angle
+            float dot = thighZn * shankZn + thighYn * shankYn;
+            dot = Math.Clamp(dot, -1f, 1f);
+            float angleRad = MathF.Acos(dot);
+            
+            // Cross product (2D in local Z-Y) to determine direction
+            float cross = thighZn * shankYn - thighYn * shankZn;
+            
+            // Convert to degrees
+            float valgusDeg = angleRad * (180f / MathF.PI);
+            
+            // Apply sign based on cross product
+            // Negative = Valgus (inward), Positive = Varus (outward)
+            if (cross < 0)
+                valgusDeg = -valgusDeg;
+            
             return isRightLeg ? -valgusDeg : valgusDeg;
         }
 
@@ -761,8 +806,8 @@ namespace MStudio.Services.Implementations
                 float hipAngle = (CalculateJointAngle(hip, rHip, rKnee) + CalculateJointAngle(hip, lHip, lKnee)) / 2f;
                 float kneeAngle = (CalculateJointAngle(rHip, rKnee, rAnkle) + CalculateJointAngle(lHip, lKnee, lAnkle)) / 2f;
                 
-                float rValgus = CalculateFrontalPlaneAngle(rHip, rKnee, rAnkle, true);
-                float lValgus = CalculateFrontalPlaneAngle(lHip, lKnee, lAnkle, false);
+                float rValgus = CalculateFrontalPlaneAngle(rHip, rKnee, rAnkle, lHip, rHip, true);
+                float lValgus = CalculateFrontalPlaneAngle(lHip, lKnee, lAnkle, lHip, rHip, false);
 
                 series.Add(new CMJTimeSeriesPoint(
                     frame,
