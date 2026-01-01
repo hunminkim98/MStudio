@@ -282,6 +282,24 @@ namespace MStudio.App.ViewModels
                 {
                     Owner = System.Windows.Application.Current.MainWindow
                 };
+                
+                // Send message to viewport for visualization
+                WeakReferenceMessenger.Default.Send(new CMJAnalysisCompletedMessage 
+                { 
+                    Result = result, 
+                    ShowVisualization = true 
+                });
+                
+                // Clear visualization when window closes
+                resultWindow.Closed += (sender, args) =>
+                {
+                    WeakReferenceMessenger.Default.Send(new CMJAnalysisCompletedMessage 
+                    { 
+                        Result = result, 
+                        ShowVisualization = false 
+                    });
+                };
+                
                 resultWindow.Show();
 
                 StatusText = $"CMJ Analysis completed - {result.Dominance}";
@@ -292,6 +310,7 @@ namespace MStudio.App.ViewModels
                 StatusText = "CMJ Analysis failed";
             }
         }
+
 
         /// <summary>
         /// Fills gaps in the selected marker's data using interpolation.

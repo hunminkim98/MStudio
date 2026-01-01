@@ -17,6 +17,7 @@ using MStudio.Core.Messaging;
 using MStudio.Core.Models;
 using MStudio.Services.Implementations;
 using MStudio.Services.Interfaces;
+using MStudio.Core.Models.Analysis;
 
 namespace MStudio.App.ViewModels
 {
@@ -142,6 +143,43 @@ namespace MStudio.App.ViewModels
         private float _minRightFootY = float.MaxValue;
         private bool _isLeftFootContacting = false;
         private bool _isRightFootContacting = false;
+
+        // ========== CMJ Event Visualization ==========
+        
+        // CMJ Analysis Result (null if no analysis is active)
+        private Core.Models.Analysis.CMJAnalysisResult? _cmjAnalysisResult;
+        
+        /// <summary>
+        /// Whether CMJ visualization is currently active
+        /// </summary>
+        [ObservableProperty]
+        private bool _isCMJVisualizationActive = false;
+
+        // CMJ Event Markers (spheres at key positions)
+        private MeshGeometryModel3D? _cmjLowestCoMMarker;
+        private MeshGeometryModel3D? _cmjTakeoffMarker;
+        private MeshGeometryModel3D? _cmjLandingMarker;
+        
+        // CMJ CoM Trajectory with highlighted points
+        private LineGeometryModel3D? _cmjCoMTrajectoryModel;
+        private InstancingMeshGeometryModel3D? _cmjCoMPointsModel;
+        
+
+        // CMJ Labels (Billboard Text)
+        private BillboardTextModel3D? _cmjLabelsModel;
+        
+        // CMJ Jump Height Visualization (vertical line from take-off to peak)
+        private LineGeometryModel3D? _cmjJumpHeightModel;
+        
+        // CMJ Event Colors
+        private static readonly Color4 CMJLowestCoMColor = new Color4(1.0f, 0.2f, 0.2f, 1.0f);   // Red
+        private static readonly Color4 CMJTakeoffColor = new Color4(0.2f, 1.0f, 0.2f, 1.0f);     // Green
+        private static readonly Color4 CMJLandingColor = new Color4(1.0f, 0.6f, 0.2f, 1.0f);     // Orange
+        private static readonly Color4 CMJCoMTrajectoryColor = new Color4(0.4f, 0.6f, 1.0f, 0.8f); // Light Blue
+        private static readonly Color4 CMJJumpHeightColor = new Color4(1.0f, 1.0f, 0.2f, 1.0f);  // Yellow
+        
+        // CMJ Valgus Visualization
+        private LineGeometryModel3D? _cmjValgusLinesModel;
 
         [ObservableProperty]
         private Vector3D _modelUpDirection = new Vector3D(0, 1, 0);
@@ -610,7 +648,24 @@ namespace MStudio.App.ViewModels
                     SelectedMarkerIndex = m.SelectedMarkerIndex;
                 }
             });
+
+            // Register for CMJ analysis completion messages
+            WeakReferenceMessenger.Default.Register<CMJAnalysisCompletedMessage>(this, (r, m) =>
+            {
+                if (m.ShowVisualization)
+                {
+                    _cmjAnalysisResult = m.Result;
+                    IsCMJVisualizationActive = true;
+                    CreateCMJVisualizationModels();
+                    UpdateCMJVisualization();
+                }
+                else
+                {
+                    ClearCMJVisualization();
+                }
+            });
         }
+
 
         /// <summary>
         /// Called when trial selection changes. Updates visualization for all selected trials.
@@ -1184,9 +1239,9 @@ namespace MStudio.App.ViewModels
             UpdateMarkerNames();
             UpdateFootContactVisuals();
             UpdateTrajectories();
-            UpdateTrajectories();
             UpdateBones();
             UpdateAnalysisOverlay(); // Update analysis every frame
+            UpdateCMJVisualization(); // Update CMJ visualization (including dynamic Valgus)
         }
 
         /// <summary>
@@ -2356,5 +2411,566 @@ namespace MStudio.App.ViewModels
                 _analysisLabelModel.IsRendering = true;
             }
         }
+
+        #region CMJ Event Visualization Methods
+
+        /// <summary>
+        /// Creates all 3D models needed for CMJ event visualization.
+        /// </summary>
+        private void CreateCMJVisualizationModels()
+        {
+            // Remove existing models first
+            RemoveCMJModelsFromScene();
+
+            var sphereBuilder = new MeshBuilder(true, false);
+            sphereBuilder.AddSphere(Vector3.Zero, MarkerSize * 2.5f, 24, 24); // Larger for visibility
+            var sphereGeometry = sphereBuilder.ToMeshGeometry3D();
+
+            // Lowest CoM Marker (Red)
+            _cmjLowestCoMMarker = new MeshGeometryModel3D
+            {
+                Geometry = sphereGeometry,
+                Material = new HelixToolkit.Wpf.SharpDX.PhongMaterial
+                {
+                    DiffuseColor = CMJLowestCoMColor,
+                    EmissiveColor = new Color4(CMJLowestCoMColor.Red * 0.3f, CMJLowestCoMColor.Green * 0.3f, CMJLowestCoMColor.Blue * 0.3f, 1f),
+                    SpecularColor = Color4.White,
+                    SpecularShininess = 50f
+                },
+                IsRendering = false,
+                Tag = "CMJ_LowestCoM"
+            };
+            SceneElements.Add(_cmjLowestCoMMarker);
+
+            // Take-off Marker (Green)
+            _cmjTakeoffMarker = new MeshGeometryModel3D
+            {
+                Geometry = sphereGeometry,
+                Material = new HelixToolkit.Wpf.SharpDX.PhongMaterial
+                {
+                    DiffuseColor = CMJTakeoffColor,
+                    EmissiveColor = new Color4(CMJTakeoffColor.Red * 0.3f, CMJTakeoffColor.Green * 0.3f, CMJTakeoffColor.Blue * 0.3f, 1f),
+                    SpecularColor = Color4.White,
+                    SpecularShininess = 50f
+                },
+                IsRendering = false,
+                Tag = "CMJ_Takeoff"
+            };
+            SceneElements.Add(_cmjTakeoffMarker);
+
+            // Landing Marker (Orange)
+            _cmjLandingMarker = new MeshGeometryModel3D
+            {
+                Geometry = sphereGeometry,
+                Material = new HelixToolkit.Wpf.SharpDX.PhongMaterial
+                {
+                    DiffuseColor = CMJLandingColor,
+                    EmissiveColor = new Color4(CMJLandingColor.Red * 0.3f, CMJLandingColor.Green * 0.3f, CMJLandingColor.Blue * 0.3f, 1f),
+                    SpecularColor = Color4.White,
+                    SpecularShininess = 50f
+                },
+                IsRendering = false,
+                Tag = "CMJ_Landing"
+            };
+            SceneElements.Add(_cmjLandingMarker);
+
+            // CoM Trajectory
+
+            _cmjCoMTrajectoryModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromScRgb(CMJCoMTrajectoryColor.Alpha, CMJCoMTrajectoryColor.Red, CMJCoMTrajectoryColor.Green, CMJCoMTrajectoryColor.Blue),
+                Thickness = 3.0,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjCoMTrajectoryModel);
+
+
+            // CoM Points at key frames
+            var pointBuilder = new MeshBuilder(true, false);
+            pointBuilder.AddSphere(Vector3.Zero, MarkerSize * 1.2f, 12, 12);
+            _cmjCoMPointsModel = new InstancingMeshGeometryModel3D
+            {
+                Geometry = pointBuilder.ToMeshGeometry3D(),
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial { DiffuseColor = CMJCoMTrajectoryColor },
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjCoMPointsModel);
+
+            // Jump Height Visualization
+            _cmjJumpHeightModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromScRgb(1f, CMJJumpHeightColor.Red, CMJJumpHeightColor.Green, CMJJumpHeightColor.Blue),
+                Thickness = 4.0,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjJumpHeightModel);
+
+            // Labels
+            _cmjLabelsModel = new BillboardTextModel3D
+            {
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjLabelsModel);
+
+            // Valgus Visualization (Lines)
+            _cmjValgusLinesModel = new LineGeometryModel3D
+            {
+                Thickness = 2.5,
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjValgusLinesModel);
+        }
+
+        /// <summary>
+        /// Updates CMJ visualization based on current analysis result and motion data.
+        /// </summary>
+        private void UpdateCMJVisualization()
+        {
+            if (!IsCMJVisualizationActive || _cmjAnalysisResult == null)
+            {
+                HideCMJVisualization();
+                return;
+            }
+
+            var motion = GetActiveMotionData();
+            if (motion == null) return;
+
+            var result = _cmjAnalysisResult;
+
+            // Get Hip marker index for CoM approximation
+            int hipIndex = -1;
+            for (int i = 0; i < motion.Metadata.MarkerNames.Count; i++)
+            {
+                if (motion.Metadata.MarkerNames[i].Equals("Hip", StringComparison.OrdinalIgnoreCase))
+                {
+                    hipIndex = i;
+                    break;
+                }
+            }
+
+            if (hipIndex < 0)
+            {
+                // Fallback: use average of RHip and LHip
+                int rHipIdx = -1, lHipIdx = -1;
+                for (int i = 0; i < motion.Metadata.MarkerNames.Count; i++)
+                {
+                    if (motion.Metadata.MarkerNames[i].Equals("RHip", StringComparison.OrdinalIgnoreCase)) rHipIdx = i;
+                    if (motion.Metadata.MarkerNames[i].Equals("LHip", StringComparison.OrdinalIgnoreCase)) lHipIdx = i;
+                }
+                if (rHipIdx >= 0 && lHipIdx >= 0)
+                {
+                    hipIndex = rHipIdx; // Will use RHip as primary
+                }
+            }
+
+            // Use actual CoM positions from analysis result (calculated using De Leva segment model)
+            // Fall back to Hip marker if CoMPositions is not available
+            Vector3 lowestCoMPos = GetActualCoMPosition(result, result.LowestCoMFrame, motion, hipIndex);
+            Vector3 takeoffPos = GetActualCoMPosition(result, result.TakeoffFrame, motion, hipIndex);
+            Vector3 landingPos = GetActualCoMPosition(result, result.LandingFrame, motion, hipIndex);
+            Vector3 peakPos = result.PeakFlightFrame > 0 ? GetActualCoMPosition(result, result.PeakFlightFrame, motion, hipIndex) : Vector3.Zero;
+
+            // 1. Update Event Markers
+            UpdateEventMarkerPosition(_cmjLowestCoMMarker, lowestCoMPos);
+            UpdateEventMarkerPosition(_cmjTakeoffMarker, takeoffPos);
+            UpdateEventMarkerPosition(_cmjLandingMarker, landingPos);
+
+            // 2. Update CoM Trajectory (using actual CoM data)
+            UpdateCoMTrajectory(result);
+
+
+
+
+            // 5. Update Jump Height Visualization
+            if (peakPos != Vector3.Zero && takeoffPos != Vector3.Zero && result.JumpHeightMeters > 0)
+            {
+                var jumpLineBuilder = new LineBuilder();
+                // Vertical line from take-off height to peak height
+                jumpLineBuilder.AddLine(
+                    new Vector3(takeoffPos.X + 0.1f, takeoffPos.Y, takeoffPos.Z),
+                    new Vector3(takeoffPos.X + 0.1f, takeoffPos.Y + result.JumpHeightMeters, takeoffPos.Z)
+                );
+                // Horizontal ticks at top and bottom
+                jumpLineBuilder.AddLine(
+                    new Vector3(takeoffPos.X + 0.05f, takeoffPos.Y, takeoffPos.Z),
+                    new Vector3(takeoffPos.X + 0.15f, takeoffPos.Y, takeoffPos.Z)
+                );
+                jumpLineBuilder.AddLine(
+                    new Vector3(takeoffPos.X + 0.05f, takeoffPos.Y + result.JumpHeightMeters, takeoffPos.Z),
+                    new Vector3(takeoffPos.X + 0.15f, takeoffPos.Y + result.JumpHeightMeters, takeoffPos.Z)
+                );
+                if (_cmjJumpHeightModel != null)
+                {
+                    _cmjJumpHeightModel.Geometry = jumpLineBuilder.ToLineGeometry3D();
+                    _cmjJumpHeightModel.IsRendering = true;
+                }
+            }
+
+            // 6. Update Labels
+            UpdateCMJLabels(result, lowestCoMPos, takeoffPos, landingPos);
+
+            // 7. Update Valgus Visualization (Lines & Labels)
+            UpdateValgusVisualization(result, motion);
+        }
+
+        /// <summary>
+        /// Gets actual CoM position from CMJAnalysisResult.CoMPositions (De Leva segment model).
+        /// Falls back to Hip marker if CoMPositions is not available.
+        /// </summary>
+        private Vector3 GetActualCoMPosition(Core.Models.Analysis.CMJAnalysisResult result, int frame, MotionData motion, int hipIndex)
+        {
+            // First, try to use actual CoM from analysis result
+            if (result.CoMPositions != null && frame >= 0 && frame < result.CoMPositions.Count)
+            {
+                var pos = result.CoMPositions[frame];
+                if (pos != Vector3.Zero && !float.IsNaN(pos.X))
+                {
+                    return pos;
+                }
+            }
+
+            // Fallback to Hip marker
+            if (frame < 0 || frame >= motion.Markers.FrameCount || hipIndex < 0)
+                return Vector3.Zero;
+
+            var hipPos = motion.Markers.GetPosition(hipIndex, frame);
+            if (float.IsNaN(hipPos.X)) return Vector3.Zero;
+            return hipPos;
+        }
+
+        /// <summary>
+        /// Updates position of an event marker sphere.
+        /// </summary>
+        private void UpdateEventMarkerPosition(MeshGeometryModel3D? marker, Vector3 position)
+        {
+            if (marker == null) return;
+
+            if (position == Vector3.Zero)
+            {
+                marker.IsRendering = false;
+                return;
+            }
+
+            marker.Transform = new MatrixTransform3D(Matrix4x4.CreateTranslation(position).ToMatrix3D());
+            marker.IsRendering = true;
+        }
+
+        /// <summary>
+        /// Updates CoM trajectory line and key point markers using actual CoM positions from analysis result.
+        /// </summary>
+        private void UpdateCoMTrajectory(Core.Models.Analysis.CMJAnalysisResult result)
+        {
+            if (_cmjCoMTrajectoryModel == null || _cmjCoMPointsModel == null) return;
+
+            var lineBuilder = new LineBuilder();
+            var pointInstances = new List<Matrix4x4>();
+
+            // Use actual CoM positions from De Leva segment model calculation
+            if (result.CoMPositions != null && result.CoMPositions.Count > 0)
+            {
+                Vector3 prevPos = Vector3.Zero;
+                for (int frame = 0; frame < result.CoMPositions.Count; frame++)
+                {
+                    var pos = result.CoMPositions[frame];
+                    if (pos == Vector3.Zero || float.IsNaN(pos.X)) continue;
+
+                    if (prevPos != Vector3.Zero)
+                    {
+                        lineBuilder.AddLine(prevPos, pos);
+                    }
+                    prevPos = pos;
+
+                    // Add point markers at key frames
+                    if (frame == result.LowestCoMFrame || frame == result.TakeoffFrame || 
+                        frame == result.LandingFrame || frame == result.PeakFlightFrame)
+                    {
+                        pointInstances.Add(Matrix4x4.CreateTranslation(pos));
+                    }
+                }
+            }
+
+            _cmjCoMTrajectoryModel.Geometry = lineBuilder.ToLineGeometry3D();
+            _cmjCoMTrajectoryModel.IsRendering = true;
+
+            _cmjCoMPointsModel.Instances = pointInstances;
+            _cmjCoMPointsModel.IsRendering = pointInstances.Count > 0;
+        }
+
+
+        /// <summary>
+        /// Updates all billboard text labels for CMJ events.
+        /// </summary>
+        private void UpdateCMJLabels(Core.Models.Analysis.CMJAnalysisResult result, Vector3 lowestPos, Vector3 takeoffPos, Vector3 landingPos)
+        {
+            if (_cmjLabelsModel == null) return;
+
+            var textInfo = new BillboardText3D();
+            float labelOffset = 0.08f;
+
+            // Lowest CoM Label
+            if (lowestPos != Vector3.Zero)
+            {
+                textInfo.TextInfo.Add(new TextInfo($"Lowest CoM\nFrame {result.LowestCoMFrame}", lowestPos + new Vector3(0, labelOffset, 0))
+                {
+                    Foreground = CMJLowestCoMColor,
+                    Scale = 0.5f
+                });
+            }
+
+            // Take-off Label with metrics
+            if (takeoffPos != Vector3.Zero)
+            {
+                string takeoffText = $"Take-off\nFrame {result.TakeoffFrame}";
+                if (result.ContactTimeSeconds > 0)
+                    takeoffText += $"\nContact: {result.ContactTimeSeconds:F2}s";
+                
+                textInfo.TextInfo.Add(new TextInfo(takeoffText, takeoffPos + new Vector3(0, labelOffset, 0))
+                {
+                    Foreground = CMJTakeoffColor,
+                    Scale = 0.5f
+                });
+            }
+
+            // Landing Label with metrics
+            if (landingPos != Vector3.Zero)
+            {
+                string landingText = $"Landing\nFrame {result.LandingFrame}";
+                if (result.FlightTimeSeconds > 0)
+                    landingText += $"\nFlight: {result.FlightTimeSeconds:F2}s";
+                
+                textInfo.TextInfo.Add(new TextInfo(landingText, landingPos + new Vector3(0, labelOffset, 0))
+                {
+                    Foreground = CMJLandingColor,
+                    Scale = 0.5f
+                });
+            }
+
+            // Jump Height Label (near the height indicator)
+            if (takeoffPos != Vector3.Zero && result.JumpHeightMeters > 0)
+            {
+                textInfo.TextInfo.Add(new TextInfo($"Jump: {result.JumpHeightMeters:F2}m", 
+                    takeoffPos + new Vector3(0.2f, result.JumpHeightMeters / 2, 0))
+                {
+                    Foreground = CMJJumpHeightColor,
+                    Scale = 0.6f
+                });
+            }
+
+            _cmjLabelsModel.Geometry = textInfo;
+            _cmjLabelsModel.IsRendering = textInfo.TextInfo.Count > 0;
+        }
+
+        /// <summary>
+        /// Visualizes knee valgus angles dynamically based on current frame.
+        /// </summary>
+        private void UpdateValgusVisualization(Core.Models.Analysis.CMJAnalysisResult result, MotionData motion)
+        {
+            if (_cmjValgusLinesModel == null || _cmjLabelsModel == null) return;
+            
+            // Get current frame from timeline
+            int currentFrame = _timelineService.CurrentFrame;
+            
+            // Validate frame range
+            if (currentFrame < 0 || currentFrame >= motion.Markers.FrameCount)
+            {
+                 _cmjValgusLinesModel.IsRendering = false;
+                 return;
+            }
+
+            // Get Valgus data from TimeSeries if available
+            float rValgus = float.NaN;
+            float lValgus = float.NaN;
+            
+            if (result.TimeSeries != null && currentFrame < result.TimeSeries.Count)
+            {
+                var point = result.TimeSeries[currentFrame];
+                if (point.Frame == currentFrame)
+                {
+                    rValgus = point.RightValgus;
+                    lValgus = point.LeftValgus;
+                }
+                else
+                {
+                    // Fallback search if frames don't match indices 1:1
+                    var p = result.TimeSeries.FirstOrDefault(x => x.Frame == currentFrame);
+                    if (p != null)
+                    {
+                        rValgus = p.RightValgus;
+                        lValgus = p.LeftValgus;
+                    }
+                }
+            }
+
+            var lineBuilder = new LineBuilder();
+            var textInfo = _cmjLabelsModel.Geometry as BillboardText3D;
+            if (textInfo == null) textInfo = new BillboardText3D();
+            
+            // Helper to add leg visualization
+            void AddLegValgus(string side, float valgusAngle, 
+                string hipName, string kneeName, string ankleName)
+            {
+                if (float.IsNaN(valgusAngle)) return;
+
+                int hipIdx = GetMarkerIndex(motion, hipName);
+                int kneeIdx = GetMarkerIndex(motion, kneeName);
+                int ankleIdx = GetMarkerIndex(motion, ankleName);
+
+                if (hipIdx >= 0 && kneeIdx >= 0 && ankleIdx >= 0)
+                {
+                    var hipPos = motion.Markers.GetPosition(hipIdx, currentFrame);
+                    var kneePos = motion.Markers.GetPosition(kneeIdx, currentFrame);
+                    var anklePos = motion.Markers.GetPosition(ankleIdx, currentFrame);
+
+                    if (hipPos != Vector3.Zero && kneePos != Vector3.Zero && anklePos != Vector3.Zero &&
+                        !float.IsNaN(hipPos.X) && !float.IsNaN(kneePos.X) && !float.IsNaN(anklePos.X))
+                    {
+                        // Color based on simplified risk thresholds (e.g. > 20 deg is high)
+                        // Note: Full risk classification logic is in Service, simplified here for dynamic vis
+                        Color4 color = Math.Abs(valgusAngle) < 15f ? 
+                            new Color4(0.2f, 0.8f, 0.2f, 1.0f) : // Green (Normal)
+                            (Math.Abs(valgusAngle) > 30f ? 
+                                new Color4(1.0f, 0.2f, 0.2f, 1.0f) : // Red (High)
+                                new Color4(1.0f, 0.6f, 0.0f, 1.0f)); // Orange (Caution)
+
+                        // Draw Hip-Knee and Knee-Ankle lines
+                        lineBuilder.AddLine(hipPos, kneePos);
+                        lineBuilder.AddLine(kneePos, anklePos);
+
+                        // Add Label
+                        string sign = valgusAngle > 0 ? "Valgus" : "Varus";
+                        textInfo.TextInfo.Add(new TextInfo($"{side} {sign}: {Math.Abs(valgusAngle):F1}°", 
+                            kneePos + new Vector3(side == "R" ? 0.1f : -0.1f, 0, 0))
+                        {
+                            Foreground = color,
+                            Scale = 0.6f
+                        });
+                    }
+                }
+            }
+
+            AddLegValgus("R", rValgus, "RHip", "RKnee", "RAnkle");
+            AddLegValgus("L", lValgus, "LHip", "LKnee", "LAnkle");
+
+            // Apply geometry
+            _cmjValgusLinesModel.Geometry = lineBuilder.ToLineGeometry3D();
+            _cmjValgusLinesModel.IsRendering = true;
+
+            // Update labels model
+            _cmjLabelsModel.Geometry = textInfo;
+            _cmjLabelsModel.IsRendering = textInfo.TextInfo.Count > 0;
+        }
+
+        // Helper to get marker index case-insensitively
+        private int GetMarkerIndex(MotionData motion, string name)
+        {
+            for (int i = 0; i < motion.Metadata.MarkerNames.Count; i++)
+            {
+                if (motion.Metadata.MarkerNames[i].Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Hides all CMJ visualization elements without removing them.
+        /// </summary>
+        private void HideCMJVisualization()
+        {
+            if (_cmjLowestCoMMarker != null) _cmjLowestCoMMarker.IsRendering = false;
+            if (_cmjTakeoffMarker != null) _cmjTakeoffMarker.IsRendering = false;
+            if (_cmjLandingMarker != null) _cmjLandingMarker.IsRendering = false;
+            if (_cmjCoMTrajectoryModel != null) _cmjCoMTrajectoryModel.IsRendering = false;
+            if (_cmjCoMPointsModel != null) _cmjCoMPointsModel.IsRendering = false;
+            if (_cmjJumpHeightModel != null) _cmjJumpHeightModel.IsRendering = false;
+            if (_cmjLabelsModel != null) _cmjLabelsModel.IsRendering = false;
+            if (_cmjValgusLinesModel != null) _cmjValgusLinesModel.IsRendering = false;
+        }
+
+        /// <summary>
+        /// Clears CMJ visualization completely.
+        /// </summary>
+        private void ClearCMJVisualization()
+        {
+            IsCMJVisualizationActive = false;
+            _cmjAnalysisResult = null;
+            HideCMJVisualization();
+        }
+
+        /// <summary>
+        /// Removes all CMJ models from the scene.
+        /// </summary>
+        private void RemoveCMJModelsFromScene()
+        {
+            if (_cmjLowestCoMMarker != null) SceneElements.Remove(_cmjLowestCoMMarker);
+            if (_cmjTakeoffMarker != null) SceneElements.Remove(_cmjTakeoffMarker);
+            if (_cmjLandingMarker != null) SceneElements.Remove(_cmjLandingMarker);
+            if (_cmjCoMTrajectoryModel != null) SceneElements.Remove(_cmjCoMTrajectoryModel);
+            if (_cmjCoMPointsModel != null) SceneElements.Remove(_cmjCoMPointsModel);
+            if (_cmjJumpHeightModel != null) SceneElements.Remove(_cmjJumpHeightModel);
+            if (_cmjLabelsModel != null) SceneElements.Remove(_cmjLabelsModel);
+            if (_cmjValgusLinesModel != null) SceneElements.Remove(_cmjValgusLinesModel);
+        }
+
+
+
+        /// <summary>
+        /// Handles click on CMJ event marker and navigates to that frame.
+        /// </summary>
+        public bool HandleCMJEventMarkerClick(Vector3 rayOrigin, Vector3 rayDirection, float maxDistance = 0.1f)
+        {
+            if (!IsCMJVisualizationActive || _cmjAnalysisResult == null) return false;
+
+            var motion = GetActiveMotionData();
+            if (motion == null) return false;
+
+            // Get Hip marker index
+            int hipIndex = -1;
+            for (int i = 0; i < motion.Metadata.MarkerNames.Count; i++)
+            {
+                if (motion.Metadata.MarkerNames[i].Equals("Hip", StringComparison.OrdinalIgnoreCase))
+                {
+                    hipIndex = i;
+                    break;
+                }
+            }
+
+            if (hipIndex < 0) return false;
+
+            // Check each event marker
+            var eventFrames = new (int frame, string name)[]
+            {
+                (_cmjAnalysisResult.LowestCoMFrame, "LowestCoM"),
+                (_cmjAnalysisResult.TakeoffFrame, "Takeoff"),
+                (_cmjAnalysisResult.LandingFrame, "Landing"),
+                (_cmjAnalysisResult.PeakFlightFrame, "Peak")
+            };
+
+            foreach (var (frame, name) in eventFrames)
+            {
+                if (frame <= 0 || frame >= motion.Markers.FrameCount) continue;
+
+                var pos = motion.Markers.GetPosition(hipIndex, frame);
+                if (float.IsNaN(pos.X)) continue;
+
+                // Calculate distance from ray to position
+                Vector3 originToPoint = pos - rayOrigin;
+                float proj = Vector3.Dot(originToPoint, rayDirection);
+                if (proj < 0) continue;
+
+                float distSq = originToPoint.LengthSquared() - (proj * proj);
+                if (distSq < maxDistance * maxDistance)
+                {
+                    // Navigate to this frame
+                    _timelineService.CurrentFrame = frame;
+                    WeakReferenceMessenger.Default.Send(new NavigateToFrameMessage { Frame = frame, Source = this });
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        #endregion
     }
 }
+

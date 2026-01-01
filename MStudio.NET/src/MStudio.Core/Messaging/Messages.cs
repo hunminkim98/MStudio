@@ -80,4 +80,36 @@ namespace MStudio.Core.Messaging
         /// </summary>
         public string? FilePath { get; init; }
     }
+
+    /// <summary>
+    /// Sent when CMJ analysis is completed to enable visualization in viewport.
+    /// </summary>
+    public sealed class CMJAnalysisCompletedMessage
+    {
+        /// <summary>
+        /// The CMJ analysis result containing key frames and metrics.
+        /// </summary>
+        public required Models.Analysis.CMJAnalysisResult Result { get; init; }
+
+        /// <summary>
+        /// Whether to show the visualization (false to hide/clear).
+        /// </summary>
+        public bool ShowVisualization { get; init; } = true;
+    }
+
+    /// <summary>
+    /// Sent when user requests to navigate to a specific frame from the viewport.
+    /// </summary>
+    public sealed class NavigateToFrameMessage
+    {
+        /// <summary>
+        /// The target frame to navigate to.
+        /// </summary>
+        public int Frame { get; init; }
+
+        /// <summary>
+        /// Source of the navigation request.
+        /// </summary>
+        public object? Source { get; init; }
+    }
 }

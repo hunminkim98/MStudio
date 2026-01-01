@@ -53,7 +53,8 @@ namespace MStudio.Core.Models.Analysis
         float HipAngle,
         float KneeAngle,
         float AnkleAngle,
-        float KneeValgusAngle);
+        float LeftValgus,
+        float RightValgus);
 
     /// <summary>
     /// Complete CMJ analysis result.

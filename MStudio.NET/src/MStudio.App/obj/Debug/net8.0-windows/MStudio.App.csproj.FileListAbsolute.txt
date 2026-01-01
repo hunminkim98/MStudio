@@ -212,3 +212,9 @@ C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-window
 C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\MStudio.App.pdb
 C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\MStudio.App.genruntimeconfig.cache
 C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\ref\MStudio.App.dll
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\AnalysisSelectionWindow.baml
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\CMJInputDialog.baml
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\CMJResultWindow.baml
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\AnalysisSelectionWindow.g.cs
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\CMJInputDialog.g.cs
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\CMJResultWindow.g.cs

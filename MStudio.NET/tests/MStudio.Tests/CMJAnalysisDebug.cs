@@ -21,7 +21,7 @@ namespace MStudio.Tests
             string trcPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../../../tests/CMJ.trc");
             if (!File.Exists(trcPath))
             {
-                trcPath = @"c:\Users\BB1\Desktop\MStudio\tests\CMJ.trc";
+                trcPath = @"c:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\tests\CMJ.trc";
             }
             
             Assert.True(File.Exists(trcPath), $"File not found: {trcPath}");
@@ -47,6 +47,12 @@ namespace MStudio.Tests
             var (leftValgus, rightValgus) = service.CalculateKneeValgus(motionData, lowestFrame, Gender.Male);
             Console.WriteLine($"Service Left Knee Valgus: {leftValgus.AngleDegrees:F2} degrees");
             Console.WriteLine($"Service Right Knee Valgus: {rightValgus.AngleDegrees:F2} degrees");
+            
+            // Hip/Knee Moment Ratio Check (NEW!)
+            var (ratio, dominance) = service.CalculateHipKneeRatio(motionData, lowestFrame, Gender.Male, 85.0f);
+            Console.WriteLine($"\n=== Hip/Knee Moment Ratio ===");
+            Console.WriteLine($"Ratio: {ratio:F3}");
+            Console.WriteLine($"Dominance: {dominance}");
 
             // Phase Detection
             var phases = service.DetectPhases(motionData, lowestFrame);

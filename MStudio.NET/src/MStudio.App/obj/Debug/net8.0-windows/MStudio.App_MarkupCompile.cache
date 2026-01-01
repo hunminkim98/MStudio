@@ -4,16 +4,16 @@
 winexe
 C#
 .cs
-C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\
 MStudio.App
 none
 false
-TRACE;DEBUG;NET;NET8_0;NETCOREAPP
-C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\mstudio.app\App.xaml
+TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
+C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\App.xaml
 8-193285203
 
 22-1689226265
-234-1950947358
+2341421604847
 MainWindow.xaml;Styles\DarkTheme.xaml;Views\AnalysisSelectionWindow.xaml;Views\CMJInputDialog.xaml;Views\CMJResultWindow.xaml;Views\DataView.xaml;Views\GraphView.xaml;Views\ViewportView.xaml;
 
 False

@@ -103,6 +103,17 @@ namespace MStudio.App.Views
             var rayOrigin = new System.Numerics.Vector3(ray.Position.X, ray.Position.Y, ray.Position.Z);
             var rayDirection = new System.Numerics.Vector3(ray.Direction.X, ray.Direction.Y, ray.Direction.Z);
 
+            // First, check for CMJ event marker clicks (when CMJ visualization is active)
+            if (vm.IsCMJVisualizationActive)
+            {
+                bool cmjMarkerClicked = vm.HandleCMJEventMarkerClick(rayOrigin, rayDirection);
+                if (cmjMarkerClicked)
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             // Ask ViewModel to select the nearest marker along this ray
             bool markerSelected = vm.SelectMarkerByRay(rayOrigin, rayDirection);
 
@@ -113,6 +124,7 @@ namespace MStudio.App.Views
                 e.Handled = true;
             }
         }
+
 
         /// <summary>
         /// Opens color picker dialog for marker color selection.

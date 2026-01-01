@@ -48,7 +48,7 @@ namespace MStudio.Services.Implementations
                 var timeSeries = GenerateTimeSeries(data, gender);
                 
                 // Calculate CoM positions for all frames
-                var comPositions = CalculateAllCoMPositions(data);
+                var comPositions = CalculateAllCoMPositions(data, gender);
                 
                 // Calculate jump metrics
                 var jumpMetrics = CalculateJumpMetrics(data, phases.ToList());
@@ -342,38 +342,49 @@ namespace MStudio.Services.Implementations
         public (float ratio, DominanceType dominance) CalculateHipKneeRatio(
             MotionData data, int frame, Gender gender, float bodyMassKg)
         {
-            // Get marker positions
-            var hip = GetMarkerPosition(data, "Hip", frame);
+            // === Quasi-static Moment Analysis ===
+            // At lowest CoM point, velocity ≈ 0, so we assume F = M × g
+            // Moment = M × g × d (g cancels out in ratio)
+            
+            // 1. Calculate upper body CoM and mass (segments above hip)
+            var (upperCoM, upperMassPercent) = CalculateUpperBodyCoMAndMass(data, frame, gender);
+            float upperMass = bodyMassKg * upperMassPercent / 100f;
+            
+            // 2. Calculate thigh CoM and mass
+            var (thighCoM, thighMassPercent) = CalculateThighCoMAndMass(data, frame, gender);
+            float thighMass = bodyMassKg * thighMassPercent / 100f;
+            
+            // 3. Calculate above-knee composite CoM and total mass
+            float aboveKneeMass = upperMass + thighMass;
+            Vector3 aboveKneeCoM = aboveKneeMass > 0.001f 
+                ? (upperCoM * upperMass + thighCoM * thighMass) / aboveKneeMass
+                : Vector3.Zero;
+            
+            // 4. Get joint centers
             var rHip = GetMarkerPosition(data, "RHip", frame);
             var lHip = GetMarkerPosition(data, "LHip", frame);
             var rKnee = GetMarkerPosition(data, "RKnee", frame);
             var lKnee = GetMarkerPosition(data, "LKnee", frame);
-            var rAnkle = GetMarkerPosition(data, "RAnkle", frame);
-            var lAnkle = GetMarkerPosition(data, "LAnkle", frame);
-
-            // Calculate joint angles
-            float rHipAngle = CalculateJointAngle(hip, rHip, rKnee);
-            float lHipAngle = CalculateJointAngle(hip, lHip, lKnee);
-            float rKneeAngle = CalculateJointAngle(rHip, rKnee, rAnkle);
-            float lKneeAngle = CalculateJointAngle(lHip, lKnee, lAnkle);
-
-            // Get segment masses
-            float thighMass = BodySegmentMassModel.GetSegmentMass(bodyMassKg, gender, BodySegment.Thigh);
-            float shankMass = BodySegmentMassModel.GetSegmentMass(bodyMassKg, gender, BodySegment.Shank);
-
-            // Estimate moments based on angles and lever arms
-            // Simplified: moment ≈ angle × mass × lever
-            float avgHipAngle = (rHipAngle + lHipAngle) / 2f;
-            float avgKneeAngle = (rKneeAngle + lKneeAngle) / 2f;
-
-            // Rough moment estimation (normalized)
-            float hipMomentEst = avgHipAngle * thighMass;
-            float kneeMomentEst = avgKneeAngle * (thighMass + shankMass);
-
-            // Avoid division by zero
-            float ratio = kneeMomentEst > 0.001f ? hipMomentEst / kneeMomentEst : 1f;
-
-            // Classify dominance
+            
+            Vector3 hipCenter = (rHip + lHip) / 2f;
+            Vector3 kneeCenter = (rKnee + lKnee) / 2f;
+            
+            // 5. Calculate Moment Arms (horizontal distance in X direction = Forward)
+            // Hip Moment Arm: distance from upper body CoM to hip joint
+            float hipMomentArm = Math.Abs(upperCoM.X - hipCenter.X);
+            // Knee Moment Arm: distance from above-knee CoM to knee joint
+            float kneeMomentArm = Math.Abs(aboveKneeCoM.X - kneeCenter.X);
+            
+            // 6. Calculate Moments (g cancels out in ratio, so omitted)
+            // Hip Moment = M_upper × d_hip
+            // Knee Moment = M_above_knee × d_knee
+            float hipMoment = upperMass * hipMomentArm;
+            float kneeMoment = aboveKneeMass * kneeMomentArm;
+            
+            // 7. Calculate Ratio
+            float ratio = kneeMoment > 0.001f ? hipMoment / kneeMoment : 1f;
+            
+            // 8. Classify dominance (user-defined thresholds)
             DominanceType dominance;
             if (ratio > 1.1f)
                 dominance = DominanceType.HipDominant;
@@ -383,6 +394,104 @@ namespace MStudio.Services.Implementations
                 dominance = DominanceType.Balanced;
 
             return (ratio, dominance);
+        }
+        
+        /// <summary>
+        /// Calculates the composite CoM and total mass percentage of upper body segments (above hip).
+        /// Includes: Head, Trunk, Upper Arms, Forearms
+        /// </summary>
+        private (Vector3 CoM, float massPercent) CalculateUpperBodyCoMAndMass(MotionData data, int frame, Gender gender)
+        {
+            var segmentCoMs = new List<(Vector3 position, float massPercent)>();
+            
+            // Get marker positions
+            var hip = GetMarkerPosition(data, "Hip", frame);
+            var neck = GetMarkerPosition(data, "Neck", frame);
+            var head = GetMarkerPosition(data, "Head", frame);
+            var rShoulder = GetMarkerPosition(data, "RShoulder", frame);
+            var lShoulder = GetMarkerPosition(data, "LShoulder", frame);
+            var rElbow = GetMarkerPosition(data, "RElbow", frame);
+            var lElbow = GetMarkerPosition(data, "LElbow", frame);
+            var rWrist = GetMarkerPosition(data, "RWrist", frame);
+            var lWrist = GetMarkerPosition(data, "LWrist", frame);
+            
+            // Fallback for missing neck
+            if (neck == Vector3.Zero && hip != Vector3.Zero)
+                neck = hip + new Vector3(0, 0.5f, 0);
+            
+            // Head
+            if (neck != Vector3.Zero && head != Vector3.Zero)
+            {
+                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Head);
+                var headCoM = neck + (head - neck) * ratio;
+                segmentCoMs.Add((headCoM, BodySegmentMassModel.MassPercentage.Head(gender)));
+            }
+            
+            // Trunk
+            if (hip != Vector3.Zero && neck != Vector3.Zero)
+            {
+                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Trunk);
+                var trunkCoM = neck + (hip - neck) * ratio;
+                segmentCoMs.Add((trunkCoM, BodySegmentMassModel.MassPercentage.Trunk(gender)));
+            }
+            
+            // Upper Arms
+            AddSegmentCoM(segmentCoMs, rShoulder, rElbow, gender, BodySegment.UpperArm);
+            AddSegmentCoM(segmentCoMs, lShoulder, lElbow, gender, BodySegment.UpperArm);
+            
+            // Forearms
+            AddSegmentCoM(segmentCoMs, rElbow, rWrist, gender, BodySegment.Forearm);
+            AddSegmentCoM(segmentCoMs, lElbow, lWrist, gender, BodySegment.Forearm);
+            
+            // Calculate weighted average
+            Vector3 weightedSum = Vector3.Zero;
+            float totalMassPercent = 0f;
+            
+            foreach (var (position, massPercent) in segmentCoMs)
+            {
+                if (position != Vector3.Zero && !float.IsNaN(position.Y))
+                {
+                    weightedSum += position * massPercent;
+                    totalMassPercent += massPercent;
+                }
+            }
+            
+            Vector3 compositeCoM = totalMassPercent > 0 ? weightedSum / totalMassPercent : Vector3.Zero;
+            return (compositeCoM, totalMassPercent);
+        }
+        
+        /// <summary>
+        /// Calculates the composite CoM and total mass percentage of both thighs.
+        /// </summary>
+        private (Vector3 CoM, float massPercent) CalculateThighCoMAndMass(MotionData data, int frame, Gender gender)
+        {
+            var segmentCoMs = new List<(Vector3 position, float massPercent)>();
+            
+            var rHip = GetMarkerPosition(data, "RHip", frame);
+            var lHip = GetMarkerPosition(data, "LHip", frame);
+            var rKnee = GetMarkerPosition(data, "RKnee", frame);
+            var lKnee = GetMarkerPosition(data, "LKnee", frame);
+            
+            // Right Thigh
+            AddSegmentCoM(segmentCoMs, rHip, rKnee, gender, BodySegment.Thigh);
+            // Left Thigh
+            AddSegmentCoM(segmentCoMs, lHip, lKnee, gender, BodySegment.Thigh);
+            
+            // Calculate weighted average
+            Vector3 weightedSum = Vector3.Zero;
+            float totalMassPercent = 0f;
+            
+            foreach (var (position, massPercent) in segmentCoMs)
+            {
+                if (position != Vector3.Zero && !float.IsNaN(position.Y))
+                {
+                    weightedSum += position * massPercent;
+                    totalMassPercent += massPercent;
+                }
+            }
+            
+            Vector3 compositeCoM = totalMassPercent > 0 ? weightedSum / totalMassPercent : Vector3.Zero;
+            return (compositeCoM, totalMassPercent);
         }
 
         public (KneeValgusResult left, KneeValgusResult right) CalculateKneeValgus(
@@ -651,7 +760,9 @@ namespace MStudio.Services.Implementations
 
                 float hipAngle = (CalculateJointAngle(hip, rHip, rKnee) + CalculateJointAngle(hip, lHip, lKnee)) / 2f;
                 float kneeAngle = (CalculateJointAngle(rHip, rKnee, rAnkle) + CalculateJointAngle(lHip, lKnee, lAnkle)) / 2f;
-                float valgus = (CalculateFrontalPlaneAngle(rHip, rKnee, rAnkle, true) + CalculateFrontalPlaneAngle(lHip, lKnee, lAnkle, false)) / 2f;
+                
+                float rValgus = CalculateFrontalPlaneAngle(rHip, rKnee, rAnkle, true);
+                float lValgus = CalculateFrontalPlaneAngle(lHip, lKnee, lAnkle, false);
 
                 series.Add(new CMJTimeSeriesPoint(
                     frame,
@@ -660,27 +771,39 @@ namespace MStudio.Services.Implementations
                     hipAngle,
                     kneeAngle,
                     0f, // Ankle angle simplified
-                    valgus));
+                    lValgus,
+                    rValgus));
             }
 
             return series;
         }
 
-        private IReadOnlyList<Vector3> CalculateAllCoMPositions(MotionData data)
+        private IReadOnlyList<Vector3> CalculateAllCoMPositions(MotionData data, Gender gender)
         {
-            var positions = new List<Vector3>();
-            int hipIndex = GetMarkerIndex(data, "Hip");
-            
-            if (hipIndex < 0)
-            {
-                for (int i = 0; i < data.Metadata.TotalFrames; i++)
-                    positions.Add(Vector3.Zero);
-                return positions;
-            }
+            var positions = new List<Vector3>(data.Metadata.TotalFrames);
 
             for (int frame = 0; frame < data.Metadata.TotalFrames; frame++)
             {
-                positions.Add(data.Markers.GetPosition(hipIndex, frame));
+                var com = CalculateWholeBodyCoM(data, frame, gender);
+                
+                // If CoM calculation returns Zero (failed), try fallback to Hip
+                if (com == Vector3.Zero)
+                {
+                    var hipPos = GetMarkerPosition(data, "Hip", frame);
+                    if (hipPos == Vector3.Zero)
+                    {
+                        // If even Hip is missing, try average of RHip/LHip
+                        var rHip = GetMarkerPosition(data, "RHip", frame);
+                        var lHip = GetMarkerPosition(data, "LHip", frame);
+                        if (rHip != Vector3.Zero && lHip != Vector3.Zero)
+                        {
+                            hipPos = (rHip + lHip) * 0.5f;
+                        }
+                    }
+                    com = hipPos;
+                }
+                
+                positions.Add(com);
             }
 
             return positions;
