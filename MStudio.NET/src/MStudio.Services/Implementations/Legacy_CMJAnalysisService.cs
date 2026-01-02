@@ -18,6 +18,9 @@ namespace MStudio.Services.Implementations
     /// </summary>
     public class Legacy_CMJAnalysisService : ICMJAnalysisService
     {
+        // Phase detection service (논문 기반 9-point 알고리즘)
+        private readonly ICMJPhaseDetectionService _phaseDetectionService;
+
         // Required marker names for CMJ analysis
         private static readonly string[] RequiredMarkers = new[]
         {
@@ -25,6 +28,16 @@ namespace MStudio.Services.Implementations
             "RKnee", "LKnee", 
             "RAnkle", "LAnkle"
         };
+
+        public Legacy_CMJAnalysisService()
+        {
+            _phaseDetectionService = new CMJPhaseDetectionService();
+        }
+
+        public Legacy_CMJAnalysisService(ICMJPhaseDetectionService phaseDetectionService)
+        {
+            _phaseDetectionService = phaseDetectionService;
+        }
 
         // Valgus normal ranges by gender (degrees)
         private const float MaleValgusMin = 3f;
@@ -55,7 +68,7 @@ namespace MStudio.Services.Implementations
                 var comPositions = CalculateAllCoMPositions(data, gender);
                 
                 // Calculate jump metrics
-                var jumpMetrics = CalculateJumpMetrics(data, phases.ToList());
+                var jumpMetrics = CalculateJumpMetrics(data, phases.ToList(), comPositions);
 
                 return new CMJAnalysisResult
                 {
@@ -110,7 +123,11 @@ namespace MStudio.Services.Implementations
             {
                 try
                 {
-                    var grfData = await RunOpenSimGRFAnalysisAsync(trcFilePath, heightM, bodyMassKg);
+                    // Pass kinematics-derived events to refine GRF analysis
+                    int? toFrame = result.TakeoffFrame > 0 ? result.TakeoffFrame : null;
+                    int? landFrame = result.LandingFrame > 0 ? result.LandingFrame : null;
+
+                    var grfData = await RunOpenSimGRFAnalysisAsync(trcFilePath, heightM, bodyMassKg, toFrame, landFrame);
                     
                     if (grfData != null)
                     {
@@ -169,7 +186,12 @@ namespace MStudio.Services.Implementations
         /// <summary>
         /// Runs OpenSim-based GRF analysis using Pose2Sim wrapper.
         /// </summary>
-        private async Task<OpenSimGRFData?> RunOpenSimGRFAnalysisAsync(string trcFilePath, float heightM, float massKg)
+        private async Task<OpenSimGRFData?> RunOpenSimGRFAnalysisAsync(
+            string trcFilePath, 
+            float heightM, 
+            float massKg,
+            int? takeoffFrame = null,
+            int? landingFrame = null)
         {
             var pose2sim = Pose2SimWrapperService.CreateFromConfig();
 
@@ -181,42 +203,41 @@ namespace MStudio.Services.Implementations
                 return null;
             }
 
-            // Create output directory
-            var outputDir = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(trcFilePath) ?? System.IO.Path.GetTempPath(),
-                "opensim_output"
-            );
-            System.IO.Directory.CreateDirectory(outputDir);
-
-            // Step 1: Scale model
-            var scaleResult = await pose2sim.ScaleModelAsync(trcFilePath, outputDir, heightM, massKg, "HALPE_26");
-            if (!scaleResult.Success || string.IsNullOrEmpty(scaleResult.ScaledModelPath))
+            // Ensure BodyKinematics CSV exists
+            // The trcFilePath is used as a base to find the _bodykin.csv
+            // Expected format: {filename}.trc -> {filename}_bodykin.csv in the same folder or opensim_output folder
+            
+            string csvPath = trcFilePath;
+            
+            // If input is not a CSV, look for the _bodykin.csv
+            if (!csvPath.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             {
-                System.Diagnostics.Debug.WriteLine($"Scaling failed: {scaleResult.Error}");
+                string dir = System.IO.Path.GetDirectoryName(trcFilePath) ?? "";
+                string name = System.IO.Path.GetFileNameWithoutExtension(trcFilePath);
+                
+                // Strategy 1: Check in "opensim_output" subdirectory (standard workflow)
+                string candidate1 = System.IO.Path.Combine(dir, "opensim_output", name + "_bodykin.csv");
+                
+                // Strategy 2: Check in same directory
+                string candidate2 = System.IO.Path.Combine(dir, name + "_bodykin.csv");
+
+                if (System.IO.File.Exists(candidate1)) csvPath = candidate1;
+                else if (System.IO.File.Exists(candidate2)) csvPath = candidate2;
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"BodyKinematics CSV not found. Expected at: {candidate1} or {candidate2}");
+                    return null;
+                }
+            }
+
+            if (!System.IO.File.Exists(csvPath))
+            {
+                System.Diagnostics.Debug.WriteLine($"GRF Analysis aborted: Input CSV file does not exist: {csvPath}");
                 return null;
             }
 
-            // Step 2: Run IK
-            var ikResult = await pose2sim.RunInverseKinematicsAsync(trcFilePath, outputDir, "HALPE_26");
-            if (!ikResult.Success || string.IsNullOrEmpty(ikResult.MotionFilePath))
-            {
-                System.Diagnostics.Debug.WriteLine($"IK failed: {ikResult.Error}");
-                return null;
-            }
-
-            // Step 3: Run BodyKinematics
-            var bodykinCsvPath = System.IO.Path.Combine(outputDir, 
-                System.IO.Path.GetFileNameWithoutExtension(trcFilePath) + "_bodykin.csv");
-            var bodykinResult = await pose2sim.RunBodyKinematicsAsync(
-                ikResult.MotionFilePath, scaleResult.ScaledModelPath, bodykinCsvPath);
-            if (!bodykinResult.Success || string.IsNullOrEmpty(bodykinResult.OutputCsvPath))
-            {
-                System.Diagnostics.Debug.WriteLine($"BodyKinematics failed: {bodykinResult.Error}");
-                return null;
-            }
-
-            // Step 4: Estimate GRF
-            var grfResult = await pose2sim.EstimateGRFAsync(bodykinResult.OutputCsvPath, massKg);
+            // Step 4: Estimate GRF (Directly)
+            var grfResult = await pose2sim.EstimateGRFAsync(csvPath, massKg, takeoffFrame, landingFrame);
             if (!grfResult.Success || grfResult.Metrics == null)
             {
                 System.Diagnostics.Debug.WriteLine($"GRF estimation failed: {grfResult.Error}");
@@ -692,139 +713,39 @@ namespace MStudio.Services.Implementations
             return (leftResult, rightResult);
         }
 
+        /// <summary>
+        /// 논문 기반 CMJPhaseDetectionService를 사용하여 단계를 감지합니다.
+        /// OpenSim CoM 데이터가 있는 경우 해당 데이터 사용, 없으면 마커 기반 CoM 계산.
+        /// </summary>
         public IReadOnlyList<CMJPhaseInfo> DetectPhases(MotionData data, int lowestFrame)
         {
-            var phases = new List<CMJPhaseInfo>();
-            int totalFrames = data.Metadata.TotalFrames;
+            // Calculate CoM positions using segment model
+            var comPositions = CalculateAllCoMPositions(data, Gender.Male); // Gender fallback
             
-            // Simple phase detection based on CoM position
-            int hipIndex = GetMarkerIndex(data, "Hip");
-            if (hipIndex < 0) return phases;
-
-            // Get initial standing height
-            var initialPos = data.Markers.GetPosition(hipIndex, 0);
-            float standingHeight = initialPos.Y;
-
-            // Detect descent start (when CoM drops below 99% of standing)
-            int descentStart = 0;
-            for (int f = 1; f < lowestFrame; f++)
-            {
-                var pos = data.Markers.GetPosition(hipIndex, f);
-                if (pos.Y < standingHeight * 0.99f)
-                {
-                    descentStart = f;
-                    break;
-                }
-            }
-
-            // Add phases
-            if (descentStart > 0)
-            {
-                phases.Add(new CMJPhaseInfo(CMJPhase.Standing, 0, descentStart - 1, "Initial standing position"));
-            }
-
-            phases.Add(new CMJPhaseInfo(CMJPhase.Unweighting, descentStart, lowestFrame - 1, "Countermovement descent"));
-            phases.Add(new CMJPhaseInfo(CMJPhase.LowestPoint, lowestFrame, lowestFrame, "Maximum knee flexion"));
-
-            // Detect take-off (Propulsion End)
-            // Logic: Toe height rises > 1cm from its position at LowestCoM
-            int propulsionEnd = lowestFrame;
+            // Use new phase detection service
+            var result = _phaseDetectionService.DetectPhases(comPositions, data, data.Metadata.FrameRate);
             
-            // Get toe indices
-            int rToeIdx = GetMarkerIndex(data, "RBigToe");
-            int lToeIdx = GetMarkerIndex(data, "LBigToe");
-            // Fallback
-            if (rToeIdx < 0) rToeIdx = GetMarkerIndex(data, "RToe");
-            if (lToeIdx < 0) lToeIdx = GetMarkerIndex(data, "LToe");
-
-            if (rToeIdx >= 0 && lToeIdx >= 0)
+            if (result.IsSuccess)
             {
-                // Get toe height at lowest frame
-                var rToePos = data.Markers.GetPosition(rToeIdx, lowestFrame);
-                var lToePos = data.Markers.GetPosition(lToeIdx, lowestFrame);
-                float baseToeH = (rToePos.Y + lToePos.Y) / 2f;
-
-                // Scan for 1cm rise
-                for (int f = lowestFrame + 1; f < totalFrames; f++)
-                {
-                    var rP = data.Markers.GetPosition(rToeIdx, f);
-                    var lP = data.Markers.GetPosition(lToeIdx, f);
-                    float currentToeH = (rP.Y + lP.Y) / 2f;
-
-                    if (currentToeH > baseToeH + 0.01f) // 1cm threshold
-                    {
-                        propulsionEnd = f;
-                        break;
-                    }
-                }
+                return result.Phases;
             }
-            else
+            
+            // Fallback to minimal phase list if detection fails
+            return new List<CMJPhaseInfo>
             {
-                // Fallback: use CoM return to standing height if no toes
-                for (int f = lowestFrame + 1; f < totalFrames; f++)
-                {
-                    var pos = data.Markers.GetPosition(hipIndex, f);
-                    if (pos.Y >= standingHeight)
-                    {
-                        propulsionEnd = f;
-                        break;
-                    }
-                }
-            }
+                new CMJPhaseInfo(CMJPhase.LowestPoint, lowestFrame, lowestFrame, "Maximum knee flexion")
+            };
+        }
 
-            if (propulsionEnd > lowestFrame)
-            {
-                phases.Add(new CMJPhaseInfo(CMJPhase.Propulsion, lowestFrame + 1, propulsionEnd, "Push-off phase"));
-            }
-
-            // Remaining frames as recovery
-            if (propulsionEnd < totalFrames - 1)
-            {
-                phases.Add(new CMJPhaseInfo(CMJPhase.Flight, propulsionEnd + 1, totalFrames - 1, "Flight phase")); 
-                // Note: Simplified logic assumes remaining is flight/landing. 
-                // Can refine later with landing detection using toe contact.
-                
-                // Detect landing based on Take-off toe height
-                // User requirement: Landing is when toe height drops below Take-off toe height
-                
-                // Get toe height at Take-off frame (propulsionEnd)
-                var rToePosTO = data.Markers.GetPosition(rToeIdx, propulsionEnd);
-                var lToePosTO = data.Markers.GetPosition(lToeIdx, propulsionEnd);
-                float toeHeightAtTakeoff = (rToePosTO.Y + lToePosTO.Y) / 2f;
-
-                // Scan for landing
-                // Start a bit after take-off to avoid immediate noise (e.g., 5 frames)
-                 for (int f = propulsionEnd + 5; f < totalFrames; f++) 
-                {
-                    if (rToeIdx >= 0 && lToeIdx >= 0)
-                    {
-                         var rP = data.Markers.GetPosition(rToeIdx, f);
-                         var lP = data.Markers.GetPosition(lToeIdx, f);
-                         float currentToeH = (rP.Y + lP.Y) / 2f;
-                         
-                         // Landing if toe drops back to take-off height or lower
-                         if (currentToeH <= toeHeightAtTakeoff + 0.005f) // Add small tolerance 5mm
-                         {
-                             // Split flight and landing
-                             int flightEnd = f;
-                             if (phases.Count > 0 && phases[^1].Phase == CMJPhase.Flight)
-                             {
-                                 phases[^1] = new CMJPhaseInfo(CMJPhase.Flight, propulsionEnd + 1, flightEnd - 1, "Flight phase");
-                             }
-                             else
-                             {
-                                 // Should be flight phase
-                                 phases.Add(new CMJPhaseInfo(CMJPhase.Flight, propulsionEnd + 1, flightEnd - 1, "Flight phase"));
-                             }
-                             
-                             phases.Add(new CMJPhaseInfo(CMJPhase.LandingAbsorption, flightEnd, totalFrames - 1, "Landing"));
-                             break;
-                         }
-                    }
-                }
-            }
-
-            return phases;
+        /// <summary>
+        /// OpenSim CoM 데이터를 사용하여 단계를 감지합니다 (권장).
+        /// </summary>
+        public CMJPhaseDetectionResult DetectPhasesWithOpenSimCoM(
+            IReadOnlyList<Vector3> openSimComPositions, 
+            MotionData data, 
+            float frameRate)
+        {
+            return _phaseDetectionService.DetectPhases(openSimComPositions, data, frameRate);
         }
 
         public bool HasRequiredMarkers(MotionData data)
@@ -1017,7 +938,7 @@ namespace MStudio.Services.Implementations
         }
 
         private (int takeoffFrame, int landingFrame, int peakFrame, float height, float flightTime, float contactTime) 
-            CalculateJumpMetrics(MotionData data, List<CMJPhaseInfo> phases)
+            CalculateJumpMetrics(MotionData data, List<CMJPhaseInfo> phases, IReadOnlyList<Vector3> comPositions)
         {
             // Simplified: use phase detection results
             var propulsion = phases.FirstOrDefault(p => p.Phase == CMJPhase.Propulsion);
@@ -1032,13 +953,57 @@ namespace MStudio.Services.Implementations
             int peakFrame = takeoffFrame > 0 && landingFrame > takeoffFrame 
                 ? (takeoffFrame + landingFrame) / 2 
                 : 0;
+
+            // --- Jump Height Calculation (CoM Displacement Method) ---
+            // 1. Get Standing Height (from initial 'Standing' phase or first few frames)
+            float standingHeight = 0f;
+            var standingPhase = phases.FirstOrDefault(p => p.Phase == CMJPhase.Standing);
             
-            // Estimate jump height from CoM displacement
-            int hipIndex = GetMarkerIndex(data, "Hip");
-            float standingHeight = hipIndex >= 0 ? data.Markers.GetPosition(hipIndex, 0).Y : 0;
-            float lowestHeight = lowest != null && hipIndex >= 0 
-                ? data.Markers.GetPosition(hipIndex, lowest.StartFrame).Y 
-                : standingHeight;
+            if (standingPhase != null)
+            {
+                // Average CoM Y during standing phase
+                int count = 0;
+                for (int i = standingPhase.StartFrame; i <= standingPhase.EndFrame; i++)
+                {
+                    if (i < comPositions.Count)
+                    {
+                        standingHeight += comPositions[i].Y;
+                        count++;
+                    }
+                }
+                if (count > 0) standingHeight /= count;
+            }
+            
+            // Fallback if no standing phase detected or invalid
+            if (standingHeight <= 0.01f && comPositions.Count > 0)
+            {
+                // Use first 10 frames
+                int count = 0;
+                for (int i = 0; i < Math.Min(10, comPositions.Count); i++)
+                {
+                    standingHeight += comPositions[i].Y;
+                    count++;
+                }
+                if (count > 0) standingHeight /= count;
+            }
+
+            // 2. Get Peak Height (Max CoM Y between takeoff and landing)
+            float peakHeight = 0f;
+            if (takeoffFrame < landingFrame && takeoffFrame < comPositions.Count)
+            {
+                for (int i = takeoffFrame; i < Math.Min(landingFrame, comPositions.Count); i++)
+                {
+                    if (comPositions[i].Y > peakHeight)
+                    {
+                        peakHeight = comPositions[i].Y;
+                        peakFrame = i; // Refine peak frame
+                    }
+                }
+            }
+
+            // 3. Calculate Jump Height (Displacement)
+            // Ensure we subtract standing height, result can't be negative
+            float height = Math.Max(0, peakHeight - standingHeight);
             
             float frameRate = data.Metadata.FrameRate;
             float flightTime = (landingFrame - takeoffFrame) / frameRate;
@@ -1047,9 +1012,6 @@ namespace MStudio.Services.Implementations
             var unweighting = phases.FirstOrDefault(p => p.Phase == CMJPhase.Unweighting);
             int movementStartFrame = unweighting?.StartFrame ?? 0;
             float contactTime = (takeoffFrame - movementStartFrame) / frameRate;
-            
-            // Simple flight time method: h = 0.5 * g * (t/2)^2
-            float height = 0.5f * 9.81f * MathF.Pow(flightTime / 2f, 2);
 
             return (takeoffFrame, landingFrame, peakFrame, height, flightTime, contactTime);
         }

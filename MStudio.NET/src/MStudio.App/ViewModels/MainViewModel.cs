@@ -398,34 +398,100 @@ namespace MStudio.App.ViewModels
                 // If Estimate GRF is selected and we have a valid file, run GRF estimation
                 if (inputDialog.EstimateGRF && !string.IsNullOrEmpty(bodyKinCsvPath))
                 {
-                    StatusText = "Estimating GRF from BodyKinematics data...";
+                    StatusText = "Loading BodyKinematics data...";
                     
                     try
                     {
                         var pose2sim = MStudio.Services.Implementations.Pose2SimWrapperService.CreateFromConfig();
 
-                        var grfResult = await pose2sim.EstimateGRFAsync(bodyKinCsvPath, inputDialog.BodyMassKg);
+                        // Step 1: Load CoM, CoP, and Contact Spheres data from CSV
+                        var (bodyKinCoM, bodyKinCoP, bodyKinContactSpheres) = pose2sim.LoadBodyKinematicsData(bodyKinCsvPath);
                         
-                        // Load CoM data from CSV (BodyKinematics result)
-                        var bodyKinCoM = pose2sim.LoadBodyKinematicsData(bodyKinCsvPath);
-                        
+                        // Step 2: Phase Detection with OpenSim CoM (논문 기반 알고리즘)
+                        int takeoffFrame = result.TakeoffFrame;
+                        int landingFrame = result.LandingFrame;
+                        int lowestCoMFrame = result.LowestCoMFrame;
+                        int peakFlightFrame = result.PeakFlightFrame;
+                        int movementStartFrame = result.MovementStartFrame;
+                        int brakingStartFrame = result.BrakingStartFrame;
+                        int landingDepthFrame = result.LandingDepthFrame;
+                        float frameRate = _sessionService.CurrentMotion.Metadata.FrameRate;
+                        IReadOnlyList<CMJPhaseInfo> phases = result.Phases;
+
+                        if (bodyKinCoM.Count > 10)
+                        {
+                            StatusText = "Detecting CMJ phases with OpenSim CoM...";
+                            
+                            // Use new CMJPhaseDetectionService with OpenSim CoM
+                            var phaseService = new MStudio.Services.Implementations.CMJPhaseDetectionService();
+                            var phaseResult = phaseService.DetectPhases(
+                                bodyKinCoM, 
+                                _sessionService.CurrentMotion, 
+                                frameRate);
+
+                            if (phaseResult.IsSuccess)
+                            {
+                                takeoffFrame = phaseResult.TakeoffFrame;
+                                landingFrame = phaseResult.LandingFrame;
+                                lowestCoMFrame = phaseResult.LowestCoMFrame;
+                                peakFlightFrame = phaseResult.PeakHeightFrame;
+                                movementStartFrame = phaseResult.MovementStartFrame;
+                                brakingStartFrame = phaseResult.BrakingStartFrame;
+                                landingDepthFrame = phaseResult.LandingDepthFrame;
+                                phases = phaseResult.Phases;
+                                
+                                StatusText = $"Phase detection: LowestCoM={lowestCoMFrame}, Take-off={takeoffFrame}, Landing={landingFrame}";
+                            }
+                        }
+
+                        // Step 3: GRF Estimation (사용 업데이트된 프레임 정보)
+                        StatusText = "Estimating GRF from BodyKinematics data...";
+                        var grfResult = await pose2sim.EstimateGRFAsync(
+                            bodyKinCsvPath, 
+                            inputDialog.BodyMassKg,
+                            takeoffFrame > 0 ? takeoffFrame : null,
+                            landingFrame > 0 ? landingFrame : null,
+                            lowestCoMFrame > 0 ? lowestCoMFrame : null);
+
                         if (grfResult.Success && grfResult.Metrics != null)
                         {
-                            // Create new result with GRF data
+                            // Clean Flight Phase GRF to 0 based on Kinematic Events
+                            var grfSeries = grfResult.GrfTimeseries?.GrfVerticalN?.ToList() ?? new System.Collections.Generic.List<float>();
+                            int flightStart = takeoffFrame + 1;
+                            int flightEnd = landingFrame - 1;
+
+                            if (flightStart > 0 && flightEnd > flightStart)
+                            {
+                                for (int i = flightStart; i <= flightEnd; i++)
+                                {
+                                    if (i >= 0 && i < grfSeries.Count)
+                                    {
+                                        grfSeries[i] = 0f;
+                                    }
+                                }
+                            }
+
+                            // Create new result with GRF data and updated phases
                             result = new CMJAnalysisResult
                             {
                                 Type = result.Type,
                                 IsSuccess = result.IsSuccess,
                                 AnalyzedAt = result.AnalyzedAt,
-                                Summary = result.Summary + " (with GRF & BodyKin CoM)",
+                                Summary = result.Summary + " (with GRF & OpenSim CoM)",
                                 
                                 SubjectGender = result.SubjectGender,
                                 SubjectMassKg = result.SubjectMassKg,
                                 
-                                LowestCoMFrame = result.LowestCoMFrame,
-                                TakeoffFrame = grfResult.Metrics.TakeoffFrame ?? result.TakeoffFrame,
-                                LandingFrame = result.LandingFrame,
-                                PeakFlightFrame = result.PeakFlightFrame,
+                                LowestCoMFrame = lowestCoMFrame,
+                                TakeoffFrame = takeoffFrame,
+                                LandingFrame = landingFrame,
+                                PeakFlightFrame = peakFlightFrame,
+                                
+                                // 논문 기반 추가 프레임
+                                MovementStartFrame = movementStartFrame,
+                                BrakingStartFrame = brakingStartFrame,
+                                LandingDepthFrame = landingDepthFrame,
+                                FrameRate = frameRate,
                                 
                                 HipKneeRatio = result.HipKneeRatio,
                                 Dominance = result.Dominance,
@@ -435,20 +501,25 @@ namespace MStudio.App.ViewModels
                                 LeftKneeValgus = result.LeftKneeValgus,
                                 RightKneeValgus = result.RightKneeValgus,
                                 
-                                Phases = result.Phases,
+                                Phases = phases,
                                 TimeSeries = result.TimeSeries,
                                 CoMPositions = bodyKinCoM.Count > 0 ? bodyKinCoM : result.CoMPositions,
+                                CoPPositions = bodyKinCoP.Count > 0 ? bodyKinCoP : result.CoPPositions,
+                                ContactSpheresTrajectories = bodyKinContactSpheres.Count > 0 
+                                    ? bodyKinContactSpheres.ToDictionary(k => k.Key, v => (IReadOnlyList<System.Numerics.Vector3>)v.Value) 
+                                    : result.ContactSpheresTrajectories,
                                 
-                                JumpHeightMeters = result.JumpHeightMeters,
-                                FlightTimeSeconds = result.FlightTimeSeconds,
-                                ContactTimeSeconds = result.ContactTimeSeconds,
+                                // Jump Performance - 새로운 프레임 정보로 재계산
+                                JumpHeightMeters = CalculateJumpHeight(bodyKinCoM, peakFlightFrame, movementStartFrame),
+                                FlightTimeSeconds = (landingFrame - takeoffFrame) / frameRate,
+                                ContactTimeSeconds = (takeoffFrame - movementStartFrame) / frameRate,
 
                                 // GRF data
                                 HasGRFData = true,
                                 PeakVerticalGRF_N = grfResult.Metrics.PeakVerticalGrfN,
                                 NetVerticalImpulse_Ns = grfResult.Metrics.NetVerticalImpulseNs,
                                 RFD_NPerS = grfResult.Metrics.RfdNPerS,
-                                GRFTimeSeries = grfResult.GrfTimeseries?.GrfVerticalN?.ToList() ?? new System.Collections.Generic.List<float>(),
+                                GRFTimeSeries = grfSeries,
                                 GRFTimeValues = grfResult.GrfTimeseries?.TimeS?.ToList() ?? new System.Collections.Generic.List<float>()
                             };
                         }
@@ -544,6 +615,71 @@ namespace MStudio.App.ViewModels
                 });
                 
                 StatusText = $"Smoothed data for marker {SelectedMarkerIndex}";
+            }
+        }
+
+        /// <summary>
+        /// Deletes the currently selected marker after confirmation.
+        /// </summary>
+        [RelayCommand]
+        private void DeleteSelectedMarker()
+        {
+            if (SelectedMarkerIndex < 0) return;
+            
+            // Prioritize TrialService if available and has selected trials
+            // This aligns with ViewportViewModel's visualization prioritization
+            if (_trialService != null && _trialService.HasSelectedTrials && _trialService.SelectedTrials.Count > 0)
+            {
+                var activeTrial = _trialService.SelectedTrials[0];
+                var motion = activeTrial.MotionData;
+                
+                string markerName = "Unknown";
+                if (SelectedMarkerIndex >= 0 && SelectedMarkerIndex < motion.Metadata.MarkerNames.Count)
+                {
+                    markerName = motion.Metadata.MarkerNames[SelectedMarkerIndex];
+                }
+
+                bool confirmed = _dialogService.ShowConfirmation(
+                    $"Are you sure you want to delete marker '{markerName}' from trial '{activeTrial.Name}'?", 
+                    "Delete Marker");
+
+                if (confirmed)
+                {
+                    int indexToDelete = SelectedMarkerIndex;
+                    
+                    // Reset selection BEFORE deleting
+                    SelectedMarkerIndex = -1;
+                    
+                    _trialService.DeleteMarker(activeTrial.Id, indexToDelete);
+                    StatusText = $"Deleted marker: {markerName}";
+                }
+            }
+            // Fallback to SessionService
+            else if (_sessionService.CurrentMotion != null)
+            {
+                var motion = _sessionService.CurrentMotion;
+                
+                string markerName = "Unknown";
+                if (SelectedMarkerIndex >= 0 && SelectedMarkerIndex < motion.Metadata.MarkerNames.Count)
+                {
+                    markerName = motion.Metadata.MarkerNames[SelectedMarkerIndex];
+                }
+
+                bool confirmed = _dialogService.ShowConfirmation(
+                    $"Are you sure you want to delete marker '{markerName}'?", 
+                    "Delete Marker");
+
+                if (confirmed)
+                {
+                    int indexToDelete = SelectedMarkerIndex;
+                    
+                    // Reset selection BEFORE deleting
+                    SelectedMarkerIndex = -1;
+                    
+                    _sessionService.DeleteMarker(indexToDelete);
+                    StatusText = $"Deleted marker: {markerName}";
+                    OnPropertyChanged(nameof(CurrentMotionName));
+                }
             }
         }
 
@@ -692,6 +828,51 @@ namespace MStudio.App.ViewModels
         {
             if (trialVm == null) return;
             await _exportService.SaveAsAsync(trialVm.Trial);
+        }
+
+        /// <summary>
+        /// Calculates jump height from CoM positions.
+        /// Jump height = Peak CoM height - Initial standing CoM height
+        /// </summary>
+        private static float CalculateJumpHeight(
+            IReadOnlyList<System.Numerics.Vector3> comPositions, 
+            int peakFrame, 
+            int standingFrame)
+        {
+            if (comPositions == null || comPositions.Count == 0)
+                return 0f;
+
+            // Use first 10 frames average as standing height
+            float standingHeight = 0f;
+            int validCount = 0;
+            int avgFrames = Math.Min(10, comPositions.Count);
+            
+            for (int i = 0; i < avgFrames; i++)
+            {
+                if (comPositions[i].Y > 0.01f)
+                {
+                    standingHeight += comPositions[i].Y;
+                    validCount++;
+                }
+            }
+            standingHeight = validCount > 0 ? standingHeight / validCount : 0;
+
+            // Peak height
+            float peakHeight = 0f;
+            if (peakFrame >= 0 && peakFrame < comPositions.Count)
+            {
+                peakHeight = comPositions[peakFrame].Y;
+            }
+            else
+            {
+                // Find max if peakFrame is invalid
+                foreach (var pos in comPositions)
+                {
+                    if (pos.Y > peakHeight) peakHeight = pos.Y;
+                }
+            }
+
+            return Math.Max(0, peakHeight - standingHeight);
         }
     }
 }

@@ -71,6 +71,16 @@ namespace MStudio.Core.Models.Analysis
         public int LandingFrame { get; init; }
         public int PeakFlightFrame { get; init; }
 
+        // ===== 논문 기반 추가 프레임 (Sensors 2024, 24, 6624) =====
+        /// <summary>(a) Movement Start Frame - CoM velocity > 5% of max</summary>
+        public int MovementStartFrame { get; init; }
+        /// <summary>(c) Braking Start Frame - first velocity minimum</summary>
+        public int BrakingStartFrame { get; init; }
+        /// <summary>(i) Landing Depth Frame - second CoM minimum after landing</summary>
+        public int LandingDepthFrame { get; init; }
+        /// <summary>Frame rate for duration calculations</summary>
+        public float FrameRate { get; init; }
+
         /// <summary>Hip/Knee Moment Ratio analysis at lowest CoM.</summary>
         public float HipKneeRatio { get; init; }
         public DominanceType Dominance { get; init; }
@@ -94,6 +104,12 @@ namespace MStudio.Core.Models.Analysis
 
         /// <summary>Center of Mass positions per frame.</summary>
         public IReadOnlyList<Vector3> CoMPositions { get; init; } = Array.Empty<Vector3>();
+
+        /// <summary>Center of Pressure positions per frame.</summary>
+        public IReadOnlyList<Vector3> CoPPositions { get; init; } = Array.Empty<Vector3>();
+
+        /// <summary>Trajectories of all contact spheres (Key: SphereName, Value: List of Positions).</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<Vector3>> ContactSpheresTrajectories { get; init; } = new Dictionary<string, IReadOnlyList<Vector3>>();
 
         // ===== OpenSim GRF Estimation Results (NEW) =====
         

@@ -19,7 +19,8 @@
         behaviors:GlobalKeyboardBehavior.IsEnabled="True"
         behaviors:GlobalKeyboardBehavior.LeftKeyCommand="{Binding StepBackwardCommand}"
         behaviors:GlobalKeyboardBehavior.RightKeyCommand="{Binding StepForwardCommand}"
-        behaviors:GlobalKeyboardBehavior.SpaceKeyCommand="{Binding TogglePlayCommand}">
+        behaviors:GlobalKeyboardBehavior.SpaceKeyCommand="{Binding TogglePlayCommand}"
+        behaviors:GlobalKeyboardBehavior.DeleteKeyCommand="{Binding DeleteSelectedMarkerCommand}">
     
     <Window.Resources>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>

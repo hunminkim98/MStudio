@@ -20,7 +20,7 @@ namespace MStudio.Core.Models
         private float[] _z;
         private bool _disposed;
 
-        public int MarkerCount { get; }
+        public int MarkerCount { get; private set; }
         public int FrameCount { get; }
 
         public MarkerDataContainer(int markerCount, int frameCount)
@@ -45,6 +45,47 @@ namespace MStudio.Core.Models
         {
             int idx = frameIndex * MarkerCount + markerIndex;
             return new Vector3(_x[idx], _y[idx], _z[idx]);
+        }
+
+        /// <summary>
+        /// Removes a marker at the specified index and shifts subsequent data.
+        /// </summary>
+        public void RemoveMarker(int markerIndex)
+        {
+            if (markerIndex < 0 || markerIndex >= MarkerCount) return;
+
+            int newMarkerCount = MarkerCount - 1;
+            int newSize = newMarkerCount * FrameCount;
+            float[] nextX = new float[newSize];
+            float[] nextY = new float[newSize];
+            float[] nextZ = new float[newSize];
+
+            for (int f = 0; f < FrameCount; f++)
+            {
+                int oldFrameStart = f * MarkerCount;
+                int newFrameStart = f * newMarkerCount;
+
+                // Copy markers before the removed one
+                for (int m = 0; m < markerIndex; m++)
+                {
+                    nextX[newFrameStart + m] = _x[oldFrameStart + m];
+                    nextY[newFrameStart + m] = _y[oldFrameStart + m];
+                    nextZ[newFrameStart + m] = _z[oldFrameStart + m];
+                }
+
+                // Copy markers after the removed one
+                for (int m = markerIndex + 1; m < MarkerCount; m++)
+                {
+                    nextX[newFrameStart + m - 1] = _x[oldFrameStart + m];
+                    nextY[newFrameStart + m - 1] = _y[oldFrameStart + m];
+                    nextZ[newFrameStart + m - 1] = _z[oldFrameStart + m];
+                }
+            }
+
+            _x = nextX;
+            _y = nextY;
+            _z = nextZ;
+            MarkerCount = newMarkerCount;
         }
 
         public void FillGaps(int markerIndex, int maxGapSize)

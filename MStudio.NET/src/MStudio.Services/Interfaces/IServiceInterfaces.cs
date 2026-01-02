@@ -15,6 +15,7 @@ namespace MStudio.Services.Interfaces
         Task LoadMotionAsync(string filePath);
         void LoadFile(string filePath);
         void CloseSession();
+        void DeleteMarker(int markerIndex);
     }
 
     public interface ITimelineService : INotifyPropertyChanged
@@ -200,6 +201,13 @@ namespace MStudio.Services.Interfaces
         /// Raised when the selection state changes.
         /// </summary>
         event EventHandler? SelectionChanged;
+
+        /// <summary>
+        /// Deletes a marker from a specific trial.
+        /// </summary>
+        /// <param name="trialId">The trial ID</param>
+        /// <param name="markerIndex">The marker index to delete</param>
+        void DeleteMarker(string trialId, int markerIndex);
     }
     
     /// <summary>

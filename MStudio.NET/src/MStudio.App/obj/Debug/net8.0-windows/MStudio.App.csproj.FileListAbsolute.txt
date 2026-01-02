@@ -224,3 +224,4 @@ C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-window
 C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\Views\GRFFilesInputDialog.g.cs
 C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\bin\Debug\net8.0-windows\opensim_config.json
 C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\bin\Debug\net8.0-windows\scripts\pose2sim_wrapper.py
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\bin\Debug\net8.0-windows\scripts\__pycache__\pose2sim_wrapper.cpython-313.pyc

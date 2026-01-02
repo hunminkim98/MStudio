@@ -183,13 +183,23 @@ namespace MStudio.Services.Implementations
         /// <param name="comCsvPath">Path to BodyKinematics CSV output (contains COM_x, COM_y, COM_z)</param>
         /// <param name="massKg">Subject body mass in kg</param>
         /// <returns>GRF estimation result with peak force, impulse, RFD, and time series</returns>
-        public async Task<GRFEstimationResult> EstimateGRFAsync(string comCsvPath, float massKg)
+        public async Task<GRFEstimationResult> EstimateGRFAsync(
+            string comCsvPath, 
+            float massKg, 
+            int? takeoffFrame = null, 
+            int? landingFrame = null,
+            int? lowestCoMFrame = null)
         {
             var outputPath = Path.Combine(Path.GetTempPath(), $"grf_result_{Guid.NewGuid():N}.json");
             
             try
             {
                 var args = $"estimate_grf --com_csv \"{comCsvPath}\" --mass {massKg} --output \"{outputPath}\"";
+                
+                if (takeoffFrame.HasValue) args += $" --takeoff {takeoffFrame.Value}";
+                if (landingFrame.HasValue) args += $" --landing {landingFrame.Value}";
+                if (lowestCoMFrame.HasValue) args += $" --lowest_com {lowestCoMFrame.Value}";
+                
                 var result = await RunCommandAsync(args);
                 
                 if (!result.Success)
@@ -460,15 +470,20 @@ namespace MStudio.Services.Implementations
         }
 
         /// <summary>
-        /// Reads BodyKinematics CSV file and returns CoM positions.
+        /// Reads BodyKinematics CSV file and returns CoM, CoP, and Contact Spheres positions.
         /// </summary>
-        public List<System.Numerics.Vector3> LoadBodyKinematicsData(string csvPath)
+        public (List<System.Numerics.Vector3> CoM, 
+                List<System.Numerics.Vector3> CoP,
+                Dictionary<string, List<System.Numerics.Vector3>> ContactSpheres) LoadBodyKinematicsData(string csvPath)
         {
             var comPositions = new List<System.Numerics.Vector3>();
+            var copPositions = new List<System.Numerics.Vector3>();
+            var contactSpheresData = new Dictionary<string, List<System.Numerics.Vector3>>();
+            
             try
             {
                 var lines = File.ReadAllLines(csvPath);
-                if (lines.Length < 2) return comPositions;
+                if (lines.Length < 2) return (comPositions, copPositions, contactSpheresData);
 
                 // Parse header to find column indices
                 char separator = lines[0].Contains('\t') ? '\t' : ',';
@@ -479,14 +494,41 @@ namespace MStudio.Services.Implementations
                 int idxX = headers.IndexOf("com_x");
                 int idxY = headers.IndexOf("com_y");
                 int idxZ = headers.IndexOf("com_z");
+                
+                // CoP indices
+                int copX = headers.IndexOf("cop_x");
+                int copY = headers.IndexOf("cop_y");
+                int copZ = headers.IndexOf("cop_z");
+                bool hasCoP = copX != -1 && copY != -1 && copZ != -1;
 
-                if (idxX == -1 || idxY == -1 || idxZ == -1) return comPositions; // Missing columns
+                // Contact Spheres indices map: Name -> (idxX, idxY, idxZ)
+                var sphereIndices = new Dictionary<string, (int x, int y, int z)>();
+                foreach (var header in headers)
+                {
+                    if (header.StartsWith("cs_") && header.EndsWith("_x"))
+                    {
+                        string name = header.Substring(3, header.Length - 5); // cs_..._x
+                        int sx = headers.IndexOf($"cs_{name}_x");
+                        int sy = headers.IndexOf($"cs_{name}_y");
+                        int sz = headers.IndexOf($"cs_{name}_z");
+                        
+                        if (sx != -1 && sy != -1 && sz != -1)
+                        {
+                            sphereIndices[name] = (sx, sy, sz);
+                            contactSpheresData[name] = new List<System.Numerics.Vector3>();
+                        }
+                    }
+                }
+
+                if (idxX == -1 || idxY == -1 || idxZ == -1) return (comPositions, copPositions, contactSpheresData); 
 
                 // Parse data
                 for (int i = 1; i < lines.Length; i++)
                 {
                     if (string.IsNullOrWhiteSpace(lines[i])) continue;
                     var values = lines[i].Split(separator);
+                    
+                    // Parse CoM
                     if (values.Length > Math.Max(idxX, Math.Max(idxY, idxZ)))
                     {
                         if (float.TryParse(values[idxX], out float x) &&
@@ -495,9 +537,38 @@ namespace MStudio.Services.Implementations
                         {
                             comPositions.Add(new System.Numerics.Vector3(x, y, z));
                         }
+                        else comPositions.Add(System.Numerics.Vector3.Zero);
+                    }
+                    else comPositions.Add(System.Numerics.Vector3.Zero);
+                    
+                    // Parse CoP
+                    if (hasCoP)
+                    {
+                        if (values.Length > Math.Max(copX, Math.Max(copY, copZ)) &&
+                            float.TryParse(values[copX], out float cx) &&
+                            float.TryParse(values[copY], out float cy) &&
+                            float.TryParse(values[copZ], out float cz))
+                        {
+                            copPositions.Add(new System.Numerics.Vector3(cx, cy, cz));
+                        }
+                        else copPositions.Add(System.Numerics.Vector3.Zero);
+                    }
+                    
+                    // Parse Contact Spheres
+                    foreach (var kvp in sphereIndices)
+                    {
+                        var name = kvp.Key;
+                        var idxs = kvp.Value;
+                        if (values.Length > Math.Max(idxs.x, Math.Max(idxs.y, idxs.z)) &&
+                            float.TryParse(values[idxs.x], out float sx) &&
+                            float.TryParse(values[idxs.y], out float sy) &&
+                            float.TryParse(values[idxs.z], out float sz))
+                        {
+                            contactSpheresData[name].Add(new System.Numerics.Vector3(sx, sy, sz));
+                        }
                         else
                         {
-                            comPositions.Add(System.Numerics.Vector3.Zero);
+                            contactSpheresData[name].Add(System.Numerics.Vector3.Zero);
                         }
                     }
                 }
@@ -506,7 +577,7 @@ namespace MStudio.Services.Implementations
             {
                 Debug.WriteLine($"Error reading body kinematics CSV: {ex.Message}");
             }
-            return comPositions;
+            return (comPositions, copPositions, contactSpheresData);
         }
     }
 }

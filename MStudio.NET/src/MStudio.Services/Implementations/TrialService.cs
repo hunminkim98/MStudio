@@ -246,6 +246,50 @@ namespace MStudio.Services.Implementations
             }
         }
 
+        public void DeleteMarker(string trialId, int markerIndex)
+        {
+            var trial = _trials.FirstOrDefault(t => t.Id == trialId);
+            if (trial == null) return;
+            
+            if (markerIndex < 0 || markerIndex >= trial.MarkerCount) return;
+
+            // 1. Mutate data container (Shared reference)
+            // Note: Since MotionData is a record, 'Markers' is a reference type (MarkerDataContainer)
+            // so we can modify it in place.
+            trial.MotionData.Markers.RemoveMarker(markerIndex);
+            
+            // 2. Update Metadata to reflect name removal
+            // Since Metadata is a record, we must create a new one.
+            var nameList = trial.MotionData.Metadata.MarkerNames.ToList();
+            nameList.RemoveAt(markerIndex);
+            
+            var newMetadata = trial.MotionData.Metadata with
+            {
+                MarkerNames = nameList.AsReadOnly()
+            };
+            
+            // 3. Create new MotionData with updated Metadata
+            var newMotionData = trial.MotionData with { Metadata = newMetadata };
+            
+            // 4. Create new Trial with updated MotionData
+            var newTrial = trial with { MotionData = newMotionData };
+            
+            // 5. Replace in ObservableCollection to notify listeners
+            // This triggers CollectionChanged -> ViewModels will refresh
+            int index = _trials.IndexOf(trial);
+            if (index >= 0)
+            {
+                _trials[index] = newTrial;
+            }
+            
+            // 6. If this trial was selected, we should probably raise SelectionChanged 
+            // to force full refresh of active visualization
+            if (IsTrialSelected(trialId))
+            {
+                SelectionChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         #endregion
 
         #region Events

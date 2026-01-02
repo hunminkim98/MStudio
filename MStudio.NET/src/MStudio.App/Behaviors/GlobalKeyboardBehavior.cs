@@ -129,8 +129,33 @@ namespace MStudio.App.Behaviors
                     ExecuteCommand(window, SpaceKeyCommandProperty);
                     e.Handled = true;
                     break;
+                case Key.Delete:
+                    // Don't intercept Delete if focus is on a TextBox
+                    if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+                        return;
+
+                    ExecuteCommand(window, DeleteKeyCommandProperty);
+                    e.Handled = true;
+                    break;
             }
         }
+
+        #region DeleteKeyCommand Attached Property
+
+        public static readonly DependencyProperty DeleteKeyCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "DeleteKeyCommand",
+                typeof(ICommand),
+                typeof(GlobalKeyboardBehavior),
+                new PropertyMetadata(null));
+
+        public static ICommand GetDeleteKeyCommand(DependencyObject obj) =>
+            (ICommand)obj.GetValue(DeleteKeyCommandProperty);
+
+        public static void SetDeleteKeyCommand(DependencyObject obj, ICommand value) =>
+            obj.SetValue(DeleteKeyCommandProperty, value);
+
+        #endregion
 
         private static void ExecuteCommand(Window window, DependencyProperty commandProperty)
         {

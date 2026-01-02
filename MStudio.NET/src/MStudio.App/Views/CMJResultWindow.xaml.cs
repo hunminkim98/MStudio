@@ -70,6 +70,33 @@ namespace MStudio.App.Views
             FlightTimeText.Text = $"{result.FlightTimeSeconds:F2} s";
             ContactTimeText.Text = $"{result.ContactTimeSeconds:F2} s";
 
+            // Phase Durations (논문 Table 1)
+            if (result.FrameRate > 0)
+            {
+                float fps = result.FrameRate;
+                
+                // Eccentric phases
+                float unweightingTime = (result.BrakingStartFrame - result.MovementStartFrame) / fps;
+                float brakingTime = (result.LowestCoMFrame - result.BrakingStartFrame) / fps;
+                float eccentricTime = (result.LowestCoMFrame - result.MovementStartFrame) / fps;
+                
+                // Propulsive phases
+                float propulsiveTime = (result.TakeoffFrame - result.LowestCoMFrame) / fps;
+                float takeoffPhaseTime = (result.TakeoffFrame - result.MovementStartFrame) / fps;
+                float flightDuration = (result.LandingFrame - result.TakeoffFrame) / fps;
+                
+                // Landing
+                float landingEccentricTime = (result.LandingDepthFrame - result.LandingFrame) / fps;
+
+                UnweightingTimeText.Text = $"{unweightingTime:F2} s";
+                BrakingTimeText.Text = $"{brakingTime:F2} s";
+                EccentricTimeText.Text = $"{eccentricTime:F2} s";
+                PropulsiveTimeText.Text = $"{propulsiveTime:F2} s";
+                TakeoffPhaseTimeText.Text = $"{takeoffPhaseTime:F2} s";
+                FlightDurationText.Text = $"{flightDuration:F2} s";
+                LandingEccentricTimeText.Text = landingEccentricTime >= 0 ? $"{landingEccentricTime:F2} s" : "N/A";
+            }
+
             // GRF Metrics (OpenSim)
             if (result.HasGRFData)
             {

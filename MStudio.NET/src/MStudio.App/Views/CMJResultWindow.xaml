@@ -175,6 +175,100 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Phase Durations (논문 Table 1 기반) -->
+                    <Border Background="#252535" CornerRadius="8" Padding="20" Margin="0,0,0,15">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="Phase Durations" Foreground="#888" FontSize="12"/>
+                                <Border Background="#2A3A5F" CornerRadius="3" Padding="6,2" Margin="10,0,0,0">
+                                    <TextBlock Text="Sensors 2024, 24, 6624" Foreground="#6C9BDB" FontSize="10"/>
+                                </Border>
+                            </StackPanel>
+                            
+                            <!-- Row 1: Eccentric Phases -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <Border Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="0,0,5,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="UnweightingTimeText" Text="0.15 s" Foreground="#A78BFA" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Unweighting" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(a → c)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <Border Grid.Column="1" Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="2.5,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="BrakingTimeText" Text="0.12 s" Foreground="#A78BFA" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Braking" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(c → d)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <Border Grid.Column="2" Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="5,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="EccentricTimeText" Text="0.27 s" Foreground="#A78BFA" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Eccentric Total" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(a → d)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            
+                            <!-- Row 2: Propulsive & Take-off -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <Border Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="0,0,5,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="PropulsiveTimeText" Text="0.18 s" Foreground="#7ED957" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Propulsive" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(d → f)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <Border Grid.Column="1" Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="2.5,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="TakeoffPhaseTimeText" Text="0.45 s" Foreground="#7ED957" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Take-off Phase" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(a → f)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <Border Grid.Column="2" Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="5,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="FlightDurationText" Text="0.40 s" Foreground="#6C9BDB" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Flight Time" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(f → h)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            
+                            <!-- Row 3: Landing -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <Border Background="#2A2A3E" CornerRadius="6" Padding="12,10" Margin="0,0,5,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="LandingEccentricTimeText" Text="0.22 s" Foreground="#FF6B6B" FontSize="18" FontWeight="Bold"/>
+                                        <TextBlock Text="Landing Eccentric" Foreground="#888" FontSize="10"/>
+                                        <TextBlock Text="(h → i)" Foreground="#555" FontSize="9"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- GRF Metrics (OpenSim) -->
                     <Border x:Name="GRFSection" Background="#252535" CornerRadius="8" Padding="20" Margin="0,0,0,15"
                             Visibility="Collapsed">

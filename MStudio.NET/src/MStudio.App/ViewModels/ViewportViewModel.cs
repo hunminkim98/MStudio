@@ -168,16 +168,12 @@ namespace MStudio.App.ViewModels
         // CMJ Labels (Billboard Text)
         private BillboardTextModel3D? _cmjLabelsModel;
         
-        // CMJ Jump Height Visualization (vertical line from take-off to peak)
-        private LineGeometryModel3D? _cmjJumpHeightModel;
-        
         // CMJ Event Colors
         private static readonly Color4 CMJLowestCoMColor = new Color4(1.0f, 0.2f, 0.2f, 1.0f);   // Red
         private static readonly Color4 CMJTakeoffColor = new Color4(0.2f, 1.0f, 0.2f, 1.0f);     // Green
         private static readonly Color4 CMJLandingColor = new Color4(1.0f, 0.6f, 0.2f, 1.0f);     // Orange
         private static readonly Color4 CMJCoMTrajectoryColor = new Color4(0.4f, 0.6f, 1.0f, 0.8f); // Light Blue
-        private static readonly Color4 CMJJumpHeightColor = new Color4(1.0f, 1.0f, 0.2f, 1.0f);  // Yellow
-        private static readonly Color4 CMJGRFVectorColor = new Color4(0.0f, 1.0f, 1.0f, 1.0f);   // Cyan (GRF)
+        private static readonly Color4 CMJGRFVectorColor = new Color4(1.0f, 0.0f, 0.0f, 1.0f);   // Red
         
         // CMJ Valgus Visualization
         private LineGeometryModel3D? _cmjValgusLinesModel;
@@ -187,6 +183,13 @@ namespace MStudio.App.ViewModels
         private LineGeometryModel3D? _cmjLocalAxisZModel; // Blue (Right)
         private BillboardTextModel3D? _cmjValgusLabelsModel; // Separate labels for Valgus
         private LineGeometryModel3D? _cmjGRFVectorModel; // GRF Vector Arrow
+        private MeshGeometryModel3D? _cmjCoPMarkerModel;
+        private static readonly System.Windows.Media.Color CMJCoPMarkerColor = System.Windows.Media.Colors.DeepPink; // Visible Pink
+        
+        // Contact Spheres Visualization
+        private System.Collections.Generic.Dictionary<string, MeshGeometryModel3D> _contactSphereModels = new();
+        private static readonly Color4 ContactSphereColorNormal = new Color4(0f, 1f, 0f, 0.5f); // Green
+        private static readonly Color4 ContactSphereColorActive = new Color4(1f, 0f, 0f, 1.0f); // Red
 
         // CMJ Visualization Layer Toggles
         [ObservableProperty]
@@ -1136,6 +1139,7 @@ namespace MStudio.App.ViewModels
             
             _boneLinks.Clear();
             MarkerNames.Clear();
+            AnalysisSelectedMarkers.Clear();
 
             var motion = _sessionService.CurrentMotion;
             if (motion == null) return;
@@ -2517,15 +2521,6 @@ namespace MStudio.App.ViewModels
             };
             SceneElements.Add(_cmjCoMPointsModel);
 
-            // Jump Height Visualization
-            _cmjJumpHeightModel = new LineGeometryModel3D
-            {
-                Color = System.Windows.Media.Color.FromScRgb(1f, CMJJumpHeightColor.Red, CMJJumpHeightColor.Green, CMJJumpHeightColor.Blue),
-                Thickness = 4.0,
-                IsRendering = false
-            };
-            SceneElements.Add(_cmjJumpHeightModel);
-
             // Labels
             _cmjLabelsModel = new BillboardTextModel3D
             {
@@ -2587,10 +2582,25 @@ namespace MStudio.App.ViewModels
             _cmjGRFVectorModel = new LineGeometryModel3D
             {
                 Color = System.Windows.Media.Color.FromScRgb(CMJGRFVectorColor.Alpha, CMJGRFVectorColor.Red, CMJGRFVectorColor.Green, CMJGRFVectorColor.Blue),
-                Thickness = 5.0, // Thicker than others
+                Thickness = 2.5, // 1/2 of previous 5.0
                 IsRendering = false
             };
             SceneElements.Add(_cmjGRFVectorModel);
+
+            // CoP Marker Model
+            var copBuilder = new MeshBuilder();
+            copBuilder.AddSphere(Vector3.Zero, 0.03f);
+            
+            _cmjCoPMarkerModel = new MeshGeometryModel3D
+            {
+                Geometry = copBuilder.ToMeshGeometry3D(),
+                Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial
+                {
+                    DiffuseColor = new Color4(CMJCoPMarkerColor.R / 255f, CMJCoPMarkerColor.G / 255f, CMJCoPMarkerColor.B / 255f, 1.0f)
+                },
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjCoPMarkerModel);
         }
 
         /// <summary>
@@ -2669,35 +2679,6 @@ namespace MStudio.App.ViewModels
 
 
 
-
-            // 5. Update Jump Height Visualization (Events layer)
-            if (ShowCMJEvents && peakPos != Vector3.Zero && takeoffPos != Vector3.Zero && result.JumpHeightMeters > 0)
-            {
-                var jumpLineBuilder = new LineBuilder();
-                // Vertical line from take-off height to peak height
-                jumpLineBuilder.AddLine(
-                    new Vector3(takeoffPos.X + 0.1f, takeoffPos.Y, takeoffPos.Z),
-                    new Vector3(takeoffPos.X + 0.1f, takeoffPos.Y + result.JumpHeightMeters, takeoffPos.Z)
-                );
-                // Horizontal ticks at top and bottom
-                jumpLineBuilder.AddLine(
-                    new Vector3(takeoffPos.X + 0.05f, takeoffPos.Y, takeoffPos.Z),
-                    new Vector3(takeoffPos.X + 0.15f, takeoffPos.Y, takeoffPos.Z)
-                );
-                jumpLineBuilder.AddLine(
-                    new Vector3(takeoffPos.X + 0.05f, takeoffPos.Y + result.JumpHeightMeters, takeoffPos.Z),
-                    new Vector3(takeoffPos.X + 0.15f, takeoffPos.Y + result.JumpHeightMeters, takeoffPos.Z)
-                );
-                if (_cmjJumpHeightModel != null)
-                {
-                    _cmjJumpHeightModel.Geometry = jumpLineBuilder.ToLineGeometry3D();
-                    _cmjJumpHeightModel.IsRendering = true;
-                }
-            }
-            else
-            {
-                if (_cmjJumpHeightModel != null) _cmjJumpHeightModel.IsRendering = false;
-            }
 
             // 6. Update Labels (Events layer - for event labels)
             if (ShowCMJEvents)
@@ -2889,17 +2870,6 @@ namespace MStudio.App.ViewModels
                 {
                     Foreground = CMJLandingColor,
                     Scale = 0.5f
-                });
-            }
-
-            // Jump Height Label (near the height indicator)
-            if (takeoffPos != Vector3.Zero && result.JumpHeightMeters > 0)
-            {
-                textInfo.TextInfo.Add(new TextInfo($"Jump: {result.JumpHeightMeters:F2}m", 
-                    takeoffPos + new Vector3(0.2f, result.JumpHeightMeters / 2, 0))
-                {
-                    Foreground = CMJJumpHeightColor,
-                    Scale = 0.6f
                 });
             }
 
@@ -3226,53 +3196,132 @@ namespace MStudio.App.ViewModels
                 grfValue = result.GRFTimeSeries[currentFrame];
             }
             
-            // Threshold: ignore very small forces (e.g. < 50N)
-            if (grfValue < 50f)
-            {
-                _cmjGRFVectorModel.IsRendering = false;
-                return;
-            }
+            bool showGRF = grfValue >= 50f;
 
-            // Calculate COP (Center of Pressure) - Approximate as midpoint between feet
-            Vector3 cop = CalculateApproximateCOP(motion, currentFrame);
-            
-            if (cop == Vector3.Zero)
+            // GRF Vector & CoP Marker Visibility Control
+            if (!showGRF)
             {
-                _cmjGRFVectorModel.IsRendering = false;
-                return;
+                if (_cmjGRFVectorModel != null) _cmjGRFVectorModel.IsRendering = false;
+                if (_cmjCoPMarkerModel != null) _cmjCoPMarkerModel.IsRendering = false;
             }
-
-            // Scale GRF for visualization: 2000 N = 1 meter (example scale)
-            float scale = 1.0f / 2000f; 
-            float vectorLength = grfValue * scale;
-            
-            // Vector direction: Up (OpenSim GRF is already vertical force)
-            Vector3 startPoint = cop;
-            Vector3 endPoint = cop + new Vector3(0, vectorLength, 0);
-            
-            var lineBuilder = new LineBuilder();
-            lineBuilder.AddLine(startPoint, endPoint);
-            
-            // Arrow head
-            float headSize = 0.15f; // Fixed size head
-            Vector3 headBase = endPoint - new Vector3(0, headSize, 0);
-            
-            // If vector is too short, don't draw head or scale it down
-            if (vectorLength > headSize)
+            else
             {
-                Vector3 headLeft = headBase + new Vector3(-headSize/3, 0, 0);
-                Vector3 headRight = headBase + new Vector3(headSize/3, 0, 0);
-                Vector3 headFront = headBase + new Vector3(0, 0, headSize/3);
-                Vector3 headBack = headBase + new Vector3(0, 0, -headSize/3);
+                // Calculate COP (Center of Pressure)
+                Vector3 cop = Vector3.Zero;
+                if (result.CoPPositions != null && currentFrame >= 0 && currentFrame < result.CoPPositions.Count)
+                {
+                    cop = result.CoPPositions[currentFrame];
+                }
                 
-                lineBuilder.AddLine(endPoint, headLeft);
-                lineBuilder.AddLine(endPoint, headRight);
-                lineBuilder.AddLine(endPoint, headFront);
-                lineBuilder.AddLine(endPoint, headBack);
+                // Fallback to approximate CoP from foot markers
+                if (cop == Vector3.Zero)
+                {
+                    cop = CalculateApproximateCOP(motion, currentFrame);
+                }
+
+                if (cop == Vector3.Zero)
+                {
+                    if (_cmjGRFVectorModel != null) _cmjGRFVectorModel.IsRendering = false;
+                    if (_cmjCoPMarkerModel != null) _cmjCoPMarkerModel.IsRendering = false;
+                }
+                else
+                {
+                    cop.Y = 0; // Fix on ground
+
+                    // Scale GRF for visualization
+                    float scale = 1.0f / 2000f; 
+                    float vectorLength = grfValue * scale;
+                    
+                    Vector3 startPoint = cop;
+                    Vector3 endPoint = cop + new Vector3(0, vectorLength, 0);
+                    
+                    var lineBuilder = new LineBuilder();
+                    lineBuilder.AddLine(startPoint, endPoint);
+                    
+                    // Arrow head
+                    float headSize = 0.15f;
+                    Vector3 headBase = endPoint - new Vector3(0, headSize, 0);
+                    
+                    if (vectorLength > headSize)
+                    {
+                        Vector3 headLeft = headBase + new Vector3(-headSize/3, 0, 0);
+                        Vector3 headRight = headBase + new Vector3(headSize/3, 0, 0);
+                        Vector3 headFront = headBase + new Vector3(0, 0, headSize/3);
+                        Vector3 headBack = headBase + new Vector3(0, 0, -headSize/3);
+                        
+                        lineBuilder.AddLine(endPoint, headLeft);
+                        lineBuilder.AddLine(endPoint, headRight);
+                        lineBuilder.AddLine(endPoint, headFront);
+                        lineBuilder.AddLine(endPoint, headBack);
+                    }
+                    
+                    if (_cmjGRFVectorModel != null)
+                    {
+                        _cmjGRFVectorModel.Geometry = lineBuilder.ToLineGeometry3D();
+                        _cmjGRFVectorModel.IsRendering = true;
+                    }
+                    
+                    if (_cmjCoPMarkerModel != null)
+                    {
+                        _cmjCoPMarkerModel.Transform = new System.Windows.Media.Media3D.TranslateTransform3D(cop.X, cop.Y, cop.Z);
+                        _cmjCoPMarkerModel.IsRendering = true;
+                    }
+                }
             }
             
-            _cmjGRFVectorModel.Geometry = lineBuilder.ToLineGeometry3D();
-            _cmjGRFVectorModel.IsRendering = true;
+            // ALWAYS update Contact Spheres regardless of GRF
+            UpdateContactSpheres(result);
+        }
+
+        private void UpdateContactSpheres(Core.Models.Analysis.CMJAnalysisResult result)
+        {
+            if (result.ContactSpheresTrajectories == null || result.ContactSpheresTrajectories.Count == 0) return;
+            
+            int currentFrame = _timelineService.CurrentFrame;
+            
+            foreach (var kvp in result.ContactSpheresTrajectories)
+            {
+                string name = kvp.Key;
+                var trajectory = kvp.Value;
+                
+                if (currentFrame < 0 || currentFrame >= trajectory.Count) continue;
+                
+                Vector3 pos = trajectory[currentFrame];
+                
+                // Create model if not exists
+                if (!_contactSphereModels.ContainsKey(name))
+                {
+                    var builder = new MeshBuilder();
+                    builder.AddSphere(Vector3.Zero, 0.032f); 
+                    
+                    var model = new MeshGeometryModel3D
+                    {
+                        Geometry = builder.ToMeshGeometry3D(),
+                        Material = new HelixToolkit.Wpf.SharpDX.DiffuseMaterial 
+                        { 
+                            DiffuseColor = ContactSphereColorNormal 
+                        },
+                        IsRendering = true
+                    };
+                    SceneElements.Add(model);
+                    _contactSphereModels[name] = model;
+                }
+                
+                var sphereModel = _contactSphereModels[name];
+                sphereModel.Transform = new System.Windows.Media.Media3D.TranslateTransform3D(pos.X, pos.Y, pos.Z);
+                
+                // Check contact (Approximate radius 3.2cm + 2cm threshold = 0.052)
+                // Use slightly larger threshold to visualize contact
+                bool isContact = pos.Y <= 0.052f;
+                
+                var mat = sphereModel.Material as HelixToolkit.Wpf.SharpDX.DiffuseMaterial;
+                if (mat != null)
+                {
+                     mat.DiffuseColor = isContact ? ContactSphereColorActive : ContactSphereColorNormal;
+                }
+                
+                sphereModel.IsRendering = true;
+            }
         }
 
         private Vector3 CalculateApproximateCOP(MotionData motion, int frame)
@@ -3348,7 +3397,6 @@ namespace MStudio.App.ViewModels
             if (_cmjLandingMarker != null) _cmjLandingMarker.IsRendering = false;
             if (_cmjCoMTrajectoryModel != null) _cmjCoMTrajectoryModel.IsRendering = false;
             if (_cmjCoMPointsModel != null) _cmjCoMPointsModel.IsRendering = false;
-            if (_cmjJumpHeightModel != null) _cmjJumpHeightModel.IsRendering = false;
             if (_cmjLabelsModel != null)
             {
                 _cmjLabelsModel.Geometry = new BillboardText3D();
@@ -3363,6 +3411,13 @@ namespace MStudio.App.ViewModels
             {
                 _cmjValgusLabelsModel.Geometry = new BillboardText3D();
                 _cmjValgusLabelsModel.IsRendering = false;
+            }
+            if (_cmjGRFVectorModel != null) _cmjGRFVectorModel.IsRendering = false;
+            if (_cmjCoPMarkerModel != null) _cmjCoPMarkerModel.IsRendering = false;
+            
+            foreach (var model in _contactSphereModels.Values)
+            {
+                model.IsRendering = false;
             }
         }
 
@@ -3386,10 +3441,21 @@ namespace MStudio.App.ViewModels
             if (_cmjLandingMarker != null) SceneElements.Remove(_cmjLandingMarker);
             if (_cmjCoMTrajectoryModel != null) SceneElements.Remove(_cmjCoMTrajectoryModel);
             if (_cmjCoMPointsModel != null) SceneElements.Remove(_cmjCoMPointsModel);
-            if (_cmjJumpHeightModel != null) SceneElements.Remove(_cmjJumpHeightModel);
             if (_cmjLabelsModel != null) SceneElements.Remove(_cmjLabelsModel);
             if (_cmjValgusLinesModel != null) SceneElements.Remove(_cmjValgusLinesModel);
             if (_cmjValgusArcModel != null) SceneElements.Remove(_cmjValgusArcModel);
+            if (_cmjLocalAxisXModel != null) SceneElements.Remove(_cmjLocalAxisXModel);
+            if (_cmjLocalAxisYModel != null) SceneElements.Remove(_cmjLocalAxisYModel);
+            if (_cmjLocalAxisZModel != null) SceneElements.Remove(_cmjLocalAxisZModel);
+            if (_cmjValgusLabelsModel != null) SceneElements.Remove(_cmjValgusLabelsModel);
+            if (_cmjGRFVectorModel != null) SceneElements.Remove(_cmjGRFVectorModel);
+            if (_cmjCoPMarkerModel != null) SceneElements.Remove(_cmjCoPMarkerModel);
+            
+            foreach (var model in _contactSphereModels.Values)
+            {
+                SceneElements.Remove(model);
+            }
+            _contactSphereModels.Clear();
         }
 
 

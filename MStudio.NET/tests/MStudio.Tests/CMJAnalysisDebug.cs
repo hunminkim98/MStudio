@@ -15,7 +15,7 @@ namespace MStudio.Tests
     public class CMJAnalysisDebug
     {
         [Fact]
-        public async Task DebugCMJAnalysis()
+        public Task DebugCMJAnalysis()
         {
             // 1. Load TRC File
             string trcPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../../../tests/CMJ.trc");
@@ -69,6 +69,7 @@ namespace MStudio.Tests
             DebugToeHeight(motionData, lowestFrame, takeoffFrame);
 
             Console.WriteLine("=== CMJ ANALYSIS DEBUG END ===");
+            return Task.CompletedTask;
         }
 
         private void DebugMarkerCoords(MotionData data, int frame, string h, string k, string a)

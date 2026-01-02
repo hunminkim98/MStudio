@@ -74,6 +74,28 @@ namespace MStudio.Services.Implementations
             CurrentFilePath = null;
         }
 
+        public void DeleteMarker(int markerIndex)
+        {
+            if (_currentMotion == null || markerIndex < 0 || markerIndex >= _currentMotion.Markers.MarkerCount)
+                return;
+
+            // 1. Remove data from container (shifts arrays)
+            _currentMotion.Markers.RemoveMarker(markerIndex);
+
+            // 2. Create new metadata with updated names (Metadata is a record)
+            var oldNames = _currentMotion.Metadata.MarkerNames.ToList();
+            oldNames.RemoveAt(markerIndex);
+
+            var nextMetadata = _currentMotion.Metadata with
+            {
+                MarkerNames = oldNames.AsReadOnly()
+            };
+
+            // 3. Replace the MotionData record to trigger PropertyChanged notifications
+            // This ensures all ViewModels (Viewport, Graph, etc.) refresh their marker lists
+            CurrentMotion = _currentMotion with { Metadata = nextMetadata };
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {

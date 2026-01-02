@@ -23,7 +23,8 @@ namespace MStudio.Core.Interfaces
         /// <param name="trcPath">Path to TRC file</param>
         /// <param name="massKg">Subject body mass in kg</param>
         /// <returns>GRF estimation result with peak force, impulse, RFD, and time series</returns>
-        Task<GRFEstimationResult> EstimateGRFAsync(string trcPath, float massKg);
+        Task<GRFEstimationResult> EstimateGRFAsync(
+            string bodyKinCsvPath, float massKg, int? takeoffFrame = null, int? landingFrame = null, int? lowestCoMFrame = null);
 
         /// <summary>
         /// Runs OpenSim model scaling using Pose2Sim.
@@ -54,8 +55,10 @@ namespace MStudio.Core.Interfaces
             string motPath, string osimPath, string outputCsvPath, string direction = "yup");
 
         /// <summary>
-        /// Reads BodyKinematics CSV file and returns CoM positions.
+        /// Reads BodyKinematics CSV file and returns CoM, CoP, and Contact Spheres positions.
         /// </summary>
-        System.Collections.Generic.List<System.Numerics.Vector3> LoadBodyKinematicsData(string csvPath);
+        (System.Collections.Generic.List<System.Numerics.Vector3> CoM, 
+         System.Collections.Generic.List<System.Numerics.Vector3> CoP,
+         System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<System.Numerics.Vector3>> ContactSpheres) LoadBodyKinematicsData(string csvPath);
     }
 }
