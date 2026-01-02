@@ -9,6 +9,8 @@ namespace MStudio.App.Views
     {
         public Gender SelectedGender { get; private set; } = Gender.Male;
         public float BodyMassKg { get; private set; } = 70f;
+        public float HeightM { get; private set; } = 1.70f;
+        public bool EstimateGRF { get; private set; } = false;
         public bool Confirmed { get; private set; } = false;
 
         public CMJInputDialog()
@@ -30,18 +32,27 @@ namespace MStudio.App.Views
             SelectedGender = MaleRadio.IsChecked == true ? Gender.Male : Gender.Female;
 
             // Parse mass
-            if (float.TryParse(MassInput.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float mass) && mass > 0)
-            {
-                BodyMassKg = mass;
-                Confirmed = true;
-                DialogResult = true;
-                Close();
-            }
-            else
+            if (!float.TryParse(MassInput.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float mass) || mass <= 0)
             {
                 MessageBox.Show("Please enter a valid body mass in kg.", "Invalid Input", 
                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
+
+            // Parse height
+            if (!float.TryParse(HeightInput.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out float height) || height <= 0)
+            {
+                MessageBox.Show("Please enter a valid height in meters.", "Invalid Input", 
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            BodyMassKg = mass;
+            HeightM = height;
+            EstimateGRF = EstimateGRFCheck.IsChecked == true;
+            Confirmed = true;
+            DialogResult = true;
+            Close();
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)

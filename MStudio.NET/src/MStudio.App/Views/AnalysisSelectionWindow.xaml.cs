@@ -70,6 +70,15 @@ namespace MStudio.App.Views
                     IconData = "M2,12 L8,6 L14,12 M8,6 L8,2",
                     IconColor = "#56B6C2",
                     IconBackground = "#1E3F4F"
+                },
+                new AnalysisCardItem
+                {
+                    Type = AnalysisType.BodyKinematics,
+                    DisplayName = "BodyKinematics",
+                    ShortDescription = "OpenSim Scaling, IK & CoM",
+                    IconData = "M8,1 L8,3 M8,4 L8,8 M4,6 L12,6 M8,8 L8,12 M5,12 L8,12 L11,12 M5,12 L4,15 M11,12 L12,15",
+                    IconColor = "#10B981",
+                    IconBackground = "#064E3B"
                 }
             };
 

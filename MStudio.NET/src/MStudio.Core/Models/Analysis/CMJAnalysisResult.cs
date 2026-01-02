@@ -94,5 +94,29 @@ namespace MStudio.Core.Models.Analysis
 
         /// <summary>Center of Mass positions per frame.</summary>
         public IReadOnlyList<Vector3> CoMPositions { get; init; } = Array.Empty<Vector3>();
+
+        // ===== OpenSim GRF Estimation Results (NEW) =====
+        
+        /// <summary>Whether OpenSim GRF analysis was performed.</summary>
+        public bool HasGRFData { get; init; }
+
+        /// <summary>Peak vertical ground reaction force in Newtons.</summary>
+        public float PeakVerticalGRF_N { get; init; }
+
+        /// <summary>Peak GRF normalized by body weight.</summary>
+        public float PeakGRF_BW => SubjectMassKg > 0 ? PeakVerticalGRF_N / (SubjectMassKg * 9.81f) : 0;
+
+        /// <summary>Net vertical impulse in Newton-seconds.</summary>
+        public float NetVerticalImpulse_Ns { get; init; }
+
+        /// <summary>Rate of Force Development in N/s.</summary>
+        public float RFD_NPerS { get; init; }
+
+        /// <summary>Body weight in Newtons.</summary>
+        public float BodyWeight_N => SubjectMassKg * 9.81f;
+
+        /// <summary>GRF time series for visualization.</summary>
+        public IReadOnlyList<float> GRFTimeSeries { get; init; } = Array.Empty<float>();
+        public IReadOnlyList<float> GRFTimeValues { get; init; } = Array.Empty<float>();
     }
 }

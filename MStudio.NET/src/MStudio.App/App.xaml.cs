@@ -54,7 +54,7 @@ namespace MStudio.App
             
             services.AddSingleton<IAnalysisService, AnalysisService>();
             services.AddSingleton<IMovementAnalysisService, MovementAnalysisService>();
-            services.AddSingleton<ICMJAnalysisService, CMJAnalysisService>();
+            services.AddSingleton<ICMJAnalysisService, Legacy_CMJAnalysisService>();
             
             // UI Services (Clean Architecture: platform-specific implementations in App layer)
             services.AddSingleton<IDialogService, DialogService>();

@@ -20,7 +20,8 @@ namespace MStudio.Services.Implementations
             new(AnalysisType.Sprint, "Sprint", "Analyze sprint performance and acceleration", "Icon_Sprint"),
             new(AnalysisType.CounterMovementJump, "Counter Movement Jump", "Analyze CMJ height, power, and technique", "Icon_CMJ"),
             new(AnalysisType.BroadJump, "Broad Jump", "Analyze standing broad jump distance and mechanics", "Icon_BroadJump"),
-            new(AnalysisType.ChangeOfDirection, "Change of Direction", "Analyze agility and direction change efficiency", "Icon_COD")
+            new(AnalysisType.ChangeOfDirection, "Change of Direction", "Analyze agility and direction change efficiency", "Icon_COD"),
+            new(AnalysisType.BodyKinematics, "BodyKinematics (OpenSim)", "Run OpenSim Scaling, IK, and Body CoM analysis", "Icon_BodyKin")
         };
 
         public IReadOnlyList<AnalysisTypeInfo> GetAvailableAnalysisTypes()

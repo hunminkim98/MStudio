@@ -10,10 +10,11 @@ namespace MStudio.Core.Models.Analysis
     }
 
     /// <summary>
-    /// Body segment mass ratios based on De Leva (1996).
+    /// [LEGACY] Body segment mass ratios based on De Leva (1996).
     /// Percentages represent body mass distribution for each segment.
+    /// Superseded by OpenSim model-based calculations. Kept for reference.
     /// </summary>
-    public static class BodySegmentMassModel
+    public static class Legacy_BodySegmentMassModel
     {
         /// <summary>
         /// Body segment mass percentages by gender.

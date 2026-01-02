@@ -48,11 +48,13 @@ namespace MStudio.Core.Writers
             }
             sb.AppendLine(markerNamesLine.ToString().TrimEnd());
             
-            // Line 5: Empty columns for Frame# and Time, then X, Y, Z labels for each marker
+            // Line 5: Empty columns for Frame# and Time, then X1, Y1, Z1, X2, Y2, Z2... labels for each marker
+            // OpenSim TRCFileAdapter requires numbered format (X1, Y1, Z1, X2, Y2, Z2...)
             var xyzLine = new StringBuilder("\t");
-            foreach (var _ in markerNames)
+            for (int i = 0; i < markerNames.Count; i++)
             {
-                xyzLine.Append("\tX\tY\tZ");
+                int num = i + 1;
+                xyzLine.Append($"\tX{num}\tY{num}\tZ{num}");
             }
             sb.AppendLine(xyzLine.ToString());
             

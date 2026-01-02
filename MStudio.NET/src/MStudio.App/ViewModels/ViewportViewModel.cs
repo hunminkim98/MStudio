@@ -177,6 +177,7 @@ namespace MStudio.App.ViewModels
         private static readonly Color4 CMJLandingColor = new Color4(1.0f, 0.6f, 0.2f, 1.0f);     // Orange
         private static readonly Color4 CMJCoMTrajectoryColor = new Color4(0.4f, 0.6f, 1.0f, 0.8f); // Light Blue
         private static readonly Color4 CMJJumpHeightColor = new Color4(1.0f, 1.0f, 0.2f, 1.0f);  // Yellow
+        private static readonly Color4 CMJGRFVectorColor = new Color4(0.0f, 1.0f, 1.0f, 1.0f);   // Cyan (GRF)
         
         // CMJ Valgus Visualization
         private LineGeometryModel3D? _cmjValgusLinesModel;
@@ -185,6 +186,7 @@ namespace MStudio.App.ViewModels
         private LineGeometryModel3D? _cmjLocalAxisYModel; // Yellow (Up)
         private LineGeometryModel3D? _cmjLocalAxisZModel; // Blue (Right)
         private BillboardTextModel3D? _cmjValgusLabelsModel; // Separate labels for Valgus
+        private LineGeometryModel3D? _cmjGRFVectorModel; // GRF Vector Arrow
 
         // CMJ Visualization Layer Toggles
         [ObservableProperty]
@@ -2580,6 +2582,15 @@ namespace MStudio.App.ViewModels
                 IsRendering = false
             };
             SceneElements.Add(_cmjValgusLabelsModel);
+
+            // GRF Vector Model
+            _cmjGRFVectorModel = new LineGeometryModel3D
+            {
+                Color = System.Windows.Media.Color.FromScRgb(CMJGRFVectorColor.Alpha, CMJGRFVectorColor.Red, CMJGRFVectorColor.Green, CMJGRFVectorColor.Blue),
+                Thickness = 5.0, // Thicker than others
+                IsRendering = false
+            };
+            SceneElements.Add(_cmjGRFVectorModel);
         }
 
         /// <summary>
@@ -2727,7 +2738,18 @@ namespace MStudio.App.ViewModels
             {
                 if (_cmjLocalAxisXModel != null) _cmjLocalAxisXModel.IsRendering = false;
                 if (_cmjLocalAxisYModel != null) _cmjLocalAxisYModel.IsRendering = false;
+                if (_cmjLocalAxisYModel != null) _cmjLocalAxisYModel.IsRendering = false;
                 if (_cmjLocalAxisZModel != null) _cmjLocalAxisZModel.IsRendering = false;
+            }
+
+            // 9. Update GRF Visualization (Basic layer)
+            if (ShowCMJBasic && result.HasGRFData)
+            {
+                UpdateGRFVisualization(result, motion);
+            }
+            else
+            {
+                if (_cmjGRFVectorModel != null) _cmjGRFVectorModel.IsRendering = false;
             }
         }
 
@@ -3185,6 +3207,124 @@ namespace MStudio.App.ViewModels
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Updates the GRF vector visualization.
+        /// </summary>
+        private void UpdateGRFVisualization(Core.Models.Analysis.CMJAnalysisResult result, MotionData motion)
+        {
+            if (_cmjGRFVectorModel == null) return;
+
+            int currentFrame = _timelineService.CurrentFrame;
+            
+            // Check if we have GRF data for this frame
+            // GRFTimeSeries should align with motion frames
+            float grfValue = 0f;
+            if (currentFrame >= 0 && currentFrame < result.GRFTimeSeries.Count)
+            {
+                grfValue = result.GRFTimeSeries[currentFrame];
+            }
+            
+            // Threshold: ignore very small forces (e.g. < 50N)
+            if (grfValue < 50f)
+            {
+                _cmjGRFVectorModel.IsRendering = false;
+                return;
+            }
+
+            // Calculate COP (Center of Pressure) - Approximate as midpoint between feet
+            Vector3 cop = CalculateApproximateCOP(motion, currentFrame);
+            
+            if (cop == Vector3.Zero)
+            {
+                _cmjGRFVectorModel.IsRendering = false;
+                return;
+            }
+
+            // Scale GRF for visualization: 2000 N = 1 meter (example scale)
+            float scale = 1.0f / 2000f; 
+            float vectorLength = grfValue * scale;
+            
+            // Vector direction: Up (OpenSim GRF is already vertical force)
+            Vector3 startPoint = cop;
+            Vector3 endPoint = cop + new Vector3(0, vectorLength, 0);
+            
+            var lineBuilder = new LineBuilder();
+            lineBuilder.AddLine(startPoint, endPoint);
+            
+            // Arrow head
+            float headSize = 0.15f; // Fixed size head
+            Vector3 headBase = endPoint - new Vector3(0, headSize, 0);
+            
+            // If vector is too short, don't draw head or scale it down
+            if (vectorLength > headSize)
+            {
+                Vector3 headLeft = headBase + new Vector3(-headSize/3, 0, 0);
+                Vector3 headRight = headBase + new Vector3(headSize/3, 0, 0);
+                Vector3 headFront = headBase + new Vector3(0, 0, headSize/3);
+                Vector3 headBack = headBase + new Vector3(0, 0, -headSize/3);
+                
+                lineBuilder.AddLine(endPoint, headLeft);
+                lineBuilder.AddLine(endPoint, headRight);
+                lineBuilder.AddLine(endPoint, headFront);
+                lineBuilder.AddLine(endPoint, headBack);
+            }
+            
+            _cmjGRFVectorModel.Geometry = lineBuilder.ToLineGeometry3D();
+            _cmjGRFVectorModel.IsRendering = true;
+        }
+
+        private Vector3 CalculateApproximateCOP(MotionData motion, int frame)
+        {
+            // Helper to get marker pos
+            Vector3 GetPos(string name)
+            {
+                int idx = GetMarkerIndex(motion, name);
+                if (idx >= 0) return motion.Markers.GetPosition(idx, frame);
+                return Vector3.Zero;
+            }
+            
+            // Try to find feet markers. Common names:
+            // RToe, LToe, RHeel, LHeel, RFoot, LFoot, RAnkle, LAnkle
+            
+            Vector3 rPos = Vector3.Zero;
+            Vector3 lPos = Vector3.Zero;
+            
+            // Right Foot
+            var rToe = GetPos("RToe");
+            var rHeel = GetPos("RHeel");
+            
+            if (rToe != Vector3.Zero && rHeel != Vector3.Zero) rPos = (rToe + rHeel) / 2f;
+            else if (rToe != Vector3.Zero) rPos = rToe;
+            else if (rHeel != Vector3.Zero) rPos = rHeel;
+            else 
+            {
+                rPos = GetPos("RFoot");
+                if (rPos == Vector3.Zero) rPos = GetPos("RAnkle");
+            }
+
+            // Left Foot
+            var lToe = GetPos("LToe");
+            var lHeel = GetPos("LHeel");
+            
+            if (lToe != Vector3.Zero && lHeel != Vector3.Zero) lPos = (lToe + lHeel) / 2f;
+            else if (lToe != Vector3.Zero) lPos = lToe;
+            else if (lHeel != Vector3.Zero) lPos = lHeel;
+            else 
+            {
+                lPos = GetPos("LFoot");
+                if (lPos == Vector3.Zero) lPos = GetPos("LAnkle");
+            }
+
+            if (rPos != Vector3.Zero && lPos != Vector3.Zero)
+            {
+                return (rPos + lPos) / 2f;
+            }
+            else if (rPos != Vector3.Zero) return rPos;
+            else if (lPos != Vector3.Zero) return lPos;
+            
+            return Vector3.Zero;
         }
 
         // Helper to get marker index case-insensitively

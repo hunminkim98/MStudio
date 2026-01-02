@@ -11,6 +11,7 @@ namespace MStudio.Core.Models.Analysis
         Sprint,
         CounterMovementJump,
         BroadJump,
-        ChangeOfDirection
+        ChangeOfDirection,
+        BodyKinematics  // OpenSim-based body kinematics analysis
     }
 }

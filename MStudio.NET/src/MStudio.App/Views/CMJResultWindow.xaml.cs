@@ -69,6 +69,20 @@ namespace MStudio.App.Views
             JumpHeightText.Text = $"{result.JumpHeightMeters:F2} m";
             FlightTimeText.Text = $"{result.FlightTimeSeconds:F2} s";
             ContactTimeText.Text = $"{result.ContactTimeSeconds:F2} s";
+
+            // GRF Metrics (OpenSim)
+            if (result.HasGRFData)
+            {
+                GRFSection.Visibility = Visibility.Visible;
+                PeakGRFText.Text = $"{result.PeakVerticalGRF_N:F0}";
+                PeakGRFBWText.Text = $"({result.PeakGRF_BW:F2} BW)";
+                NetImpulseText.Text = $"{result.NetVerticalImpulse_Ns:F1}";
+                RFDText.Text = $"{result.RFD_NPerS:F0}";
+            }
+            else
+            {
+                GRFSection.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void SetValgusRiskColor(System.Windows.Controls.Border badge, System.Windows.Controls.TextBlock text, ValgusRisk risk)

@@ -22,4 +22,15 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <!-- Copy configuration and scripts to output -->
+  <ItemGroup>
+    <None Update="opensim_config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\scripts\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="scripts" />
+  </ItemGroup>
+
 </Project>

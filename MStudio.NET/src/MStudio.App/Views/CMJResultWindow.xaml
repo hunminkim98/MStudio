@@ -175,6 +175,51 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- GRF Metrics (OpenSim) -->
+                    <Border x:Name="GRFSection" Background="#252535" CornerRadius="8" Padding="20" Margin="0,0,0,15"
+                            Visibility="Collapsed">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="Ground Reaction Force" Foreground="#888" FontSize="12"/>
+                                <Border Background="#1E4F2E" CornerRadius="3" Padding="6,2" Margin="10,0,0,0">
+                                    <TextBlock Text="OpenSim" Foreground="#7ED957" FontSize="10" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <StackPanel HorizontalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock x:Name="PeakGRFText" Text="1496" Foreground="#FF6B6B" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text=" N" Foreground="#FF6B6B" FontSize="14" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="PeakGRFBWText" Text="(2.18 BW)" Foreground="#888" FontSize="11" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Peak GRF" Foreground="#888" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock x:Name="NetImpulseText" Text="159.6" Foreground="#A78BFA" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text=" N·s" Foreground="#A78BFA" FontSize="14" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                    <TextBlock Text="Net Impulse" Foreground="#888" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock x:Name="RFDText" Text="4455" Foreground="#F59E0B" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text=" N/s" Foreground="#F59E0B" FontSize="14" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                    <TextBlock Text="RFD" Foreground="#888" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Jump Metrics -->
                     <Border Background="#252535" CornerRadius="8" Padding="20">
                         <StackPanel>

@@ -12,7 +12,11 @@ namespace MStudio.Services.Implementations
     /// <summary>
     /// Implementation of CMJ analysis service.
     /// </summary>
-    public class CMJAnalysisService : ICMJAnalysisService
+    /// <summary>
+    /// [LEGACY] Original CMJ analysis service using De Leva (1996) quasi-static moment analysis.
+    /// Superseded by OpenSim-based analysis. Kept for reference and fallback.
+    /// </summary>
+    public class Legacy_CMJAnalysisService : ICMJAnalysisService
     {
         // Required marker names for CMJ analysis
         private static readonly string[] RequiredMarkers = new[]
@@ -85,6 +89,164 @@ namespace MStudio.Services.Implementations
                     ContactTimeSeconds = jumpMetrics.contactTime
                 };
             });
+        }
+
+        /// <summary>
+        /// Runs CMJ analysis with optional OpenSim GRF analysis.
+        /// </summary>
+        public async Task<CMJAnalysisResult> AnalyzeAsync(
+            MotionData data,
+            Gender gender,
+            float bodyMassKg,
+            float heightM,
+            bool useOpenSimGRF,
+            string? trcFilePath)
+        {
+            // First, run the standard CMJ analysis
+            var result = await AnalyzeAsync(data, gender, bodyMassKg);
+
+            // If OpenSim GRF analysis is requested and we have a TRC file
+            if (useOpenSimGRF && !string.IsNullOrEmpty(trcFilePath))
+            {
+                try
+                {
+                    var grfData = await RunOpenSimGRFAnalysisAsync(trcFilePath, heightM, bodyMassKg);
+                    
+                    if (grfData != null)
+                    {
+                        // Create a new result with GRF data
+                        return new CMJAnalysisResult
+                        {
+                            Type = result.Type,
+                            IsSuccess = result.IsSuccess,
+                            AnalyzedAt = result.AnalyzedAt,
+                            Summary = result.Summary + " (with OpenSim GRF)",
+                            
+                            SubjectGender = result.SubjectGender,
+                            SubjectMassKg = result.SubjectMassKg,
+                            
+                            LowestCoMFrame = result.LowestCoMFrame,
+                            TakeoffFrame = grfData.TakeoffFrame ?? result.TakeoffFrame,
+                            LandingFrame = grfData.LandingFrame ?? result.LandingFrame,
+                            PeakFlightFrame = result.PeakFlightFrame,
+                            
+                            HipKneeRatio = result.HipKneeRatio,
+                            Dominance = result.Dominance,
+                            HipMomentEstimate = result.HipMomentEstimate,
+                            KneeMomentEstimate = result.KneeMomentEstimate,
+                            
+                            LeftKneeValgus = result.LeftKneeValgus,
+                            RightKneeValgus = result.RightKneeValgus,
+                            
+                            Phases = result.Phases,
+                            TimeSeries = result.TimeSeries,
+                            CoMPositions = result.CoMPositions,
+                            
+                            JumpHeightMeters = result.JumpHeightMeters,
+                            FlightTimeSeconds = result.FlightTimeSeconds,
+                            ContactTimeSeconds = result.ContactTimeSeconds,
+
+                            // OpenSim GRF data
+                            HasGRFData = true,
+                            PeakVerticalGRF_N = grfData.PeakGRF,
+                            NetVerticalImpulse_Ns = grfData.NetImpulse,
+                            RFD_NPerS = grfData.RFD,
+                            GRFTimeSeries = grfData.GRFTimeSeries,
+                            GRFTimeValues = grfData.TimeValues
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"OpenSim GRF analysis failed: {ex.Message}");
+                    // Fall back to standard result without GRF
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Runs OpenSim-based GRF analysis using Pose2Sim wrapper.
+        /// </summary>
+        private async Task<OpenSimGRFData?> RunOpenSimGRFAnalysisAsync(string trcFilePath, float heightM, float massKg)
+        {
+            var pose2sim = Pose2SimWrapperService.CreateFromConfig();
+
+            // Check availability
+            var (available, _, error) = await pose2sim.CheckAvailabilityAsync();
+            if (!available)
+            {
+                System.Diagnostics.Debug.WriteLine($"Pose2Sim not available: {error}");
+                return null;
+            }
+
+            // Create output directory
+            var outputDir = System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(trcFilePath) ?? System.IO.Path.GetTempPath(),
+                "opensim_output"
+            );
+            System.IO.Directory.CreateDirectory(outputDir);
+
+            // Step 1: Scale model
+            var scaleResult = await pose2sim.ScaleModelAsync(trcFilePath, outputDir, heightM, massKg, "HALPE_26");
+            if (!scaleResult.Success || string.IsNullOrEmpty(scaleResult.ScaledModelPath))
+            {
+                System.Diagnostics.Debug.WriteLine($"Scaling failed: {scaleResult.Error}");
+                return null;
+            }
+
+            // Step 2: Run IK
+            var ikResult = await pose2sim.RunInverseKinematicsAsync(trcFilePath, outputDir, "HALPE_26");
+            if (!ikResult.Success || string.IsNullOrEmpty(ikResult.MotionFilePath))
+            {
+                System.Diagnostics.Debug.WriteLine($"IK failed: {ikResult.Error}");
+                return null;
+            }
+
+            // Step 3: Run BodyKinematics
+            var bodykinCsvPath = System.IO.Path.Combine(outputDir, 
+                System.IO.Path.GetFileNameWithoutExtension(trcFilePath) + "_bodykin.csv");
+            var bodykinResult = await pose2sim.RunBodyKinematicsAsync(
+                ikResult.MotionFilePath, scaleResult.ScaledModelPath, bodykinCsvPath);
+            if (!bodykinResult.Success || string.IsNullOrEmpty(bodykinResult.OutputCsvPath))
+            {
+                System.Diagnostics.Debug.WriteLine($"BodyKinematics failed: {bodykinResult.Error}");
+                return null;
+            }
+
+            // Step 4: Estimate GRF
+            var grfResult = await pose2sim.EstimateGRFAsync(bodykinResult.OutputCsvPath, massKg);
+            if (!grfResult.Success || grfResult.Metrics == null)
+            {
+                System.Diagnostics.Debug.WriteLine($"GRF estimation failed: {grfResult.Error}");
+                return null;
+            }
+
+            return new OpenSimGRFData
+            {
+                PeakGRF = grfResult.Metrics.PeakVerticalGrfN,
+                NetImpulse = grfResult.Metrics.NetVerticalImpulseNs,
+                RFD = grfResult.Metrics.RfdNPerS,
+                TakeoffFrame = grfResult.Metrics.TakeoffFrame,
+                LandingFrame = null, // TODO: Parse from metrics if available
+                GRFTimeSeries = grfResult.GrfTimeseries?.GrfVerticalN?.ToList() ?? new List<float>(),
+                TimeValues = grfResult.GrfTimeseries?.TimeS?.ToList() ?? new List<float>()
+            };
+        }
+
+        /// <summary>
+        /// Internal data class for OpenSim GRF results.
+        /// </summary>
+        private class OpenSimGRFData
+        {
+            public float PeakGRF { get; set; }
+            public float NetImpulse { get; set; }
+            public float RFD { get; set; }
+            public int? TakeoffFrame { get; set; }
+            public int? LandingFrame { get; set; }
+            public List<float> GRFTimeSeries { get; set; } = new();
+            public List<float> TimeValues { get; set; } = new();
         }
 
         public int FindLowestCoMFrame(MotionData data)
@@ -174,18 +336,18 @@ namespace MStudio.Services.Implementations
             // Head: from Neck to Head
             if (neck != Vector3.Zero && head != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Head);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Head);
                 var headCoM = neck + (head - neck) * ratio;
-                segmentCoMs.Add((headCoM, BodySegmentMassModel.MassPercentage.Head(gender)));
+                segmentCoMs.Add((headCoM, Legacy_BodySegmentMassModel.MassPercentage.Head(gender)));
             }
 
             // Trunk: from Hip to Neck (simplified as whole trunk)
             if (hip != Vector3.Zero && neck != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Trunk);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Trunk);
                 // Trunk proximal is at cervicale (neck), so we go from neck toward hip
                 var trunkCoM = neck + (hip - neck) * ratio;
-                segmentCoMs.Add((trunkCoM, BodySegmentMassModel.MassPercentage.Trunk(gender)));
+                segmentCoMs.Add((trunkCoM, Legacy_BodySegmentMassModel.MassPercentage.Trunk(gender)));
             }
 
             // Right Thigh: from RHip to RKnee
@@ -201,16 +363,16 @@ namespace MStudio.Services.Implementations
             // Right Foot: from RHeel to RToe
             if (rHeel != Vector3.Zero && rToe != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Foot);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Foot);
                 var footCoM = rHeel + (rToe - rHeel) * ratio;
-                segmentCoMs.Add((footCoM, BodySegmentMassModel.MassPercentage.Foot(gender)));
+                segmentCoMs.Add((footCoM, Legacy_BodySegmentMassModel.MassPercentage.Foot(gender)));
             }
             // Left Foot
             if (lHeel != Vector3.Zero && lToe != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Foot);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Foot);
                 var footCoM = lHeel + (lToe - lHeel) * ratio;
-                segmentCoMs.Add((footCoM, BodySegmentMassModel.MassPercentage.Foot(gender)));
+                segmentCoMs.Add((footCoM, Legacy_BodySegmentMassModel.MassPercentage.Foot(gender)));
             }
 
             // Right Upper Arm: from RShoulder to RElbow
@@ -250,14 +412,14 @@ namespace MStudio.Services.Implementations
         {
             if (proximal != Vector3.Zero && distal != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, segment);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, segment);
                 var segmentCoM = proximal + (distal - proximal) * ratio;
                 float massPercent = segment switch
                 {
-                    BodySegment.Thigh => BodySegmentMassModel.MassPercentage.Thigh(gender),
-                    BodySegment.Shank => BodySegmentMassModel.MassPercentage.Shank(gender),
-                    BodySegment.UpperArm => BodySegmentMassModel.MassPercentage.UpperArm(gender),
-                    BodySegment.Forearm => BodySegmentMassModel.MassPercentage.Forearm(gender),
+                    BodySegment.Thigh => Legacy_BodySegmentMassModel.MassPercentage.Thigh(gender),
+                    BodySegment.Shank => Legacy_BodySegmentMassModel.MassPercentage.Shank(gender),
+                    BodySegment.UpperArm => Legacy_BodySegmentMassModel.MassPercentage.UpperArm(gender),
+                    BodySegment.Forearm => Legacy_BodySegmentMassModel.MassPercentage.Forearm(gender),
                     _ => 0f
                 };
                 list.Add((segmentCoM, massPercent));
@@ -422,17 +584,17 @@ namespace MStudio.Services.Implementations
             // Head
             if (neck != Vector3.Zero && head != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Head);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Head);
                 var headCoM = neck + (head - neck) * ratio;
-                segmentCoMs.Add((headCoM, BodySegmentMassModel.MassPercentage.Head(gender)));
+                segmentCoMs.Add((headCoM, Legacy_BodySegmentMassModel.MassPercentage.Head(gender)));
             }
             
             // Trunk
             if (hip != Vector3.Zero && neck != Vector3.Zero)
             {
-                float ratio = BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Trunk);
+                float ratio = Legacy_BodySegmentMassModel.GetCoMProximalRatio(gender, BodySegment.Trunk);
                 var trunkCoM = neck + (hip - neck) * ratio;
-                segmentCoMs.Add((trunkCoM, BodySegmentMassModel.MassPercentage.Trunk(gender)));
+                segmentCoMs.Add((trunkCoM, Legacy_BodySegmentMassModel.MassPercentage.Trunk(gender)));
             }
             
             // Upper Arms

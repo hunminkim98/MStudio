@@ -218,3 +218,9 @@ C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\ms
 C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\AnalysisSelectionWindow.g.cs
 C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\CMJInputDialog.g.cs
 C:\Users\gnsal\OneDrive\Desktop\Projects\SideProjects\MStudio\MStudio.NET\src\mstudio.app\obj\Debug\net8.0-windows\Views\CMJResultWindow.g.cs
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\Views\BodyKinematicsInputDialog.baml
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\Views\GRFFilesInputDialog.baml
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\Views\BodyKinematicsInputDialog.g.cs
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\obj\Debug\net8.0-windows\Views\GRFFilesInputDialog.g.cs
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\bin\Debug\net8.0-windows\opensim_config.json
+C:\Users\BB1\Desktop\MStudio\MStudio.NET\src\MStudio.App\bin\Debug\net8.0-windows\scripts\pose2sim_wrapper.py

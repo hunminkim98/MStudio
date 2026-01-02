@@ -226,6 +226,13 @@ namespace MStudio.App.ViewModels
                 return;
             }
 
+            // Special handling for BodyKinematics analysis
+            if (analysisType == AnalysisType.BodyKinematics)
+            {
+                await RunBodyKinematicsAnalysis();
+                return;
+            }
+
             var typeInfo = _movementAnalysisService.GetAvailableAnalysisTypes()
                 .FirstOrDefault(t => t.Type == analysisType);
 
@@ -238,6 +245,99 @@ namespace MStudio.App.ViewModels
             // Show result in a message box (mock implementation)
             _dialogService.ShowInfo(result.Summary, $"{typeInfo.DisplayName} Analysis");
             StatusText = $"{typeInfo.DisplayName} analysis completed";
+        }
+
+        /// <summary>
+        /// Runs BodyKinematics (OpenSim) analysis.
+        /// </summary>
+        private async Task RunBodyKinematicsAnalysis()
+        {
+            // Check if motion data is loaded
+            if (_sessionService.CurrentMotion == null)
+            {
+                _dialogService.ShowError("No motion data loaded. Please load a TRC file first.", "BodyKinematics Analysis");
+                return;
+            }
+
+            // Show input dialog
+            var inputDialog = new Views.BodyKinematicsInputDialog
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (inputDialog.ShowDialog() != true || !inputDialog.Confirmed)
+                return;
+
+            StatusText = "Running OpenSim BodyKinematics analysis...";
+
+            try
+            {
+                var trcPath = _sessionService.CurrentMotion.Metadata.FilePath;
+                var outputDir = Path.Combine(Path.GetDirectoryName(trcPath) ?? Path.GetTempPath(), "opensim_output");
+                Directory.CreateDirectory(outputDir);
+
+                // Create Pose2Sim service from config
+                var pose2sim = MStudio.Services.Implementations.Pose2SimWrapperService.CreateFromConfig();
+
+                // Check availability
+                StatusText = "Checking OpenSim/Pose2Sim availability...";
+                var (available, version, error) = await pose2sim.CheckAvailabilityAsync();
+                if (!available)
+                {
+                    _dialogService.ShowError($"Pose2Sim not available: {error}", "BodyKinematics Analysis");
+                    StatusText = "BodyKinematics analysis failed - Pose2Sim not available";
+                    return;
+                }
+
+                // Step 1: Scale model
+                StatusText = "Step 1/3: Scaling OpenSim model...";
+                var scaleResult = await pose2sim.ScaleModelAsync(trcPath, outputDir, inputDialog.HeightM, inputDialog.BodyMassKg, "HALPE_26");
+                if (!scaleResult.Success)
+                {
+                    _dialogService.ShowError($"Model scaling failed: {scaleResult.Error}", "BodyKinematics Analysis");
+                    StatusText = "BodyKinematics analysis failed - Scaling error";
+                    return;
+                }
+
+                // Step 2: Run IK
+                StatusText = "Step 2/3: Running Inverse Kinematics...";
+                var ikResult = await pose2sim.RunInverseKinematicsAsync(trcPath, outputDir, "HALPE_26");
+                if (!ikResult.Success)
+                {
+                    _dialogService.ShowError($"Inverse Kinematics failed: {ikResult.Error}", "BodyKinematics Analysis");
+                    StatusText = "BodyKinematics analysis failed - IK error";
+                    return;
+                }
+
+                // Step 3: Run BodyKinematics
+                StatusText = "Step 3/3: Calculating Body Kinematics (CoM)...";
+                var bodykinCsvPath = Path.Combine(outputDir, Path.GetFileNameWithoutExtension(trcPath) + "_bodykin.csv");
+                var bodykinResult = await pose2sim.RunBodyKinematicsAsync(ikResult.MotionFilePath!, scaleResult.ScaledModelPath!, bodykinCsvPath);
+                if (!bodykinResult.Success)
+                {
+                    _dialogService.ShowError($"BodyKinematics failed: {bodykinResult.Error}", "BodyKinematics Analysis");
+                    StatusText = "BodyKinematics analysis failed";
+                    return;
+                }
+
+                // Success!
+                _dialogService.ShowInfo(
+                    $"BodyKinematics analysis completed successfully!\n\n" +
+                    $"Output files saved to:\n{outputDir}\n\n" +
+                    $"- Scaled Model: {Path.GetFileName(scaleResult.ScaledModelPath)}\n" +
+                    $"- Motion File: {Path.GetFileName(ikResult.MotionFilePath)}\n" +
+                    $"- BodyKinematics: {Path.GetFileName(bodykinCsvPath)}\n\n" +
+                    $"Frames: {bodykinResult.FrameRate:F1} fps",
+                    "BodyKinematics Analysis Complete"
+                );
+
+                StatusText = $"BodyKinematics analysis completed - Output saved to {outputDir}";
+            }
+            catch (Exception ex)
+            {
+                _dialogService.ShowError($"BodyKinematics analysis failed: {ex.Message}", "BodyKinematics Analysis Error");
+                StatusText = "BodyKinematics analysis failed";
+            }
         }
 
         /// <summary>
@@ -267,15 +367,101 @@ namespace MStudio.App.ViewModels
             if (inputDialog.ShowDialog() != true || !inputDialog.Confirmed)
                 return;
 
-            StatusText = "Running CMJ analysis...";
+            string? bodyKinCsvPath = null;
+            
+            // If Estimate GRF is selected, show file selection dialog
+            if (inputDialog.EstimateGRF)
+            {
+                var grfFilesDialog = new Views.GRFFilesInputDialog
+                {
+                    Owner = System.Windows.Application.Current.MainWindow
+                };
+
+                if (grfFilesDialog.ShowDialog() != true || !grfFilesDialog.Confirmed)
+                    return;
+
+                bodyKinCsvPath = grfFilesDialog.BodyKinematicsCsvPath;
+            }
+
+            StatusText = inputDialog.EstimateGRF 
+                ? "Running CMJ analysis with GRF estimation..." 
+                : "Running CMJ analysis...";
 
             try
             {
-                // Run analysis
+                // First run standard CMJ analysis
                 var result = await _cmjAnalysisService.AnalyzeAsync(
                     _sessionService.CurrentMotion,
                     inputDialog.SelectedGender,
                     inputDialog.BodyMassKg);
+
+                // If Estimate GRF is selected and we have a valid file, run GRF estimation
+                if (inputDialog.EstimateGRF && !string.IsNullOrEmpty(bodyKinCsvPath))
+                {
+                    StatusText = "Estimating GRF from BodyKinematics data...";
+                    
+                    try
+                    {
+                        var pose2sim = MStudio.Services.Implementations.Pose2SimWrapperService.CreateFromConfig();
+
+                        var grfResult = await pose2sim.EstimateGRFAsync(bodyKinCsvPath, inputDialog.BodyMassKg);
+                        
+                        // Load CoM data from CSV (BodyKinematics result)
+                        var bodyKinCoM = pose2sim.LoadBodyKinematicsData(bodyKinCsvPath);
+                        
+                        if (grfResult.Success && grfResult.Metrics != null)
+                        {
+                            // Create new result with GRF data
+                            result = new CMJAnalysisResult
+                            {
+                                Type = result.Type,
+                                IsSuccess = result.IsSuccess,
+                                AnalyzedAt = result.AnalyzedAt,
+                                Summary = result.Summary + " (with GRF & BodyKin CoM)",
+                                
+                                SubjectGender = result.SubjectGender,
+                                SubjectMassKg = result.SubjectMassKg,
+                                
+                                LowestCoMFrame = result.LowestCoMFrame,
+                                TakeoffFrame = grfResult.Metrics.TakeoffFrame ?? result.TakeoffFrame,
+                                LandingFrame = result.LandingFrame,
+                                PeakFlightFrame = result.PeakFlightFrame,
+                                
+                                HipKneeRatio = result.HipKneeRatio,
+                                Dominance = result.Dominance,
+                                HipMomentEstimate = result.HipMomentEstimate,
+                                KneeMomentEstimate = result.KneeMomentEstimate,
+                                
+                                LeftKneeValgus = result.LeftKneeValgus,
+                                RightKneeValgus = result.RightKneeValgus,
+                                
+                                Phases = result.Phases,
+                                TimeSeries = result.TimeSeries,
+                                CoMPositions = bodyKinCoM.Count > 0 ? bodyKinCoM : result.CoMPositions,
+                                
+                                JumpHeightMeters = result.JumpHeightMeters,
+                                FlightTimeSeconds = result.FlightTimeSeconds,
+                                ContactTimeSeconds = result.ContactTimeSeconds,
+
+                                // GRF data
+                                HasGRFData = true,
+                                PeakVerticalGRF_N = grfResult.Metrics.PeakVerticalGrfN,
+                                NetVerticalImpulse_Ns = grfResult.Metrics.NetVerticalImpulseNs,
+                                RFD_NPerS = grfResult.Metrics.RfdNPerS,
+                                GRFTimeSeries = grfResult.GrfTimeseries?.GrfVerticalN?.ToList() ?? new System.Collections.Generic.List<float>(),
+                                GRFTimeValues = grfResult.GrfTimeseries?.TimeS?.ToList() ?? new System.Collections.Generic.List<float>()
+                            };
+                        }
+                        else
+                        {
+                            _dialogService.ShowWarning($"GRF estimation failed: {grfResult.Error}\n\nContinuing with standard CMJ analysis.", "GRF Estimation");
+                        }
+                    }
+                    catch (Exception grfEx)
+                    {
+                        _dialogService.ShowWarning($"GRF estimation error: {grfEx.Message}\n\nContinuing with standard CMJ analysis.", "GRF Estimation");
+                    }
+                }
 
                 // Show result window
                 var resultWindow = new Views.CMJResultWindow(result)
@@ -302,7 +488,8 @@ namespace MStudio.App.ViewModels
                 
                 resultWindow.Show();
 
-                StatusText = $"CMJ Analysis completed - {result.Dominance}";
+                var grfStatus = result.HasGRFData ? " with GRF data" : "";
+                StatusText = $"CMJ Analysis completed - {result.Dominance}{grfStatus}";
             }
             catch (Exception ex)
             {

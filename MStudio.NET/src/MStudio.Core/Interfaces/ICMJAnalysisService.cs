@@ -19,6 +19,24 @@ namespace MStudio.Core.Interfaces
         Task<CMJAnalysisResult> AnalyzeAsync(MotionData data, Gender gender, float bodyMassKg);
 
         /// <summary>
+        /// Runs a complete CMJ analysis on the motion data with optional OpenSim GRF analysis.
+        /// </summary>
+        /// <param name="data">Motion data containing marker positions.</param>
+        /// <param name="gender">Subject gender for mass distribution calculations.</param>
+        /// <param name="bodyMassKg">Subject body mass in kilograms.</param>
+        /// <param name="heightM">Subject height in meters (required for OpenSim scaling).</param>
+        /// <param name="useOpenSimGRF">Whether to run OpenSim-based GRF analysis.</param>
+        /// <param name="trcFilePath">Path to TRC file for OpenSim analysis.</param>
+        /// <returns>Complete CMJ analysis result with optional GRF data.</returns>
+        Task<CMJAnalysisResult> AnalyzeAsync(
+            MotionData data, 
+            Gender gender, 
+            float bodyMassKg,
+            float heightM,
+            bool useOpenSimGRF,
+            string? trcFilePath);
+
+        /// <summary>
         /// Finds the frame where Center of Mass is at its lowest point.
         /// </summary>
         int FindLowestCoMFrame(MotionData data);

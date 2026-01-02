@@ -27,7 +27,7 @@ namespace MStudio.Tests
             Assert.True(File.Exists(trcPath), $"File not found: {trcPath}");
             
             var motionData = ParseTrc(trcPath);
-            var service = new CMJAnalysisService();
+            var service = new Legacy_CMJAnalysisService();
 
             // 2. Run Analysis
             Console.WriteLine("=== CMJ ANALYSIS DEBUG START ===");
