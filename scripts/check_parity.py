@@ -232,7 +232,19 @@ def main() -> int:
         rt.save(str(tmp / "rs.trc"))
         py_bytes = (tmp / "py.trc").read_bytes().split(b"\n", 1)[1]
         rs_bytes = (tmp / "rs.trc").read_bytes().split(b"\n", 1)[1]
-        record("write", "trc bytes (after the path line)", 0.0 if py_bytes == rs_bytes else float("inf"), 0.0)
+        # `save_to_trc` opens the file in text mode, so the oracle writes the host's
+        # newline (CRLF on Windows) while the port always writes LF. Same content.
+        eol_only = py_bytes != rs_bytes and py_bytes.replace(b"\r\n", b"\n") == rs_bytes
+        record(
+            "write",
+            "trc bytes (after the path line)",
+            0.0 if (py_bytes == rs_bytes or eol_only) else float("inf"),
+            0.0,
+            deviation=eol_only,
+            note="identical apart from line endings: the oracle writes the host's newline, the port always writes LF"
+            if eol_only
+            else "",
+        )
         _, back_df, back_markers, back_fps = read_data_from_trc(str(tmp / "rs.trc"))
         record("write", "rust trc -> python loader", max_diff(H.frames_of(back_df, back_markers), py_frames), 0.0)
         back = mstudio.load(str(tmp / "py.trc"))

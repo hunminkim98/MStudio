@@ -62,6 +62,7 @@ Filter timing from the same run (29 markers × 137 frames, all axes; Python = Po
 | Case | What differs | Decision |
 |---|---|---|
 | `spline` interpolation (3 cases, up to 0.29 m) | Known since Phase 2: pandas' `spline` is a smoothing `UnivariateSpline(s=len(x))`; the port interpolates (== `cubic` at order 3). | Kept. Reported as *deviation*, not failure. |
+| TRC line endings (Windows only) | `save_to_trc` opens the file in text mode, so on Windows the oracle writes CRLF while the port always writes LF. Content is byte-identical otherwise, and each writer's output is read back correctly by the other implementation. | Kept: platform-independent LF output is deterministic and keeps the committed byte-exact fixture valid on every OS. `check_parity.py` reports a line-ending-only difference as *deviation*. |
 | Segment / joint auto-detection (HALPE_26, COCO_17, BODY_25B, BODY_25) | `reportGenerator.py` matches the name patterns against the **skeleton model's node list**, then drops segments whose markers are missing from the data without trying the next pattern (e.g. HALPE_26 has a `Head` node, `tests/test.trc` has `Nose` but no `Head` marker → the oracle loses the Head segment; BODY_25B loses Trunk). The port matches against the data's markers. Everything the oracle finds, the port finds with the same markers; the port additionally finds 3–6 segments/joints per model. COCO_133 is identical. | Kept (the port's result is what the pattern table intends). Documented here and in `check_parity.py`. |
 
 ## Deferred to the distribution step
@@ -103,6 +104,15 @@ CR bytes and names `.gitattributes`, because `str::lines()` strips a trailing
 The `ubuntu-latest` and `macos-latest` test jobs (fmt, clippy `-D warnings`,
 `cargo test --workspace`, release build) passed on the first attempt; the
 `macos-13` jobs were still queued when the failures were diagnosed.
+
+**3. The oracle writes CRLF on Windows** — *the `wheel windows-latest` job of the
+second run (aac9ad7)*. With the wheel finally installed, the Windows parity run
+reported 80 ok / 7 deviations / 1 failure: `trc bytes (after the path line)`.
+`save_to_trc` uses `open(path, "w")`, so on Windows every newline it writes
+becomes CRLF, while the port always writes LF; every other row, including both
+cross-reads of the written files, was identical. Classified as a deviation
+(line-ending-only differences are detected explicitly, a content difference
+still fails).
 
 ## Parity QA on other platforms
 
