@@ -2,12 +2,13 @@
 //!
 //! ```text
 //! mstudio [file.trc | file.c3d | json_folder]
-//!         [--play] [--demo] [--screenshot out.png] [--exit-after SECONDS]   # automated visual checks
+//!         [--play] [--demo] [--selftest] [--screenshot out.png] [--exit-after SECONDS]   # automated visual checks
 //! ```
 
 #![allow(deprecated)] // glam 0.33 camera helpers used via mstudio-render
 
 mod app;
+mod jobs;
 mod marker_plot;
 mod panels;
 mod theme;
@@ -26,10 +27,13 @@ pub struct LaunchOptions {
     pub play: bool,
     /// Select a marker, show names + trajectory and a frame range (for screenshots).
     pub demo: bool,
+    /// Run a filter job, an edit + undo and a report without dialogs, then exit.
+    pub selftest: bool,
 }
 
 fn parse_args() -> LaunchOptions {
-    let mut opts = LaunchOptions { path: None, screenshot: None, exit_after: None, play: false, demo: false };
+    let mut opts =
+        LaunchOptions { path: None, screenshot: None, exit_after: None, play: false, demo: false, selftest: false };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
     while i < args.len() {
@@ -37,6 +41,10 @@ fn parse_args() -> LaunchOptions {
             "--screenshot" => {
                 opts.screenshot = args.get(i + 1).map(Into::into);
                 i += 2;
+            }
+            "--selftest" => {
+                opts.selftest = true;
+                i += 1;
             }
             "--demo" => {
                 opts.demo = true;

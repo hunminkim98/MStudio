@@ -16,11 +16,13 @@ mod kalman;
 mod lowess;
 pub mod pattern;
 mod rotation;
+pub mod segments;
 mod signal;
 
 pub use filters::{apply_filter, filter_column, filter_take, Filter};
 pub use interp::{interpolate_column, interpolate_in_range, InterpMethod};
 pub use pattern::pattern_interpolate;
+pub use segments::{auto_joints, auto_segments, JointDef, SegmentDef};
 
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ProcessingError {

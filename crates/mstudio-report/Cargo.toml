@@ -1,0 +1,21 @@
+[package]
+name = "mstudio-report"
+description = "MStudio analysis report: self-contained interactive HTML (inline Plotly)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+mstudio-core.workspace = true
+mstudio-processing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+minijinja.workspace = true
+open.workspace = true
+thiserror.workspace = true
+ndarray.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

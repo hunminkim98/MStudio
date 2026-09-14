@@ -182,12 +182,12 @@ Two independent tracks.
 - [x] Marker X/Y/Z plot with `egui_plot`: current-frame line, range select, pan/zoom
 - [x] Playback controls, loop, fps entry
 
-### Phase 5 — Editing, panels, report  (2 weeks)
-- [ ] Edit mode: delete range, restore original — dirty ranges to GPU (R2)
-- [ ] Filter panel (6 filters, same parameter sets), interpolation panel (9 methods, pattern marker selection in viewport) — all on workers (R4)
-- [ ] Skeleton model combo → rename → pairs → renderer + outlier re-detect
-- [ ] Visual customization panel + presets; analysis mode + selected-marker list
-- [ ] `mstudio-report`: templates, Plotly bundle, sections, print stylesheet, open-in-browser
+### Phase 5 — Editing, panels, report  (2 weeks) — **DONE; see `PHASE5_RESULTS.md`**
+- [x] Edit mode: delete range, restore original — dirty ranges to GPU (R2)
+- [x] Filter panel (6 filters, same parameter sets), interpolation panel (9 methods, pattern marker selection in viewport) — all on workers (R4)
+- [x] Skeleton model combo → rename → pairs → renderer + outlier re-detect
+- [x] Visual customization panel + presets; analysis mode + selected-marker list
+- [x] `mstudio-report`: templates, Plotly bundle, sections, print stylesheet, open-in-browser
 
 ### Phase 6 — Python bindings, parity QA, distribution  (1–2 weeks)
 - [ ] `mstudio-py`: `Take` ↔ numpy zero-copy, filters/interp/io exposed, `mstudio.run()` launches the app in-process; maturin wheels for all OSes on CI

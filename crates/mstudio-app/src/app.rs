@@ -1,4 +1,5 @@
-//! Application state, docking layout, commands and shortcuts.
+//! Application state, docking layout, commands, edits, background jobs and
+//! shortcuts.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -7,16 +8,23 @@ use eframe::egui::{self, RichText};
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 use mstudio_core::skeleton::{self, SkeletonModel};
 use mstudio_core::{
-    detect_outliers, CoordinateSystem, Playback, StateManager, Take, VisualSettings, DEFAULT_OUTLIER_THRESHOLD,
+    detect_outliers, CoordinateSystem, DirtyRange, Playback, StateManager, Take, VisualSettings,
+    DEFAULT_OUTLIER_THRESHOLD,
 };
-use ndarray::Array2;
+use mstudio_processing::InterpMethod;
+use ndarray::{s, Array2, Array3};
 
+use crate::jobs::{Job, Outcome, Worker};
 use crate::marker_plot::{marker_plot, MarkerPlotInput, MarkerPlotState};
+use crate::panels::filter_from_settings;
 use crate::timeline::{timeline, TimelineInput, TimelineState};
 use crate::viewport::{SharedRenderer, Viewport, ViewportInput};
 use crate::LaunchOptions;
 
 pub const MSAA: u32 = 4;
+pub const INTERP_METHODS: [&str; 9] =
+    ["linear", "polynomial", "spline", "nearest", "zero", "slinear", "quadratic", "cubic", "pattern-based"];
+const UNDO_LIMIT: usize = 50;
 
 pub struct Document {
     pub take: Take,
@@ -31,8 +39,59 @@ pub struct Document {
 pub enum Tab {
     Viewport,
     Controls,
+    Edit,
     Markers,
     Plot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterKind {
+    Butterworth,
+    ButterworthOnSpeed,
+    Kalman,
+    Gaussian,
+    Loess,
+    Median,
+}
+
+/// Panel values for filters and interpolation (defaults = the Python app's).
+#[derive(Debug, Clone)]
+pub struct EditSettings {
+    pub filter: FilterKind,
+    pub butter_order: u32,
+    pub butter_cutoff: f64,
+    pub kalman_trust: f64,
+    pub kalman_smooth: bool,
+    pub gaussian_sigma: f64,
+    pub loess_points: f64,
+    pub median_kernel: f64,
+    pub interp_method: usize,
+    pub interp_order: u32,
+}
+
+impl Default for EditSettings {
+    fn default() -> Self {
+        Self {
+            filter: FilterKind::Butterworth,
+            butter_order: 4,
+            butter_cutoff: 10.0,
+            kalman_trust: 20.0,
+            kalman_smooth: true,
+            gaussian_sigma: 3.0,
+            loess_points: 10.0,
+            median_kernel: 3.0,
+            interp_method: 0,
+            interp_order: 3,
+        }
+    }
+}
+
+/// One reversible edit: the frames of `range` for `marker` (or all markers) as they were.
+struct EditRecord {
+    label: String,
+    marker: Option<usize>,
+    range: DirtyRange,
+    before: Array3<f64>,
 }
 
 /// UI events applied after the frame is drawn (keeps borrows simple).
@@ -56,6 +115,16 @@ pub enum Command {
     SetAnalysisMode(bool),
     ClearAnalysis,
     CycleReferenceAxis,
+    SetEditMode(bool),
+    DeleteRange,
+    RestoreOriginal,
+    Undo,
+    ApplyFilter,
+    ApplyInterp,
+    SetPatternMode(bool),
+    ClearPattern,
+    RunPattern,
+    GenerateReport,
     Quit,
 }
 
@@ -67,6 +136,10 @@ pub struct App {
     pub dark: bool,
     pub timeline_state: TimelineState,
     pub analysis_labels: Vec<String>,
+    pub edit_settings: EditSettings,
+    pub worker: Option<Worker>,
+    pub last_edit: Option<String>,
+    undo: Vec<EditRecord>,
     plot_state: MarkerPlotState,
     viewport: Viewport,
     dock: Option<DockState<Tab>>,
@@ -77,6 +150,8 @@ pub struct App {
     shot_requested: bool,
     exit_at: Option<Instant>,
     started: Instant,
+    /// 0 = off; 1 = filter running; 2 = report running.
+    selftest_step: u8,
 }
 
 impl App {
@@ -87,7 +162,8 @@ impl App {
 
         let mut dock = DockState::new(vec![Tab::Viewport]);
         let surface = dock.main_surface_mut();
-        let [center, _right] = surface.split_right(NodeIndex::root(), 0.76, vec![Tab::Controls, Tab::Markers]);
+        let [center, _right] =
+            surface.split_right(NodeIndex::root(), 0.76, vec![Tab::Controls, Tab::Edit, Tab::Markers]);
         let _ = surface.split_below(center, 0.68, vec![Tab::Plot]);
 
         let mut app = App {
@@ -98,6 +174,10 @@ impl App {
             dark: true,
             timeline_state: TimelineState::default(),
             analysis_labels: Vec::new(),
+            edit_settings: EditSettings::default(),
+            worker: None,
+            last_edit: None,
+            undo: Vec::new(),
             plot_state: MarkerPlotState::default(),
             viewport: Viewport::new(shared),
             dock: Some(dock),
@@ -108,22 +188,37 @@ impl App {
             shot_requested: false,
             exit_at: opts.exit_after.map(|s| Instant::now() + Duration::from_secs_f32(s)),
             started: Instant::now(),
+            selftest_step: 0,
         };
         if let Some(p) = opts.path {
             app.open(&p);
         }
-        if opts.demo {
+        if opts.demo || opts.selftest {
             if let Some(doc) = &mut app.doc {
                 doc.state.view.show_names = true;
                 doc.state.view.show_trajectory = true;
                 doc.state.set_current_marker(Some(2.min(doc.take.n_markers().saturating_sub(1))));
                 doc.state.set_selected_frames(Some((30, 60)));
+                doc.state.set_editing_mode(true);
             }
+            if let Some(dock) = &mut app.dock {
+                if let Some(path) = dock.find_tab(&Tab::Edit) {
+                    let _ = dock.set_active_tab(path);
+                }
+            }
+        }
+        if opts.selftest && app.doc.is_some() {
+            app.selftest_step = 1;
+            app.apply_filter();
         }
         if opts.play {
             app.playback.play(Instant::now());
         }
         app
+    }
+
+    pub fn undo_empty(&self) -> bool {
+        self.undo.is_empty()
     }
 
     // ------------------------------------------------------------ document --
@@ -146,6 +241,8 @@ impl App {
                 doc.state.view.show_skeleton = false;
                 doc.outliers = Array2::from_elem((doc.take.n_markers(), n), false);
                 self.plot_state = MarkerPlotState::default();
+                self.undo.clear();
+                self.last_edit = None;
                 {
                     let mut r = self.viewport.shared.renderer.lock().unwrap();
                     r.load_take(&self.viewport.shared.device, &doc.take);
@@ -156,9 +253,10 @@ impl App {
                 self.rebuild_grid();
                 self.fit_view();
                 // pick the skeleton model that explains the most marker pairs
+                let markers = &self.doc.as_ref().unwrap().take.markers;
                 let best = skeleton::APP_MODELS
                     .iter()
-                    .map(|m| (m.resolve_pairs(&self.doc.as_ref().unwrap().take.markers).len(), *m))
+                    .map(|m| (m.resolve_pairs(markers).len(), *m))
                     .max_by_key(|(n, _)| *n)
                     .filter(|(n, _)| *n >= 3)
                     .map(|(_, m)| m);
@@ -205,14 +303,240 @@ impl App {
             }
         }
         doc.state.set_skeleton_model(model, &doc.take.markers);
+        let mut r = self.viewport.shared.renderer.lock().unwrap();
+        r.set_skeleton_pairs(&self.viewport.shared.device, &doc.state.skeleton_pairs);
+        drop(r);
+        self.recompute_outliers();
+    }
+
+    fn recompute_outliers(&mut self) {
+        let Some(doc) = &mut self.doc else { return };
         doc.outliers = if doc.state.skeleton_pairs.is_empty() {
             Array2::from_elem((doc.take.n_markers(), doc.take.n_frames()), false)
         } else {
             detect_outliers(&doc.take.frames, &doc.state.skeleton_pairs, DEFAULT_OUTLIER_THRESHOLD)
         };
         let mut r = self.viewport.shared.renderer.lock().unwrap();
-        r.set_skeleton_pairs(&self.viewport.shared.device, &doc.state.skeleton_pairs);
         r.set_outliers(&self.viewport.shared.device, &doc.outliers);
+    }
+
+    // --------------------------------------------------------------- edits --
+
+    /// Selected frame range as inclusive bounds, or the whole take.
+    fn edit_range(&self) -> Option<(usize, usize)> {
+        let doc = self.doc.as_ref()?;
+        let n = doc.take.n_frames();
+        Some(doc.state.selection.selected_frames.unwrap_or((0, n.saturating_sub(1))))
+    }
+
+    fn snapshot(&self, marker: Option<usize>, range: DirtyRange) -> Array3<f64> {
+        let take = &self.doc.as_ref().unwrap().take;
+        match marker {
+            Some(m) => take.frames.slice(s![range.start..range.end, m..m + 1, ..]).to_owned(),
+            None => take.frames.slice(s![range.start..range.end, .., ..]).to_owned(),
+        }
+    }
+
+    fn push_undo(&mut self, label: &str, marker: Option<usize>, range: DirtyRange) {
+        if range.is_empty() {
+            return;
+        }
+        let before = self.snapshot(marker, range);
+        self.undo.push(EditRecord { label: label.to_string(), marker, range, before });
+        if self.undo.len() > UNDO_LIMIT {
+            self.undo.remove(0);
+        }
+    }
+
+    /// After the take changed in `range`: GPU patch (R2), caches, outliers.
+    fn after_edit(&mut self, range: DirtyRange, label: String) {
+        if let Some(doc) = &mut self.doc {
+            doc.data_version += 1;
+            self.viewport.shared.renderer.lock().unwrap().update_frames(&self.viewport.shared.queue, &doc.take, range);
+        }
+        self.recompute_outliers();
+        self.status = label.clone();
+        self.last_edit = Some(label);
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    fn apply_columns(&mut self, marker: usize, range: DirtyRange, cols: [Vec<f64>; 3], label: String) {
+        if range.is_empty() {
+            self.status = format!("{label}: nothing to change");
+            self.last_edit = Some(self.status.clone());
+            return;
+        }
+        self.push_undo(&label, Some(marker), range);
+        let doc = self.doc.as_mut().unwrap();
+        for f in range.start..range.end.min(doc.take.n_frames()) {
+            for k in 0..3 {
+                doc.take.frames[[f, marker, k]] = cols[k][f];
+            }
+        }
+        self.after_edit(range, format!("{label} applied to frames {}–{}", range.start, range.end - 1));
+    }
+
+    fn delete_range(&mut self) {
+        let Some((first, last)) = self.edit_range() else { return };
+        let Some(marker) = self.doc.as_ref().and_then(|d| d.state.selection.current_marker) else { return };
+        let range = DirtyRange::inclusive(first, last);
+        self.push_undo("delete", Some(marker), range);
+        let doc = self.doc.as_mut().unwrap();
+        doc.take.clear_range(marker, first, last);
+        let name = doc.take.markers[marker].clone();
+        self.after_edit(range, format!("deleted {name} frames {first}–{last}"));
+    }
+
+    fn restore_original(&mut self) {
+        let Some(doc) = &self.doc else { return };
+        let all = DirtyRange::all(doc.take.n_frames());
+        self.push_undo("restore original", None, all);
+        self.doc.as_mut().unwrap().take.restore_original();
+        self.after_edit(all, "restored the original data".into());
+    }
+
+    fn undo(&mut self) {
+        let Some(rec) = self.undo.pop() else { return };
+        let doc = self.doc.as_mut().unwrap();
+        match rec.marker {
+            Some(m) => doc.take.frames.slice_mut(s![rec.range.start..rec.range.end, m..m + 1, ..]).assign(&rec.before),
+            None => doc.take.frames.slice_mut(s![rec.range.start..rec.range.end, .., ..]).assign(&rec.before),
+        }
+        self.after_edit(rec.range, format!("undid {}", rec.label));
+    }
+
+    fn start_job(&mut self, job: Job) {
+        if self.worker.is_some() {
+            self.error = Some("A processing job is still running.".into());
+            return;
+        }
+        self.worker = Some(Worker::spawn(job));
+    }
+
+    fn marker_columns(&self, marker: usize) -> Array3<f64> {
+        let take = &self.doc.as_ref().unwrap().take;
+        take.frames.slice(s![.., marker..marker + 1, ..]).to_owned()
+    }
+
+    fn apply_filter(&mut self) {
+        let Some((first, last)) = self.edit_range() else { return };
+        let Some(marker) = self.doc.as_ref().and_then(|d| d.state.selection.current_marker) else { return };
+        let fps = self.doc.as_ref().unwrap().take.fps;
+        let filter = filter_from_settings(&self.edit_settings);
+        let cols = self.marker_columns(marker);
+        self.start_job(Job::Filter { marker, cols, first, last, filter, fps });
+    }
+
+    fn apply_interp(&mut self) {
+        let Some((first, last)) = self.edit_range() else { return };
+        let Some(marker) = self.doc.as_ref().and_then(|d| d.state.selection.current_marker) else { return };
+        let name = INTERP_METHODS[self.edit_settings.interp_method];
+        let Some(method) = InterpMethod::from_name(name, self.edit_settings.interp_order) else { return };
+        let cols = self.marker_columns(marker);
+        self.start_job(Job::Interp { marker, cols, first, last, method });
+    }
+
+    fn run_pattern(&mut self) {
+        let Some((first, last)) = self.edit_range() else { return };
+        let Some(doc) = &self.doc else { return };
+        let Some(marker) = doc.state.selection.current_marker else { return };
+        let refs: Vec<usize> = doc.state.selection.pattern_markers.iter().copied().filter(|&r| r != marker).collect();
+        if refs.is_empty() {
+            self.error = Some("Select at least one reference marker (other than the target).".into());
+            return;
+        }
+        let n = doc.take.n_frames();
+        let mut sub = Array3::<f64>::zeros((n, 1 + refs.len(), 3));
+        sub.slice_mut(s![.., 0, ..]).assign(&doc.take.frames.slice(s![.., marker, ..]));
+        for (i, &r) in refs.iter().enumerate() {
+            sub.slice_mut(s![.., i + 1, ..]).assign(&doc.take.frames.slice(s![.., r, ..]));
+        }
+        self.start_job(Job::Pattern { marker, sub, first, last });
+    }
+
+    fn generate_report(&mut self) {
+        let Some(doc) = &self.doc else { return };
+        let stem = doc
+            .path
+            .as_ref()
+            .and_then(|p| p.file_stem())
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "take".into());
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter("HTML", &["html"])
+            .set_file_name(format!("{stem}_report.html"))
+            .save_file()
+        else {
+            return;
+        };
+        let options = mstudio_report::ReportOptions {
+            title: format!("{stem} — MStudio analysis report"),
+            source: doc.path.as_ref().map(|p| p.display().to_string()).unwrap_or_default(),
+            skeleton_model: doc.state.skeleton_model.map(String::from),
+            skeleton_pairs: doc.state.skeleton_pairs.clone(),
+            ..Default::default()
+        };
+        self.start_job(Job::Report { take: doc.take.clone(), options, path });
+    }
+
+    fn poll_worker(&mut self) {
+        let Some(outcome) = self.worker.as_ref().and_then(|w| w.poll()) else { return };
+        self.worker = None;
+        match outcome {
+            Outcome::Columns { marker, range, cols, label } => {
+                self.apply_columns(marker, range, cols, label);
+                if self.selftest_step == 1 {
+                    let before = self.doc.as_ref().unwrap().take.frames.clone();
+                    self.delete_range();
+                    self.undo();
+                    let same = self
+                        .doc
+                        .as_ref()
+                        .unwrap()
+                        .take
+                        .frames
+                        .iter()
+                        .zip(before.iter())
+                        .all(|(a, b)| a.to_bits() == b.to_bits());
+                    eprintln!(
+                        "selftest: filter applied ({}), delete+undo round trip {}",
+                        self.last_edit.as_deref().unwrap_or(""),
+                        if same { "ok" } else { "MISMATCH" }
+                    );
+                    let path = PathBuf::from("target/selftest_report.html");
+                    let doc = self.doc.as_ref().unwrap();
+                    let options = mstudio_report::ReportOptions {
+                        title: "selftest".into(),
+                        skeleton_model: doc.state.skeleton_model.map(String::from),
+                        skeleton_pairs: doc.state.skeleton_pairs.clone(),
+                        ..Default::default()
+                    };
+                    self.selftest_step = 2;
+                    self.start_job(Job::Report { take: doc.take.clone(), options, path });
+                }
+            }
+            Outcome::Report { path } => {
+                self.status = format!("report written to {}", path.display());
+                if self.selftest_step == 2 {
+                    eprintln!(
+                        "selftest: report written to {} ({} bytes)",
+                        path.display(),
+                        std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0)
+                    );
+                    self.selftest_step = 0;
+                    self.exit_at = Some(Instant::now() + Duration::from_millis(300));
+                } else if let Err(e) = mstudio_report::open_in_browser(&path) {
+                    self.error = Some(format!("Report written to {} but could not be opened:\n{e}", path.display()));
+                }
+            }
+            Outcome::Error(e) => {
+                if self.selftest_step != 0 {
+                    eprintln!("selftest: FAILED: {e}");
+                    self.exit_at = Some(Instant::now());
+                }
+                self.error = Some(e)
+            }
+        }
     }
 
     fn apply(&mut self, cmd: Command, ctx: &egui::Context) {
@@ -272,7 +596,9 @@ impl App {
                         }
                     } else if doc.state.editing.pattern_selection_mode {
                         if let Some(m) = m {
-                            doc.state.toggle_pattern_marker(m);
+                            if doc.state.selection.current_marker != Some(m) {
+                                doc.state.toggle_pattern_marker(m);
+                            }
                         }
                     } else {
                         doc.state.set_current_marker(m);
@@ -307,6 +633,28 @@ impl App {
                     doc.state.cycle_reference_axis();
                 }
             }
+            Command::SetEditMode(on) => {
+                if let Some(doc) = &mut self.doc {
+                    doc.state.set_editing_mode(on);
+                }
+            }
+            Command::DeleteRange => self.delete_range(),
+            Command::RestoreOriginal => self.restore_original(),
+            Command::Undo => self.undo(),
+            Command::ApplyFilter => self.apply_filter(),
+            Command::ApplyInterp => self.apply_interp(),
+            Command::SetPatternMode(on) => {
+                if let Some(doc) = &mut self.doc {
+                    doc.state.set_pattern_selection_mode(on);
+                }
+            }
+            Command::ClearPattern => {
+                if let Some(doc) = &mut self.doc {
+                    doc.state.clear_pattern_markers();
+                }
+            }
+            Command::RunPattern => self.run_pattern(),
+            Command::GenerateReport => self.generate_report(),
             Command::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
         }
     }
@@ -337,6 +685,12 @@ impl App {
             if i.modifiers.command && i.modifiers.shift && i.key_pressed(egui::Key::S) {
                 cmds.push(Command::SaveAsDialog);
             }
+            if i.modifiers.command && i.key_pressed(egui::Key::Z) {
+                cmds.push(Command::Undo);
+            }
+            if i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace) {
+                cmds.push(Command::DeleteRange);
+            }
         });
     }
 
@@ -355,9 +709,30 @@ impl App {
                     cmds.push(Command::SaveAsDialog);
                     ui.close();
                 }
+                if ui
+                    .add_enabled(self.doc.is_some() && self.worker.is_none(), egui::Button::new("Generate report…"))
+                    .clicked()
+                {
+                    cmds.push(Command::GenerateReport);
+                    ui.close();
+                }
                 ui.separator();
                 if ui.button("Quit").clicked() {
                     cmds.push(Command::Quit);
+                }
+            });
+            ui.menu_button("Edit", |ui| {
+                if ui.add_enabled(!self.undo.is_empty(), egui::Button::new("Undo    ⌘Z")).clicked() {
+                    cmds.push(Command::Undo);
+                    ui.close();
+                }
+                if ui.add_enabled(self.doc.is_some(), egui::Button::new("Delete selected range    ⌫")).clicked() {
+                    cmds.push(Command::DeleteRange);
+                    ui.close();
+                }
+                if ui.add_enabled(self.doc.is_some(), egui::Button::new("Restore original")).clicked() {
+                    cmds.push(Command::RestoreOriginal);
+                    ui.close();
                 }
             });
             ui.menu_button("View", |ui| {
@@ -392,8 +767,21 @@ impl App {
                 ui.separator();
                 ui.small(doc.state.view.coordinate_system.label());
                 ui.separator();
+                if doc.state.editing.is_editing {
+                    ui.small(RichText::new("EDIT").color(crate::theme::ACCENT));
+                    ui.separator();
+                }
+                if doc.state.editing.pattern_selection_mode {
+                    ui.small(RichText::new("click reference markers").color(egui::Color32::from_rgb(255, 80, 80)));
+                    ui.separator();
+                }
             }
-            ui.small("Space play · Esc stop · ←/→ step · F fit · LMB orbit · RMB/MMB pan · wheel zoom · click marker to select");
+            if let Some(w) = &self.worker {
+                ui.spinner();
+                ui.small(&w.label);
+                ui.separator();
+            }
+            ui.small("Space play · Esc stop · ←/→ step · F fit · ⌘Z undo · ⌫ delete range · LMB orbit · RMB/MMB pan · wheel zoom · click marker to select");
         });
     }
 }
@@ -411,6 +799,7 @@ impl TabViewer for Tabs<'_> {
         match tab {
             Tab::Viewport => "3D View",
             Tab::Controls => "Controls",
+            Tab::Edit => "Edit",
             Tab::Markers => "Markers",
             Tab::Plot => "Marker plot",
         }
@@ -505,6 +894,7 @@ impl TabViewer for Tabs<'_> {
                 }
             }
             Tab::Controls => crate::panels::controls(ui, app, self.cmds),
+            Tab::Edit => crate::panels::edit(ui, app, self.cmds),
             Tab::Markers => crate::panels::marker_list(ui, app, self.cmds),
             Tab::Plot => {
                 if let Some(doc) = &app.doc {
@@ -573,6 +963,11 @@ impl eframe::App for App {
         if self.screenshot.is_some() || self.exit_at.is_some() {
             // timers only advance when frames are produced; screenshots need a continuous stream
             ctx.request_repaint();
+        }
+
+        self.poll_worker();
+        if self.worker.is_some() {
+            ctx.request_repaint_after(Duration::from_millis(50));
         }
 
         // drag & drop a motion file or JSON folder

@@ -1,10 +1,12 @@
-//! Right-hand tabs: Controls (file, playback, view, skeleton, visual,
-//! analysis, info) and Markers (list).
+//! Right-hand tabs: Controls (file, playback, view, skeleton, appearance,
+//! analysis, selection), Edit (edit mode, filters, interpolation, pattern
+//! references, report) and Markers (list).
 
 use eframe::egui::{self, RichText};
 use mstudio_core::{skeleton, CoordinateSystem, VisualSettings};
+use mstudio_processing::Filter;
 
-use crate::app::{App, Command};
+use crate::app::{App, Command, FilterKind, INTERP_METHODS};
 use crate::timeline::TimelineMode;
 
 pub fn controls(ui: &mut egui::Ui, app: &mut App, cmds: &mut Vec<Command>) {
@@ -131,37 +133,41 @@ pub fn controls(ui: &mut egui::Ui, app: &mut App, cmds: &mut Vec<Command>) {
 
         section(ui, "Appearance", |ui| {
             let v: &mut VisualSettings = &mut app.visual;
-            let mut changed = false;
-            ui.horizontal(|ui| {
+            egui::Grid::new("appearance").num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| {
                 ui.label("marker size");
-                changed |= ui.add(egui::Slider::new(&mut v.marker.size, 1.0..=20.0)).changed();
-            });
-            ui.horizontal(|ui| {
+                ui.add(egui::Slider::new(&mut v.marker.size, 1.0..=20.0));
+                ui.end_row();
                 ui.label("marker opacity");
-                changed |= ui.add(egui::Slider::new(&mut v.marker.opacity, 0.1..=1.0)).changed();
-            });
-            ui.horizontal(|ui| {
+                ui.add(egui::Slider::new(&mut v.marker.opacity, 0.1..=1.0));
+                ui.end_row();
                 ui.label("line width");
-                changed |= ui.add(egui::Slider::new(&mut v.skeleton.line_width, 0.5..=5.0)).changed();
-            });
-            ui.horizontal(|ui| {
+                ui.add(egui::Slider::new(&mut v.skeleton.line_width, 0.5..=5.0));
+                ui.end_row();
                 ui.label("skeleton opacity");
-                changed |= ui.add(egui::Slider::new(&mut v.skeleton.opacity, 0.1..=1.0)).changed();
-            });
-            ui.horizontal(|ui| {
+                ui.add(egui::Slider::new(&mut v.skeleton.opacity, 0.1..=1.0));
+                ui.end_row();
+                ui.label("colours");
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_rgb(&mut v.marker.color_normal).on_hover_text("marker");
+                    ui.color_edit_button_rgb(&mut v.marker.color_selected).on_hover_text("selected marker");
+                    ui.color_edit_button_rgb(&mut v.marker.color_pattern).on_hover_text("pattern reference");
+                    ui.color_edit_button_rgb(&mut v.skeleton.color_normal).on_hover_text("skeleton");
+                    ui.color_edit_button_rgb(&mut v.skeleton.color_outlier).on_hover_text("outlier");
+                });
+                ui.end_row();
                 ui.label("scheme");
-                for name in VisualSettings::scheme_names() {
-                    if ui.small_button(name).clicked() {
-                        v.apply_scheme(name);
-                        changed = true;
+                ui.horizontal_wrapped(|ui| {
+                    for name in VisualSettings::scheme_names() {
+                        if ui.small_button(name).clicked() {
+                            v.apply_scheme(name);
+                        }
                     }
-                }
-                if ui.small_button("reset").clicked() {
-                    v.reset();
-                    changed = true;
-                }
+                    if ui.small_button("reset").clicked() {
+                        v.reset();
+                    }
+                });
+                ui.end_row();
             });
-            let _ = changed; // the renderer reads the settings every frame
         });
 
         section(ui, "Analysis", |ui| {
@@ -218,6 +224,154 @@ pub fn controls(ui: &mut egui::Ui, app: &mut App, cmds: &mut Vec<Command>) {
     });
 }
 
+pub fn edit(ui: &mut egui::Ui, app: &mut App, cmds: &mut Vec<Command>) {
+    egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+        ui.add_space(4.0);
+        let Some(doc) = &app.doc else {
+            ui.weak("open a file");
+            return;
+        };
+        let busy = app.worker.is_some();
+        let has_marker = doc.state.selection.current_marker.is_some();
+        let range_text = match doc.state.selection.selected_frames {
+            Some((a, b)) => format!("frames {a}–{b}"),
+            None => "whole take (select a range on the timeline or plot)".to_string(),
+        };
+        let marker_name = doc.state.selection.current_marker.map(|m| doc.take.markers[m].clone());
+
+        if let Some(w) = &app.worker {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(format!("{} … {:.1} s", w.label, w.started.elapsed().as_secs_f32()));
+            });
+            ui.separator();
+        }
+
+        section(ui, "Edit", |ui| {
+            let mut editing = doc.state.editing.is_editing;
+            if ui.checkbox(&mut editing, "Edit mode").changed() {
+                cmds.push(Command::SetEditMode(editing));
+            }
+            ui.label(
+                RichText::new(format!("target: {}", marker_name.as_deref().unwrap_or("— select a marker"))).small(),
+            );
+            ui.label(RichText::new(format!("range: {range_text}")).small());
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add_enabled(editing && has_marker && !busy, egui::Button::new("Delete range"))
+                    .on_hover_text("set the marker to missing in the selected frames")
+                    .clicked()
+                {
+                    cmds.push(Command::DeleteRange);
+                }
+                if ui.add_enabled(!busy && !app.undo_empty(), egui::Button::new("Undo    ⌘Z")).clicked() {
+                    cmds.push(Command::Undo);
+                }
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Restore original"))
+                    .on_hover_text("discard every edit since the file was opened")
+                    .clicked()
+                {
+                    cmds.push(Command::RestoreOriginal);
+                }
+            });
+            ui.label(RichText::new(app.last_edit.as_deref().unwrap_or("")).small().weak());
+        });
+
+        section(ui, "Filter", |ui| {
+            let f = &mut app.edit_settings;
+            egui::ComboBox::from_id_salt("filter_kind").selected_text(f.filter.label()).show_ui(ui, |ui| {
+                for k in FilterKind::ALL {
+                    ui.selectable_value(&mut f.filter, k, k.label());
+                }
+            });
+            egui::Grid::new("filter_params").num_columns(2).spacing([8.0, 4.0]).show(ui, |ui| match f.filter {
+                FilterKind::Butterworth | FilterKind::ButterworthOnSpeed => {
+                    ui.label("order (even)");
+                    ui.add(egui::DragValue::new(&mut f.butter_order).range(2..=12).speed(1.0));
+                    ui.end_row();
+                    ui.label("cutoff (Hz)");
+                    ui.add(egui::DragValue::new(&mut f.butter_cutoff).range(1.0..=500.0).speed(0.5));
+                    ui.end_row();
+                }
+                FilterKind::Kalman => {
+                    ui.label("trust ratio");
+                    ui.add(egui::DragValue::new(&mut f.kalman_trust).range(1.0..=1000.0).speed(1.0));
+                    ui.end_row();
+                    ui.label("RTS smoothing");
+                    ui.checkbox(&mut f.kalman_smooth, "");
+                    ui.end_row();
+                }
+                FilterKind::Gaussian => {
+                    ui.label("sigma (frames)");
+                    ui.add(egui::DragValue::new(&mut f.gaussian_sigma).range(1.0..=50.0).speed(0.5));
+                    ui.end_row();
+                }
+                FilterKind::Loess => {
+                    ui.label("points per fit");
+                    ui.add(egui::DragValue::new(&mut f.loess_points).range(3.0..=500.0).speed(1.0));
+                    ui.end_row();
+                }
+                FilterKind::Median => {
+                    ui.label("kernel (odd)");
+                    ui.add(egui::DragValue::new(&mut f.median_kernel).range(3.0..=99.0).speed(2.0));
+                    ui.end_row();
+                }
+            });
+            if ui.add_enabled(has_marker && !busy, egui::Button::new("Apply filter to range")).clicked() {
+                cmds.push(Command::ApplyFilter);
+            }
+        });
+
+        section(ui, "Interpolation", |ui| {
+            let f = &mut app.edit_settings;
+            egui::ComboBox::from_id_salt("interp_method").selected_text(INTERP_METHODS[f.interp_method]).show_ui(
+                ui,
+                |ui| {
+                    for (i, name) in INTERP_METHODS.iter().enumerate() {
+                        ui.selectable_value(&mut f.interp_method, i, *name);
+                    }
+                },
+            );
+            let name = INTERP_METHODS[f.interp_method];
+            if name == "polynomial" || name == "spline" {
+                ui.horizontal(|ui| {
+                    ui.label("order");
+                    ui.add(egui::DragValue::new(&mut f.interp_order).range(1..=5).speed(1.0));
+                });
+            }
+            if name == "pattern-based" {
+                let mode = doc.state.editing.pattern_selection_mode;
+                let mut on = mode;
+                if ui.checkbox(&mut on, "Select reference markers (click in the 3D view)").changed() {
+                    cmds.push(Command::SetPatternMode(on));
+                }
+                ui.horizontal_wrapped(|ui| {
+                    for &m in &doc.state.selection.pattern_markers {
+                        ui.label(RichText::new(&doc.take.markers[m]).color(egui::Color32::from_rgb(255, 80, 80)));
+                    }
+                    if !doc.state.selection.pattern_markers.is_empty() && ui.small_button("clear").clicked() {
+                        cmds.push(Command::ClearPattern);
+                    }
+                });
+                let ready = has_marker && !doc.state.selection.pattern_markers.is_empty();
+                if ui.add_enabled(ready && !busy, egui::Button::new("Run pattern-based interpolation")).clicked() {
+                    cmds.push(Command::RunPattern);
+                }
+            } else if ui.add_enabled(has_marker && !busy, egui::Button::new("Interpolate gaps in range")).clicked() {
+                cmds.push(Command::ApplyInterp);
+            }
+        });
+
+        section(ui, "Report", |ui| {
+            ui.label(RichText::new("Interactive HTML (opens in your browser; print for PDF)").small().weak());
+            if ui.add_enabled(!busy, egui::Button::new("Generate report…")).clicked() {
+                cmds.push(Command::GenerateReport);
+            }
+        });
+    });
+}
+
 pub fn marker_list(ui: &mut egui::Ui, app: &mut App, cmds: &mut Vec<Command>) {
     let Some(doc) = &app.doc else {
         ui.weak("open a file");
@@ -239,4 +393,40 @@ pub fn marker_list(ui: &mut egui::Ui, app: &mut App, cmds: &mut Vec<Command>) {
 fn section(ui: &mut egui::Ui, title: &str, add: impl FnOnce(&mut egui::Ui)) {
     egui::CollapsingHeader::new(RichText::new(title).strong()).default_open(true).show(ui, add);
     ui.add_space(2.0);
+}
+
+impl FilterKind {
+    pub const ALL: [FilterKind; 6] = [
+        FilterKind::Butterworth,
+        FilterKind::ButterworthOnSpeed,
+        FilterKind::Kalman,
+        FilterKind::Gaussian,
+        FilterKind::Loess,
+        FilterKind::Median,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            FilterKind::Butterworth => "Butterworth",
+            FilterKind::ButterworthOnSpeed => "Butterworth on speed",
+            FilterKind::Kalman => "Kalman",
+            FilterKind::Gaussian => "Gaussian",
+            FilterKind::Loess => "LOESS",
+            FilterKind::Median => "Median",
+        }
+    }
+}
+
+/// Build the processing filter from the panel values.
+pub fn filter_from_settings(s: &crate::app::EditSettings) -> Filter {
+    match s.filter {
+        FilterKind::Butterworth => Filter::Butterworth { order: s.butter_order, cutoff_hz: s.butter_cutoff },
+        FilterKind::ButterworthOnSpeed => {
+            Filter::ButterworthOnSpeed { order: s.butter_order, cutoff_hz: s.butter_cutoff }
+        }
+        FilterKind::Kalman => Filter::Kalman { trust_ratio: s.kalman_trust, smooth: s.kalman_smooth },
+        FilterKind::Gaussian => Filter::Gaussian { sigma_kernel: s.gaussian_sigma },
+        FilterKind::Loess => Filter::Loess { nb_values_used: s.loess_points },
+        FilterKind::Median => Filter::Median { kernel_size: s.median_kernel },
+    }
 }

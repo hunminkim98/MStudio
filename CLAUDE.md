@@ -27,6 +27,7 @@ Rust workspace (migration, see `docs/CROSS_PLATFORM_PLAN.md`; needs `~/.cargo/bi
 ```bash
 cargo run --release -p mstudio-app -- tests/test.trc         # the v2 desktop app (binary: target/release/mstudio)
 ./target/release/mstudio tests/test.trc --demo --screenshot shot.png --exit-after 4   # headless-ish visual check
+./target/release/mstudio tests/test.trc --selftest          # worker filter → delete+undo → HTML report, no dialogs
 cargo build --release -p mstudio-spike                       # Phase 0 viewport spike
 ./target/release/mstudio-spike                               # opens tests/test.trc
 ./target/release/mstudio-spike --stress 300 50000 --bench 6 --screenshot shot.png   # prints one JSON stats line

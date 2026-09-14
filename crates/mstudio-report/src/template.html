@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ r.title }}</title>
+<style>
+  :root { --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #e5e7eb; --accent: #d97706; --x: #e74c3c; --y: #27ae60; --z: #3498db; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
+  header { padding: 32px 40px 20px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0 0 4px; font-size: 26px; }
+  header .meta { color: var(--muted); }
+  .controls { position: sticky; top: 0; z-index: 5; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 10px 40px; background: #f9fafb; border-bottom: 1px solid var(--line); }
+  .controls label { color: var(--muted); font-size: 13px; }
+  .controls select, .controls input { font: inherit; padding: 4px 6px; }
+  main { padding: 10px 40px 60px; max-width: 1400px; }
+  section { margin-top: 36px; page-break-inside: avoid; }
+  h2 { font-size: 20px; border-left: 4px solid var(--accent); padding-left: 10px; margin: 0 0 12px; }
+  h3 { font-size: 15px; color: var(--muted); margin: 18px 0 6px; font-weight: 600; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .card .v { font-size: 22px; font-weight: 600; }
+  .card .k { color: var(--muted); font-size: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { background: #f3f4f6; position: sticky; top: 0; }
+  .table-wrap { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+  .plot { width: 100%; height: 340px; }
+  .note { color: var(--muted); font-size: 12px; }
+  @media print {
+    .controls { display: none; }
+    .table-wrap { max-height: none; overflow: visible; border: none; }
+    thead th { position: static; }
+    .plot { height: 300px; }
+    section { break-inside: avoid; }
+    header { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{ r.title }}</h1>
+  <div class="meta">{{ r.source }} · {{ r.n_markers }} markers · {{ r.n_frames }} frames · {{ "%.1f"|format(r.fps) }} Hz · {{ "%.2f"|format(r.duration) }} s · skeleton: {{ r.skeleton_model }} · generated {{ r.generated }} by MStudio</div>
+</header>
+
+<div class="controls">
+  <label>Marker <select id="marker"></select></label>
+  <label>From <input id="t0" type="number" step="0.01" min="0"> s</label>
+  <label>To <input id="t1" type="number" step="0.01" min="0"> s</label>
+  <button id="reset">Reset range</button>
+  <label>Segment axis
+    <select id="axis"><option value="0">X</option><option value="1" selected>Y (vertical)</option><option value="2">Z</option></select>
+  </label>
+  <span class="note" id="stride"></span>
+</div>
+
+<main>
+<section>
+  <h2>1. Dataset overview</h2>
+  <div class="cards">
+    <div class="card"><div class="v">{{ r.n_markers }}</div><div class="k">markers</div></div>
+    <div class="card"><div class="v">{{ r.n_frames }}</div><div class="k">frames</div></div>
+    <div class="card"><div class="v">{{ "%.1f"|format(r.fps) }}</div><div class="k">frames / s</div></div>
+    <div class="card"><div class="v">{{ "%.2f"|format(r.duration) }} s</div><div class="k">duration</div></div>
+    <div class="card"><div class="v">{{ "%.1f"|format(r.completeness) }}%</div><div class="k">data completeness</div></div>
+    <div class="card"><div class="v">{{ r.missing_points }}</div><div class="k">missing samples</div></div>
+  </div>
+  <h3>Per-marker quality</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Marker</th><th>Valid</th><th>Missing</th><th>Complete</th><th>x̄ X</th><th>x̄ Y</th><th>x̄ Z</th><th>σ X</th><th>σ Y</th><th>σ Z</th></tr></thead>
+    <tbody>
+    {% for m in r.markers %}
+    <tr><td>{{ m.name }}</td><td>{{ m.valid }}</td><td>{{ m.missing }}</td><td>{{ "%.1f"|format(m.completeness) }}%</td>
+        <td>{{ "%.4f"|format(m.x.mean) }}</td><td>{{ "%.4f"|format(m.y.mean) }}</td><td>{{ "%.4f"|format(m.z.mean) }}</td>
+        <td>{{ "%.4f"|format(m.x.std) }}</td><td>{{ "%.4f"|format(m.y.std) }}</td><td>{{ "%.4f"|format(m.z.std) }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</section>
+
+<section>
+  <h2>2. Marker coordinates</h2>
+  <div id="coords" class="plot"></div>
+</section>
+
+<section>
+  <h2>3. Velocity and acceleration</h2>
+  <div id="speed" class="plot"></div>
+  <div id="accel" class="plot"></div>
+  <h3>Speed / acceleration magnitude statistics (all markers)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Marker</th><th>mean |v| (m/s)</th><th>max |v|</th><th>σ |v|</th><th>mean |a| (m/s²)</th><th>max |a|</th><th>σ |a|</th></tr></thead>
+    <tbody>
+    {% for m in r.markers %}
+    <tr><td>{{ m.name }}</td><td>{{ "%.3f"|format(m.speed.mean) }}</td><td>{{ "%.3f"|format(m.speed.max) }}</td><td>{{ "%.3f"|format(m.speed.std) }}</td>
+        <td>{{ "%.2f"|format(m.accel.mean) }}</td><td>{{ "%.2f"|format(m.accel.max) }}</td><td>{{ "%.2f"|format(m.accel.std) }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</section>
+
+<section>
+  <h2>4. Segments</h2>
+  {% if r.segments %}
+  <div id="seglen" class="plot"></div>
+  <div id="segang" class="plot"></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Segment</th><th>length mean (m)</th><th>length σ</th><th>angle vs X (mean)</th><th>angle vs Y (mean)</th><th>angle vs Z (mean)</th><th>angle vs Y σ</th></tr></thead>
+    <tbody>
+    {% for s in r.segments %}
+    <tr><td>{{ s.name }}</td><td>{{ "%.4f"|format(s.length.mean) }}</td><td>{{ "%.4f"|format(s.length.std) }}</td>
+        <td>{{ "%.1f"|format(s.angle_x.mean) }}°</td><td>{{ "%.1f"|format(s.angle_y.mean) }}°</td><td>{{ "%.1f"|format(s.angle_z.mean) }}°</td><td>{{ "%.1f"|format(s.angle_y.std) }}°</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  {% else %}<p class="note">No segments could be identified from the marker names.</p>{% endif %}
+</section>
+
+<section>
+  <h2>5. Joint angles</h2>
+  {% if r.joints %}
+  <div id="joints" class="plot"></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Joint</th><th>mean</th><th>σ</th><th>min</th><th>max</th><th>range of motion</th></tr></thead>
+    <tbody>
+    {% for j in r.joints %}
+    <tr><td>{{ j.name }}</td><td>{{ "%.1f"|format(j.angle.mean) }}°</td><td>{{ "%.1f"|format(j.angle.std) }}°</td><td>{{ "%.1f"|format(j.angle.min) }}°</td><td>{{ "%.1f"|format(j.angle.max) }}°</td><td>{{ "%.1f"|format(j.rom) }}°</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  {% else %}<p class="note">No joints could be identified from the marker names.</p>{% endif %}
+</section>
+</main>
+
+<script>{{ plotly_js }}</script>
+<script>
+const D = {{ chart_json }};
+const layoutBase = (ytitle) => ({ margin: {l: 56, r: 16, t: 24, b: 44}, xaxis: {title: {text: 'time (s)'}}, yaxis: {title: {text: ytitle}}, legend: {orientation: 'h', y: 1.12}, hovermode: 'x unified' });
+const cfg = { responsive: true, displaylogo: false, toImageButtonOptions: {format: 'png', scale: 2} };
+const plots = [];
+function plot(id, traces, ytitle) { if (!document.getElementById(id)) return; Plotly.newPlot(id, traces, layoutBase(ytitle), cfg); plots.push(id); }
+
+const sel = document.getElementById('marker');
+D.markers.forEach((m, i) => { const o = document.createElement('option'); o.value = i; o.textContent = m; sel.appendChild(o); });
+document.getElementById('t0').value = D.time[0].toFixed(2);
+document.getElementById('t1').value = D.time[D.time.length - 1].toFixed(2);
+if (D.stride > 1) document.getElementById('stride').textContent = 'charts show every ' + D.stride + 'th frame; tables use all frames';
+
+function drawMarker(i) {
+  const c = D.coords[i];
+  Plotly.react('coords', [
+    {x: D.time, y: c[0], name: 'X', line: {color: '#e74c3c'}},
+    {x: D.time, y: c[1], name: 'Y', line: {color: '#27ae60'}},
+    {x: D.time, y: c[2], name: 'Z', line: {color: '#3498db'}}], layoutBase('position (m) — ' + D.markers[i]), cfg);
+  Plotly.react('speed', [{x: D.time, y: D.speed[i], name: '|v|', line: {color: '#8e44ad'}}], layoutBase('speed (m/s) — ' + D.markers[i]), cfg);
+  Plotly.react('accel', [{x: D.time, y: D.accel[i], name: '|a|', line: {color: '#d35400'}}], layoutBase('acceleration (m/s²) — ' + D.markers[i]), cfg);
+  applyRange();
+}
+function drawSegments() {
+  if (!D.segment_names.length) return;
+  const axis = +document.getElementById('axis').value;
+  plot('seglen', D.segment_names.map((n, i) => ({x: D.time, y: D.segment_length[i], name: n})), 'segment length (m)');
+  plot('segang', D.segment_names.map((n, i) => ({x: D.time, y: D.segment_angle[i][axis], name: n})), 'angle vs ' + 'XYZ'[axis] + ' axis (°)');
+}
+function drawJoints() {
+  if (!D.joint_names.length) return;
+  plot('joints', D.joint_names.map((n, i) => ({x: D.time, y: D.joint_angle[i], name: n})), 'joint angle (°)');
+}
+function applyRange() {
+  const a = +document.getElementById('t0').value, b = +document.getElementById('t1').value;
+  ['coords', 'speed', 'accel', 'seglen', 'segang', 'joints'].forEach(id => { if (document.getElementById(id) && document.getElementById(id).data) Plotly.relayout(id, {'xaxis.range': [a, b]}); });
+}
+plots.push('coords', 'speed', 'accel');
+Plotly.newPlot('coords', [], layoutBase(''), cfg); Plotly.newPlot('speed', [], layoutBase(''), cfg); Plotly.newPlot('accel', [], layoutBase(''), cfg);
+drawMarker(0); drawSegments(); drawJoints();
+sel.addEventListener('change', () => drawMarker(+sel.value));
+document.getElementById('axis').addEventListener('change', drawSegments);
+document.getElementById('t0').addEventListener('change', applyRange);
+document.getElementById('t1').addEventListener('change', applyRange);
+document.getElementById('reset').addEventListener('click', () => { document.getElementById('t0').value = D.time[0].toFixed(2); document.getElementById('t1').value = D.time[D.time.length - 1].toFixed(2); applyRange(); });
+</script>
+</body>
+</html>
