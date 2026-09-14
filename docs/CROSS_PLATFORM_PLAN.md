@@ -190,9 +190,9 @@ Two independent tracks.
 - [x] `mstudio-report`: templates, Plotly bundle, sections, print stylesheet, open-in-browser
 
 ### Phase 6 — Python bindings, parity QA, distribution  (1–2 weeks)
-- [ ] `mstudio-py`: `Take` ↔ numpy zero-copy, filters/interp/io exposed, `mstudio.run()` launches the app in-process; maturin wheels for all OSes on CI
-- [ ] `MStudio/` reduced to a thin launcher + deprecation shim; `mstudio` entry point unchanged for users
-- [ ] §8 parity checklist walked on real Windows / macOS / Linux
+- [x] `mstudio-py`: `Take` ↔ numpy zero-copy, filters/interp/io exposed, `mstudio.run()` launches the app in-process; maturin wheels for all OSes on CI — **DONE** (`docs/PHASE6_RESULTS.md`; 75 bindings tests, `scripts/check_parity.py` live oracle comparison, CI `wheels` job)
+- [ ] `MStudio/` reduced to a thin launcher + deprecation shim; `mstudio` entry point unchanged for users — *deferred to the distribution step*: `MStudio/` and `mstudio/` cannot coexist in one `site-packages` on case-insensitive file systems, so the legacy tree moves to `legacy/` (oracle only) when the root `pyproject.toml` switches to the wheel
+- [~] §8 parity checklist walked on real Windows / macOS / Linux — `docs/QA_CHECKLIST.md`: automated rows green on macOS arm64; CI matrix pending push; interactive rows need a person per OS
 - [ ] `cargo-dist`: standalone binaries; macOS notarization; Windows signing (or documented unsigned path)
 - [ ] README rewrite (controls table: RMB or MMB pan), `CLAUDE.md` architecture section rewritten for the Rust workspace, version `0.2.0`
 
@@ -202,31 +202,31 @@ Two independent tracks.
 
 ## 8. Feature parity checklist (v0.1.5 → v2)
 
-| Area | v0.1.5 | v2 crate / module | Done |
+| Area | v0.1.5 | v2 crate / module | Done (see `docs/QA_CHECKLIST.md`) |
 |---|---|---|---|
-| Open TRC / C3D / JSON folder (multi-select) | `utils/dataLoader.open_file` | `mstudio-io` + `app` dialogs | ☐ |
-| Save As TRC / C3D | `utils/dataSaver.save_as` | `mstudio-io` | ☐ |
-| Markers with size / opacity / color states | `GLMarkerRenderer._render_markers_immediate` | `render/markers.rs` | ☐ |
-| Skeleton lines, outlier highlight, torso width | `_render_skeleton_immediate` | `render/skeleton.rs` | ☐ |
-| Trajectories (± window) | `_render_trajectories_immediate` | `render/trajectories.rs` | ☐ |
-| Marker name labels (toggle) | `_render_marker_names_immediate` (GLUT) | egui painter over projected positions | ☐ |
-| Grid + axes, Y-up / Z-up | `GridUtils`, `set_coordinate_system` | `render/grid.rs` | ☐ |
-| Orbit / pan / zoom / reset | `on_mouse_*`, `reset_view` | `render/camera.rs` | ☐ |
-| Click-to-select (picking) | `PickingTexture`, `pick_marker` | `render/picking.rs` | ☐ |
-| Analysis: distance, segment angle (axis cycle), joint angle + arc | `_render_analysis_immediate`, `analysisMode.py` | `processing/analysis.rs` + `render/analysis_overlay.rs` | ☐ |
-| Play / pause / stop / loop / fps / prev / next | `AnimationController` + Tk `after` | `core/playback.rs` + frame clock | ☐ |
-| Timeline (frame & time modes, scrub, range) | `update_timeline` | `app/timeline.rs` | ☐ |
-| Marker X/Y/Z plot with range selection | `gui/markerPlot.py` (matplotlib) | `app/marker_plot.rs` (`egui_plot`) | ☐ |
-| Edit mode: delete range, restore original | `toggle_edit_mode`, `delete_selected_data` | `app/panels/edit.rs` | ☐ |
-| Filters ×6 with params | `dataProcessor.filter_selected_data` | `processing/filters.rs` + worker | ☐ |
-| Interpolation ×9 incl. pattern-based | `interpolate_*` | `processing/interp.rs` + worker | ☐ |
-| Outlier detection (threshold, parallel) | `OutlierDetector` | `core/outliers.rs` (rayon) | ☐ |
-| 12 skeleton models + keypoint rename | `on_model_change`, `update_keypoint_names` | `core/skeleton.rs` | ☐ |
-| Visual customization panel + presets | `TRCviewerWidgets._create_customization_*` | `app/panels/visual.rs` | ☐ |
-| Analysis report | `reportGenerator.py` → PDF | `mstudio-report` → interactive HTML (+ print-to-PDF) | ☐ |
-| Keyboard shortcuts | `app.py` binds | `app/shortcuts.rs` | ☐ |
-| Resizable right panel | custom sizer | `egui_dock` | ☐ |
-| Window icon | `iconbitmap(.ico)` | `eframe` `IconData` (PNG) | ☐ |
+| Open TRC / C3D / JSON folder (multi-select) | `utils/dataLoader.open_file` | `mstudio-io` + `app` dialogs | ✅ implemented · automated check on macOS |
+| Save As TRC / C3D | `utils/dataSaver.save_as` | `mstudio-io` | ✅ implemented · automated check on macOS |
+| Markers with size / opacity / color states | `GLMarkerRenderer._render_markers_immediate` | `render/markers.rs` | ✅ implemented · automated check on macOS |
+| Skeleton lines, outlier highlight, torso width | `_render_skeleton_immediate` | `render/skeleton.rs` | ✅ implemented · automated check on macOS |
+| Trajectories (± window) | `_render_trajectories_immediate` | `render/trajectories.rs` | ✅ implemented · automated check on macOS |
+| Marker name labels (toggle) | `_render_marker_names_immediate` (GLUT) | egui painter over projected positions | ✅ implemented · automated check on macOS |
+| Grid + axes, Y-up / Z-up | `GridUtils`, `set_coordinate_system` | `render/grid.rs` | ✅ implemented · automated check on macOS |
+| Orbit / pan / zoom / reset | `on_mouse_*`, `reset_view` | `render/camera.rs` | ✅ implemented · manual walk pending |
+| Click-to-select (picking) | `PickingTexture`, `pick_marker` | `render/picking.rs` | ✅ implemented · manual walk pending |
+| Analysis: distance, segment angle (axis cycle), joint angle + arc | `_render_analysis_immediate`, `analysisMode.py` | `processing/analysis.rs` + `render/analysis_overlay.rs` | ✅ implemented · manual walk pending |
+| Play / pause / stop / loop / fps / prev / next | `AnimationController` + Tk `after` | `core/playback.rs` + frame clock | ✅ implemented · automated check on macOS |
+| Timeline (frame & time modes, scrub, range) | `update_timeline` | `app/timeline.rs` | ✅ implemented · manual walk pending |
+| Marker X/Y/Z plot with range selection | `gui/markerPlot.py` (matplotlib) | `app/marker_plot.rs` (`egui_plot`) | ✅ implemented · automated check on macOS |
+| Edit mode: delete range, restore original | `toggle_edit_mode`, `delete_selected_data` | `app/panels/edit.rs` | ✅ implemented · automated check on macOS |
+| Filters ×6 with params | `dataProcessor.filter_selected_data` | `processing/filters.rs` + worker | ✅ implemented · automated check on macOS |
+| Interpolation ×9 incl. pattern-based | `interpolate_*` | `processing/interp.rs` + worker | ✅ implemented · automated check on macOS |
+| Outlier detection (threshold, parallel) | `OutlierDetector` | `core/outliers.rs` (rayon) | ✅ implemented · automated check on macOS |
+| 12 skeleton models + keypoint rename | `on_model_change`, `update_keypoint_names` | `core/skeleton.rs` | ✅ implemented · automated check on macOS |
+| Visual customization panel + presets | `TRCviewerWidgets._create_customization_*` | `app/panels/visual.rs` | ✅ implemented · manual walk pending |
+| Analysis report | `reportGenerator.py` → PDF | `mstudio-report` → interactive HTML (+ print-to-PDF) | ✅ implemented · automated check on macOS |
+| Keyboard shortcuts | `app.py` binds | `app/shortcuts.rs` | ✅ implemented · manual walk pending |
+| Resizable right panel | custom sizer | `egui_dock` | ✅ implemented · manual walk pending |
+| Window icon | `iconbitmap(.ico)` | `eframe` `IconData` (PNG) | ✅ implemented · manual walk pending |
 | Python API | — | `mstudio-py` (new; G5) | ☐ |
 
 ---

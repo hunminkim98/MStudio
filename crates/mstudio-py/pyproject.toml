@@ -1,0 +1,33 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mstudio"
+version = "0.2.0"
+description = "MStudio: motion-capture marker viewer/editor — Rust core with Python bindings"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "HunMin Kim", email = "hunminkim98@gmail.com" }]
+keywords = ["biomechanics", "kinematics", "marker", "editor", "Pose2Sim", "Sports2D", "mocap", "motion capture"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+]
+dependencies = ["numpy>=1.22"]
+
+[project.urls]
+Homepage = "https://github.com/hunminkim98/MStudio"
+"Bug Tracker" = "https://github.com/hunminkim98/MStudio/issues"
+
+[project.scripts]
+mstudio = "mstudio.__main__:main"
+
+[tool.maturin]
+python-source = "python"
+module-name = "mstudio._native"
+strip = true

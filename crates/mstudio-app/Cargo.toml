@@ -7,6 +7,10 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[lib]
+name = "mstudio_app"
+path = "src/lib.rs"
+
 [[bin]]
 name = "mstudio"
 path = "src/main.rs"

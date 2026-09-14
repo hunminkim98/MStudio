@@ -48,4 +48,4 @@ packages = {find = { where = ["."], include = ["MStudio*"]}}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test.py"
+python_files = ["test.py", "test_*.py"]

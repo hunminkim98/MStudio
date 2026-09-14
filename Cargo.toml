@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/mstudio-core", "crates/mstudio-io", "crates/mstudio-processing", "crates/mstudio-render", "crates/mstudio-report", "crates/mstudio-app", "crates/spike"]
+members = ["crates/mstudio-core", "crates/mstudio-io", "crates/mstudio-processing", "crates/mstudio-render", "crates/mstudio-report", "crates/mstudio-app", "crates/mstudio-py", "crates/spike"]
 
 [workspace.package]
 version = "0.2.0"

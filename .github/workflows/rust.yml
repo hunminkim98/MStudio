@@ -48,5 +48,62 @@ jobs:
       - name: test
         run: cargo test --workspace --locked
 
-      - name: release build (spike binary)
-        run: cargo build --release -p mstudio-spike --locked
+      - name: release build (app + spike binaries)
+        run: cargo build --release -p mstudio-app -p mstudio-spike --locked
+
+  wheels:
+    # Python bindings: build the wheel with maturin, install it, run the
+    # bindings tests and the live parity check against the Python oracle.
+    # Wheels are uploaded as workflow artifacts only (no publishing).
+    name: wheel ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wheels
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Linux system libraries (winit / rfd)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxkbcommon-dev libwayland-dev libgtk-3-dev
+
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip maturin
+          maturin build --release --locked -m crates/mstudio-py/Cargo.toml --out dist
+
+      - name: Install wheel + the Python oracle
+        shell: bash
+        run: |
+          python -m pip install pytest
+          python -m pip install .            # MStudio v0.1.5: the numerical oracle for check_parity.py
+          python -m pip install --no-index --find-links dist mstudio
+
+      - name: Bindings tests
+        run: python -m pytest crates/mstudio-py/tests -q
+
+      - name: Parity against the Python oracle
+        run: python scripts/check_parity.py --json parity-${{ matrix.os }}.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.os }}
+          path: |
+            dist/*.whl
+            parity-${{ matrix.os }}.json

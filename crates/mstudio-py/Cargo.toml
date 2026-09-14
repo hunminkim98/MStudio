@@ -1,0 +1,28 @@
+[package]
+name = "mstudio-py"
+description = "Python bindings for MStudio: Take <-> numpy, filters, interpolation, I/O, reports and the desktop app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+# No Rust tests here (they live in tests/*.py and run against the installed
+# wheel), and a test harness would have to link libpython.
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+mstudio-core.workspace = true
+mstudio-io.workspace = true
+mstudio-processing.workspace = true
+mstudio-report.workspace = true
+mstudio-app = { path = "../mstudio-app" }
+ndarray.workspace = true
+pyo3 = { version = "0.29", features = ["abi3-py310", "extension-module"] }
+numpy = "0.29"

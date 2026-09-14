@@ -36,11 +36,17 @@ cargo test --workspace                                       # 100+ tests incl. 
 RUSTFLAGS="-D warnings" cargo clippy --workspace --all-targets --locked   # what CI runs
 cargo bench -p mstudio-processing                            # criterion: filters on 300 markers × 50 000 frames
 .venv/bin/python scripts/check_c3d_interop.py                # Rust-written C3D/TRC read back by the Python loaders
+.venv/bin/maturin develop --release -m crates/mstudio-py/Cargo.toml   # build + install the `mstudio` Python bindings into .venv
+.venv/bin/pytest crates/mstudio-py/tests -q                  # 75 bindings tests (goldens, numpy view semantics, CLI)
+.venv/bin/python scripts/check_parity.py                     # live bindings-vs-Python-oracle comparison (88 cases; CI wheels job)
+.venv/bin/python -c "import mstudio; mstudio.run('tests/test.trc')"   # the desktop app launched in-process from Python
 ```
 
 The Rust crates are ports of the Python modules and must stay numerically identical to `tests/golden/` (see `docs/PHASE*_RESULTS.md` for the few documented deviations). When a Python oracle bug is fixed, fix it in Python first, add a test to `tests/test.py`, regenerate the goldens, then port.
 
-Note: `pyproject.toml` sets `python_files = "test.py"`, so pytest only collects files named exactly `test.py`. A new test file named `test_foo.py` will be silently ignored — add tests to `tests/test.py` or change the setting.
+Note: `pyproject.toml` sets `python_files = ["test.py", "test_*.py"]` and `testpaths = ["tests"]`; the bindings tests under `crates/mstudio-py/tests/` are only collected when that path is passed explicitly.
+
+`crates/mstudio-py` is a maturin project (`pyproject.toml` next to its `Cargo.toml`): Rust extension `mstudio._native`, Python package in `python/mstudio/`. It has `test = false` (its tests are Python), so `cargo test --workspace` never links libpython. The root `pyproject.toml` still builds the legacy Tk app; switching it to the wheel is part of the distribution step (`docs/PHASE6_RESULTS.md`).
 
 CI (`.github/workflows/continuous-integration.yml`) runs on ubuntu/windows/macos-latest/macos-13 with Python 3.10 and 3.11 via conda.
 
@@ -48,7 +54,7 @@ CI (`.github/workflows/continuous-integration.yml`) runs on ubuntu/windows/macos
 
 MStudio is a Tkinter (CustomTkinter) desktop app for viewing and editing 3D motion-capture marker data, rendered with OpenGL via `pyopengltk`.
 
-**Migration in progress** — see `docs/CROSS_PLATFORM_PLAN.md`. The target is a Rust core + wgpu renderer + egui UI with PyO3 bindings and HTML reports. The Python code described below is the currently shipped app and serves as the numerical test oracle (`tests/golden/`) for the port; do not refactor it beyond what the plan's Phase 0a needs.
+**Migration in progress** — see `docs/CROSS_PLATFORM_PLAN.md`. The target is a Rust core + wgpu renderer + egui UI with PyO3 bindings and HTML reports; phases 0–5 and the bindings of Phase 6 are done (`crates/`, `docs/PHASE*_RESULTS.md`). The Python code described below is the currently shipped app and serves as the numerical test oracle (`tests/golden/`, `scripts/check_parity.py`) for the port; do not refactor it beyond what the plan's Phase 0a needs.
 
 ### The god-object + delegation pattern
 
