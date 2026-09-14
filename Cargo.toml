@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["crates/spike"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["HunMin Kim <hunminkim98@gmail.com>"]
+
+[profile.release]
+opt-level = 3
+debug = 1
+
+[profile.dev.package."*"]
+opt-level = 2
