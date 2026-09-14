@@ -41,7 +41,7 @@ Automated shorthand: **golden** = `cargo test --workspace` against
 | 26 | `import mstudio` / `mstudio.run()` | `python -c "import mstudio; mstudio.run('tests/test.trc')"` | py (75 tests), parity, `run(screenshot=…, exit_after=…)` | ✅ 2026-09-14 | ✅ CI: import + 75 tests · ☐ `run()` window | ✅ CI: import + 75 tests · ☐ `run()` window |
 | 27 | Performance: 300 markers × 50 000 frames plays at display rate | `mstudio-spike --stress 300 50000 --bench 6` and the app with a large TRC | spike JSON stats (Phase 0/4) | ✅ Phase 0/4 | ☐ | ☐ |
 
-"✅ 2026-09-14 CI" = run #34830599666 (commit 47229e2): `cargo test
+"✅ 2026-09-14 CI" = run #34838278521 (commit cac2f53): `cargo test
 --workspace`, the 75 bindings tests and the 88-case parity check all green on
 `ubuntu-latest` and `windows-latest`. Rows whose evidence is a screenshot or a
 `--selftest` run were only exercised on macOS, because the CI matrix does not

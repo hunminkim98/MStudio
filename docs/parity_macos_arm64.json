@@ -69,8 +69,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 38.9,
-   "rs_ms": 0.21
+   "py_ms": 45.5,
+   "rs_ms": 0.28
   },
   {
    "section": "filter",
@@ -79,7 +79,7 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 38.9,
+   "py_ms": 38.7,
    "rs_ms": 0.16
   },
   {
@@ -89,8 +89,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 40.2,
-   "rs_ms": 27.89
+   "py_ms": 41.1,
+   "rs_ms": 0.35
   },
   {
    "section": "filter",
@@ -99,8 +99,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 44.2,
-   "rs_ms": 0.19
+   "py_ms": 111.5,
+   "rs_ms": 10.48
   },
   {
    "section": "filter",
@@ -109,8 +109,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 38.8,
-   "rs_ms": 0.18
+   "py_ms": 52.3,
+   "rs_ms": 0.76
   },
   {
    "section": "filter",
@@ -119,8 +119,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 40.4,
-   "rs_ms": 0.2
+   "py_ms": 61.0,
+   "rs_ms": 18.48
   },
   {
    "section": "filter",
@@ -129,8 +129,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 49.3,
-   "rs_ms": 0.22
+   "py_ms": 59.5,
+   "rs_ms": 0.28
   },
   {
    "section": "filter",
@@ -139,8 +139,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 50.0,
-   "rs_ms": 0.18
+   "py_ms": 47.7,
+   "rs_ms": 0.19
   },
   {
    "section": "filter",
@@ -149,8 +149,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 47.1,
-   "rs_ms": 0.16
+   "py_ms": 48.3,
+   "rs_ms": 10.22
   },
   {
    "section": "filter",
@@ -159,8 +159,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 47.1,
-   "rs_ms": 0.17
+   "py_ms": 120.5,
+   "rs_ms": 0.31
   },
   {
    "section": "filter",
@@ -169,8 +169,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 1011.2,
-   "rs_ms": 11.4
+   "py_ms": 482.0,
+   "rs_ms": 10.66
   },
   {
    "section": "filter",
@@ -179,8 +179,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 366.4,
-   "rs_ms": 8.55
+   "py_ms": 505.0,
+   "rs_ms": 0.67
   },
   {
    "section": "filter",
@@ -189,8 +189,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 249.7,
-   "rs_ms": 7.36
+   "py_ms": 358.8,
+   "rs_ms": 3.24
   },
   {
    "section": "filter",
@@ -199,8 +199,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 245.2,
-   "rs_ms": 0.23
+   "py_ms": 293.8,
+   "rs_ms": 0.28
   },
   {
    "section": "filter",
@@ -209,8 +209,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 373.2,
-   "rs_ms": 0.39
+   "py_ms": 533.5,
+   "rs_ms": 8.19
   },
   {
    "section": "filter",
@@ -219,8 +219,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 368.6,
-   "rs_ms": 17.73
+   "py_ms": 425.4,
+   "rs_ms": 0.45
   },
   {
    "section": "filter",
@@ -229,8 +229,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 11.3,
-   "rs_ms": 0.93
+   "py_ms": 11.9,
+   "rs_ms": 0.23
   },
   {
    "section": "filter",
@@ -239,8 +239,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.4,
-   "rs_ms": 0.42
+   "py_ms": 10.7,
+   "rs_ms": 0.23
   },
   {
    "section": "filter",
@@ -249,8 +249,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.6,
-   "rs_ms": 0.12
+   "py_ms": 10.5,
+   "rs_ms": 0.13
   },
   {
    "section": "filter",
@@ -259,8 +259,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.8,
-   "rs_ms": 0.11
+   "py_ms": 10.0,
+   "rs_ms": 0.15
   },
   {
    "section": "filter",
@@ -269,8 +269,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 91.1,
-   "rs_ms": 0.23
+   "py_ms": 102.5,
+   "rs_ms": 0.59
   },
   {
    "section": "filter",
@@ -279,8 +279,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 98.6,
-   "rs_ms": 0.23
+   "py_ms": 123.4,
+   "rs_ms": 7.71
   },
   {
    "section": "filter",
@@ -289,8 +289,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 95.7,
-   "rs_ms": 11.45
+   "py_ms": 122.9,
+   "rs_ms": 20.87
   },
   {
    "section": "filter",
@@ -299,8 +299,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 89.0,
-   "rs_ms": 0.56
+   "py_ms": 113.0,
+   "rs_ms": 0.85
   },
   {
    "section": "filter",
@@ -309,8 +309,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 11.5,
-   "rs_ms": 0.09
+   "py_ms": 14.0,
+   "rs_ms": 30.26
   },
   {
    "section": "filter",
@@ -319,8 +319,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
-   "py_ms": 10.5,
-   "rs_ms": 0.09
+   "py_ms": 19.7,
+   "rs_ms": 10.04
   },
   {
    "section": "filter",
@@ -329,8 +329,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.7,
-   "rs_ms": 0.13
+   "py_ms": 15.4,
+   "rs_ms": 15.88
   },
   {
    "section": "filter",
@@ -339,8 +339,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
-   "py_ms": 10.5,
-   "rs_ms": 0.12
+   "py_ms": 13.8,
+   "rs_ms": 0.25
   },
   {
    "section": "interp",

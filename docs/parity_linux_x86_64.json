@@ -69,8 +69,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 100.5,
-   "rs_ms": 0.63
+   "py_ms": 89.1,
+   "rs_ms": 0.55
   },
   {
    "section": "filter",
@@ -79,8 +79,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 101.6,
-   "rs_ms": 0.26
+   "py_ms": 91.2,
+   "rs_ms": 0.55
   },
   {
    "section": "filter",
@@ -89,8 +89,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 97.3,
-   "rs_ms": 0.26
+   "py_ms": 87.5,
+   "rs_ms": 0.29
   },
   {
    "section": "filter",
@@ -99,8 +99,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 101.8,
-   "rs_ms": 0.26
+   "py_ms": 92.2,
+   "rs_ms": 0.58
   },
   {
    "section": "filter",
@@ -109,8 +109,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 95.0,
-   "rs_ms": 0.23
+   "py_ms": 85.4,
+   "rs_ms": 0.42
   },
   {
    "section": "filter",
@@ -119,8 +119,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 99.1,
-   "rs_ms": 0.23
+   "py_ms": 88.8,
+   "rs_ms": 0.49
   },
   {
    "section": "filter",
@@ -129,8 +129,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 119.4,
-   "rs_ms": 0.3
+   "py_ms": 106.4,
+   "rs_ms": 0.44
   },
   {
    "section": "filter",
@@ -139,8 +139,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 121.3,
-   "rs_ms": 0.27
+   "py_ms": 105.5,
+   "rs_ms": 0.5
   },
   {
    "section": "filter",
@@ -149,8 +149,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 119.1,
-   "rs_ms": 0.25
+   "py_ms": 106.4,
+   "rs_ms": 0.31
   },
   {
    "section": "filter",
@@ -159,28 +159,28 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 118.0,
-   "rs_ms": 0.23
+   "py_ms": 103.5,
+   "rs_ms": 0.47
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} [full]",
-   "max_abs_diff": 5.551115123125783e-15,
+   "max_abs_diff": 4.218847493575595e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 742.7,
-   "rs_ms": 0.58
+   "py_ms": 642.5,
+   "rs_ms": 0.72
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} [gapped]",
-   "max_abs_diff": 5.551115123125783e-15,
+   "max_abs_diff": 4.218847493575595e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 750.2,
-   "rs_ms": 0.67
+   "py_ms": 645.6,
+   "rs_ms": 1.15
   },
   {
    "section": "filter",
@@ -189,8 +189,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 529.4,
-   "rs_ms": 0.37
+   "py_ms": 437.2,
+   "rs_ms": 0.5
   },
   {
    "section": "filter",
@@ -199,28 +199,28 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 534.5,
-   "rs_ms": 0.36
+   "py_ms": 442.4,
+   "rs_ms": 0.49
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} [full]",
-   "max_abs_diff": 2.886579864025407e-15,
+   "max_abs_diff": 3.1086244689504383e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 746.9,
-   "rs_ms": 0.66
+   "py_ms": 645.2,
+   "rs_ms": 0.64
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} [gapped]",
-   "max_abs_diff": 2.886579864025407e-15,
+   "max_abs_diff": 3.1086244689504383e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 747.6,
-   "rs_ms": 0.64
+   "py_ms": 648.1,
+   "rs_ms": 0.74
   },
   {
    "section": "filter",
@@ -229,8 +229,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 27.3,
-   "rs_ms": 0.37
+   "py_ms": 22.3,
+   "rs_ms": 0.55
   },
   {
    "section": "filter",
@@ -239,8 +239,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 26.2,
-   "rs_ms": 0.39
+   "py_ms": 21.3,
+   "rs_ms": 0.76
   },
   {
    "section": "filter",
@@ -249,7 +249,7 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 26.9,
+   "py_ms": 22.4,
    "rs_ms": 0.22
   },
   {
@@ -259,8 +259,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 25.9,
-   "rs_ms": 0.24
+   "py_ms": 21.3,
+   "rs_ms": 0.53
   },
   {
    "section": "filter",
@@ -269,8 +269,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 177.3,
-   "rs_ms": 0.51
+   "py_ms": 174.1,
+   "rs_ms": 0.77
   },
   {
    "section": "filter",
@@ -279,8 +279,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 180.2,
-   "rs_ms": 0.5
+   "py_ms": 174.3,
+   "rs_ms": 0.53
   },
   {
    "section": "filter",
@@ -289,8 +289,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 178.7,
-   "rs_ms": 1.11
+   "py_ms": 174.3,
+   "rs_ms": 1.3
   },
   {
    "section": "filter",
@@ -299,8 +299,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 180.1,
-   "rs_ms": 1.09
+   "py_ms": 175.2,
+   "rs_ms": 1.59
   },
   {
    "section": "filter",
@@ -309,8 +309,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 29.3,
-   "rs_ms": 0.35
+   "py_ms": 23.8,
+   "rs_ms": 0.49
   },
   {
    "section": "filter",
@@ -319,8 +319,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
-   "py_ms": 29.2,
-   "rs_ms": 0.16
+   "py_ms": 22.9,
+   "rs_ms": 0.39
   },
   {
    "section": "filter",
@@ -329,8 +329,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 29.3,
-   "rs_ms": 0.26
+   "py_ms": 23.8,
+   "rs_ms": 0.47
   },
   {
    "section": "filter",
@@ -339,8 +339,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
-   "py_ms": 29.3,
-   "rs_ms": 0.22
+   "py_ms": 23.1,
+   "rs_ms": 0.27
   },
   {
    "section": "interp",
@@ -457,7 +457,7 @@
   {
    "section": "interp",
    "case": "quadratic LWrist [85,100]",
-   "max_abs_diff": 0.0,
+   "max_abs_diff": 4.440892098500626e-16,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -521,7 +521,7 @@
   {
    "section": "interp",
    "case": "quadratic RAnkle [15,25]",
-   "max_abs_diff": 5.551115123125783e-17,
+   "max_abs_diff": 1.1102230246251565e-16,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -553,7 +553,7 @@
   {
    "section": "pattern",
    "case": "RKnee refs=['RHip', 'RAnkle', 'LKnee']",
-   "max_abs_diff": 1.6653345369377348e-16,
+   "max_abs_diff": 1.1102230246251565e-16,
    "tol": 1e-09,
    "status": "ok",
    "note": ""
