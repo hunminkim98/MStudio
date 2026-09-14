@@ -1,9 +1,9 @@
 {
  "summary": {
   "env": {
-   "platform": "macOS-26.6.2-arm64-arm-64bit",
-   "machine": "arm64",
-   "python": "3.11.9",
+   "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+   "machine": "x86_64",
+   "python": "3.11.16",
    "numpy": "2.4.6",
    "pandas": "3.0.5",
    "mstudio": "0.2.0"
@@ -65,62 +65,62 @@
   {
    "section": "filter",
    "case": "butterworth {'order': 4, 'cut_off_frequency': 10.0} [full]",
-   "max_abs_diff": 3.9968028886505635e-15,
+   "max_abs_diff": 4.884981308350689e-15,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 38.9,
-   "rs_ms": 0.21
+   "py_ms": 100.5,
+   "rs_ms": 0.63
   },
   {
    "section": "filter",
    "case": "butterworth {'order': 4, 'cut_off_frequency': 10.0} [gapped]",
-   "max_abs_diff": 3.9968028886505635e-15,
+   "max_abs_diff": 4.884981308350689e-15,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 38.9,
-   "rs_ms": 0.16
+   "py_ms": 101.6,
+   "rs_ms": 0.26
   },
   {
    "section": "filter",
    "case": "butterworth {'order': 4, 'cut_off_frequency': 6.0} [full]",
-   "max_abs_diff": 5.551115123125783e-15,
+   "max_abs_diff": 4.440892098500626e-15,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 40.2,
-   "rs_ms": 27.89
+   "py_ms": 97.3,
+   "rs_ms": 0.26
   },
   {
    "section": "filter",
    "case": "butterworth {'order': 4, 'cut_off_frequency': 6.0} [gapped]",
-   "max_abs_diff": 5.551115123125783e-15,
+   "max_abs_diff": 5.329070518200751e-15,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 44.2,
-   "rs_ms": 0.19
+   "py_ms": 101.8,
+   "rs_ms": 0.26
   },
   {
    "section": "filter",
    "case": "butterworth {'order': 2, 'cut_off_frequency': 6.0} [full]",
-   "max_abs_diff": 1.3322676295501878e-15,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 38.8,
-   "rs_ms": 0.18
+   "py_ms": 95.0,
+   "rs_ms": 0.23
   },
   {
    "section": "filter",
    "case": "butterworth {'order': 2, 'cut_off_frequency': 6.0} [gapped]",
-   "max_abs_diff": 1.3322676295501878e-15,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 40.4,
-   "rs_ms": 0.2
+   "py_ms": 99.1,
+   "rs_ms": 0.23
   },
   {
    "section": "filter",
@@ -129,8 +129,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 49.3,
-   "rs_ms": 0.22
+   "py_ms": 119.4,
+   "rs_ms": 0.3
   },
   {
    "section": "filter",
@@ -139,48 +139,48 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 50.0,
-   "rs_ms": 0.18
+   "py_ms": 121.3,
+   "rs_ms": 0.27
   },
   {
    "section": "filter",
    "case": "butterworth_on_speed {'order': 2, 'cut_off_frequency': 6.0} [full]",
-   "max_abs_diff": 8.881784197001252e-16,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 47.1,
-   "rs_ms": 0.16
+   "py_ms": 119.1,
+   "rs_ms": 0.25
   },
   {
    "section": "filter",
    "case": "butterworth_on_speed {'order': 2, 'cut_off_frequency': 6.0} [gapped]",
-   "max_abs_diff": 8.881784197001252e-16,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 47.1,
-   "rs_ms": 0.17
+   "py_ms": 118.0,
+   "rs_ms": 0.23
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} [full]",
-   "max_abs_diff": 4.440892098500626e-15,
+   "max_abs_diff": 5.551115123125783e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 1011.2,
-   "rs_ms": 11.4
+   "py_ms": 742.7,
+   "rs_ms": 0.58
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} [gapped]",
-   "max_abs_diff": 4.440892098500626e-15,
+   "max_abs_diff": 5.551115123125783e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 366.4,
-   "rs_ms": 8.55
+   "py_ms": 750.2,
+   "rs_ms": 0.67
   },
   {
    "section": "filter",
@@ -189,8 +189,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 249.7,
-   "rs_ms": 7.36
+   "py_ms": 529.4,
+   "rs_ms": 0.37
   },
   {
    "section": "filter",
@@ -199,18 +199,18 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 245.2,
-   "rs_ms": 0.23
+   "py_ms": 534.5,
+   "rs_ms": 0.36
   },
   {
    "section": "filter",
    "case": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} [full]",
-   "max_abs_diff": 2.6645352591003757e-15,
+   "max_abs_diff": 2.886579864025407e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 373.2,
-   "rs_ms": 0.39
+   "py_ms": 746.9,
+   "rs_ms": 0.66
   },
   {
    "section": "filter",
@@ -219,8 +219,8 @@
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 368.6,
-   "rs_ms": 17.73
+   "py_ms": 747.6,
+   "rs_ms": 0.64
   },
   {
    "section": "filter",
@@ -229,8 +229,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 11.3,
-   "rs_ms": 0.93
+   "py_ms": 27.3,
+   "rs_ms": 0.37
   },
   {
    "section": "filter",
@@ -239,8 +239,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.4,
-   "rs_ms": 0.42
+   "py_ms": 26.2,
+   "rs_ms": 0.39
   },
   {
    "section": "filter",
@@ -249,8 +249,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.6,
-   "rs_ms": 0.12
+   "py_ms": 26.9,
+   "rs_ms": 0.22
   },
   {
    "section": "filter",
@@ -259,48 +259,48 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.8,
-   "rs_ms": 0.11
+   "py_ms": 25.9,
+   "rs_ms": 0.24
   },
   {
    "section": "filter",
    "case": "LOESS {'nb_values_used': 10.0} [full]",
-   "max_abs_diff": 6.039613253960852e-14,
+   "max_abs_diff": 5.551115123125783e-16,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 91.1,
-   "rs_ms": 0.23
+   "py_ms": 177.3,
+   "rs_ms": 0.51
   },
   {
    "section": "filter",
    "case": "LOESS {'nb_values_used': 10.0} [gapped]",
-   "max_abs_diff": 6.039613253960852e-14,
+   "max_abs_diff": 1.176836406102666e-14,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 98.6,
-   "rs_ms": 0.23
+   "py_ms": 180.2,
+   "rs_ms": 0.5
   },
   {
    "section": "filter",
    "case": "LOESS {'nb_values_used': 30.0} [full]",
-   "max_abs_diff": 8.43769498715119e-15,
+   "max_abs_diff": 4.440892098500626e-15,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 95.7,
-   "rs_ms": 11.45
+   "py_ms": 178.7,
+   "rs_ms": 1.11
   },
   {
    "section": "filter",
    "case": "LOESS {'nb_values_used': 30.0} [gapped]",
-   "max_abs_diff": 8.43769498715119e-15,
+   "max_abs_diff": 1.0880185641326534e-14,
    "tol": 1e-05,
    "status": "ok",
    "note": "",
-   "py_ms": 89.0,
-   "rs_ms": 0.56
+   "py_ms": 180.1,
+   "rs_ms": 1.09
   },
   {
    "section": "filter",
@@ -309,8 +309,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 11.5,
-   "rs_ms": 0.09
+   "py_ms": 29.3,
+   "rs_ms": 0.35
   },
   {
    "section": "filter",
@@ -319,8 +319,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
-   "py_ms": 10.5,
-   "rs_ms": 0.09
+   "py_ms": 29.2,
+   "rs_ms": 0.16
   },
   {
    "section": "filter",
@@ -329,8 +329,8 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "",
-   "py_ms": 10.7,
-   "rs_ms": 0.13
+   "py_ms": 29.3,
+   "rs_ms": 0.26
   },
   {
    "section": "filter",
@@ -339,13 +339,13 @@
    "tol": 1e-06,
    "status": "ok",
    "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
-   "py_ms": 10.5,
-   "rs_ms": 0.12
+   "py_ms": 29.3,
+   "rs_ms": 0.22
   },
   {
    "section": "interp",
    "case": "linear RKnee [35,55]",
-   "max_abs_diff": 5.551115123125783e-17,
+   "max_abs_diff": 2.7755575615628914e-17,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -361,7 +361,7 @@
   {
    "section": "interp",
    "case": "spline RKnee [35,55]",
-   "max_abs_diff": 0.23207267792800518,
+   "max_abs_diff": 0.2320726779280043,
    "tol": 1e-06,
    "status": "deviation",
    "note": "pandas 'spline' is a smoothing spline; the port interpolates (== cubic)"
@@ -385,7 +385,7 @@
   {
    "section": "interp",
    "case": "slinear RKnee [35,55]",
-   "max_abs_diff": 1.3877787807814457e-17,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -409,7 +409,7 @@
   {
    "section": "interp",
    "case": "linear LWrist [85,100]",
-   "max_abs_diff": 1.1102230246251565e-16,
+   "max_abs_diff": 1.3877787807814457e-17,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -417,7 +417,7 @@
   {
    "section": "interp",
    "case": "polynomial LWrist [85,100]",
-   "max_abs_diff": 4.440892098500626e-16,
+   "max_abs_diff": 2.220446049250313e-16,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -425,7 +425,7 @@
   {
    "section": "interp",
    "case": "spline LWrist [85,100]",
-   "max_abs_diff": 0.2873700444450902,
+   "max_abs_diff": 0.2873700444450906,
    "tol": 1e-06,
    "status": "deviation",
    "note": "pandas 'spline' is a smoothing spline; the port interpolates (== cubic)"
@@ -449,7 +449,7 @@
   {
    "section": "interp",
    "case": "slinear LWrist [85,100]",
-   "max_abs_diff": 1.1102230246251565e-16,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -457,7 +457,7 @@
   {
    "section": "interp",
    "case": "quadratic LWrist [85,100]",
-   "max_abs_diff": 2.220446049250313e-16,
+   "max_abs_diff": 0.0,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -465,7 +465,7 @@
   {
    "section": "interp",
    "case": "cubic LWrist [85,100]",
-   "max_abs_diff": 4.440892098500626e-16,
+   "max_abs_diff": 2.220446049250313e-16,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -489,7 +489,7 @@
   {
    "section": "interp",
    "case": "spline RAnkle [15,25]",
-   "max_abs_diff": 0.019563755750203415,
+   "max_abs_diff": 0.01956375575020386,
    "tol": 1e-06,
    "status": "deviation",
    "note": "pandas 'spline' is a smoothing spline; the port interpolates (== cubic)"
@@ -521,7 +521,7 @@
   {
    "section": "interp",
    "case": "quadratic RAnkle [15,25]",
-   "max_abs_diff": 1.1102230246251565e-16,
+   "max_abs_diff": 5.551115123125783e-17,
    "tol": 1e-06,
    "status": "ok",
    "note": ""
@@ -553,7 +553,7 @@
   {
    "section": "pattern",
    "case": "RKnee refs=['RHip', 'RAnkle', 'LKnee']",
-   "max_abs_diff": 1.1102230246251565e-16,
+   "max_abs_diff": 1.6653345369377348e-16,
    "tol": 1e-09,
    "status": "ok",
    "note": ""

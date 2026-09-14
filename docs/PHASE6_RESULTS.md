@@ -116,7 +116,26 @@ still fails).
 
 ## Parity QA on other platforms
 
-The CI `wheels` job runs the bindings tests and `check_parity.py` on Windows,
-Linux and both macOS architectures; the branch has not been pushed yet, so
-those runs are pending. The interactive rows of `docs/QA_CHECKLIST.md` need a
-person at each machine.
+Run #34830599666 (commit 47229e2) is green on Linux, Windows and macOS arm64.
+The `wheels` job's parity JSON is committed per platform
+(`docs/parity_linux_x86_64.json`, `docs/parity_windows_x86_64.json`,
+`docs/parity_macos_arm64.json`):
+
+| Runner | Python | Wheel | Parity: ok / deviation / fail |
+|---|---|---|---|
+| `ubuntu-latest` (Linux x86_64, glibc 2.39) | 3.11.16 | `mstudio-0.2.0-cp310-abi3-manylinux_2_39_x86_64.whl` | 81 / 7 / **0** |
+| `windows-latest` (AMD64) | 3.11.9 | `mstudio-0.2.0-cp310-abi3-win_amd64.whl` | 80 / 8 / **0** |
+| `macos-latest` (arm64) | 3.11.9 | `mstudio-0.2.0-cp310-abi3-macosx_11_0_arm64.whl` | 81 / 7 / **0** |
+| `macos-13` (Intel x86_64) | — | — | queued; the runner never started in three attempts |
+
+The deviations are the same everywhere (3 × smoothing spline, 4 × segment
+auto-detection); Windows adds the line-ending one. `fmt`, `clippy -D warnings`,
+`cargo test --workspace` (90 tests), the release build and the 75 bindings
+tests pass on all three.
+
+macOS Intel is the one gap: `macos-13` sat queued through all three runs
+(38 minutes and counting in the last one) without a runner being assigned. The
+row stays open in `docs/QA_CHECKLIST.md`.
+
+The interactive rows of `docs/QA_CHECKLIST.md` still need a person at each
+machine.

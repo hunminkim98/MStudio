@@ -1,0 +1,778 @@
+{
+ "summary": {
+  "env": {
+   "platform": "Windows-10-10.0.26100-SP0",
+   "machine": "AMD64",
+   "python": "3.11.9",
+   "numpy": "2.4.6",
+   "pandas": "3.0.5",
+   "mstudio": "0.2.0"
+  },
+  "total": 88,
+  "ok": 80,
+  "deviation": 8,
+  "fail": 0
+ },
+ "rows": [
+  {
+   "section": "load",
+   "case": "trc markers/fps",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "load",
+   "case": "trc frames",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "load",
+   "case": "trc time",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "load",
+   "case": "c3d markers/fps",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "load",
+   "case": "c3d frames",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "load",
+   "case": "c3d time",
+   "max_abs_diff": 0.0,
+   "tol": 1e-12,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "filter",
+   "case": "butterworth {'order': 4, 'cut_off_frequency': 10.0} [full]",
+   "max_abs_diff": 3.552713678800501e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 90.2,
+   "rs_ms": 1.01
+  },
+  {
+   "section": "filter",
+   "case": "butterworth {'order': 4, 'cut_off_frequency': 10.0} [gapped]",
+   "max_abs_diff": 3.552713678800501e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 93.4,
+   "rs_ms": 0.35
+  },
+  {
+   "section": "filter",
+   "case": "butterworth {'order': 4, 'cut_off_frequency': 6.0} [full]",
+   "max_abs_diff": 5.773159728050814e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 93.2,
+   "rs_ms": 0.25
+  },
+  {
+   "section": "filter",
+   "case": "butterworth {'order': 4, 'cut_off_frequency': 6.0} [gapped]",
+   "max_abs_diff": 5.773159728050814e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 92.0,
+   "rs_ms": 0.28
+  },
+  {
+   "section": "filter",
+   "case": "butterworth {'order': 2, 'cut_off_frequency': 6.0} [full]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 88.1,
+   "rs_ms": 0.24
+  },
+  {
+   "section": "filter",
+   "case": "butterworth {'order': 2, 'cut_off_frequency': 6.0} [gapped]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 89.9,
+   "rs_ms": 0.24
+  },
+  {
+   "section": "filter",
+   "case": "butterworth_on_speed {'order': 4, 'cut_off_frequency': 10.0} [full]",
+   "max_abs_diff": 1.1102230246251565e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 109.4,
+   "rs_ms": 0.3
+  },
+  {
+   "section": "filter",
+   "case": "butterworth_on_speed {'order': 4, 'cut_off_frequency': 10.0} [gapped]",
+   "max_abs_diff": 1.1102230246251565e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 116.2,
+   "rs_ms": 0.29
+  },
+  {
+   "section": "filter",
+   "case": "butterworth_on_speed {'order': 2, 'cut_off_frequency': 6.0} [full]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 105.8,
+   "rs_ms": 0.26
+  },
+  {
+   "section": "filter",
+   "case": "butterworth_on_speed {'order': 2, 'cut_off_frequency': 6.0} [gapped]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 108.7,
+   "rs_ms": 0.28
+  },
+  {
+   "section": "filter",
+   "case": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} [full]",
+   "max_abs_diff": 4.218847493575595e-15,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 675.2,
+   "rs_ms": 0.57
+  },
+  {
+   "section": "filter",
+   "case": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} [gapped]",
+   "max_abs_diff": 4.218847493575595e-15,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 666.8,
+   "rs_ms": 0.53
+  },
+  {
+   "section": "filter",
+   "case": "kalman {'trust_ratio': 20.0, 'smooth': 0.0} [full]",
+   "max_abs_diff": 8.881784197001252e-16,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 459.8,
+   "rs_ms": 0.29
+  },
+  {
+   "section": "filter",
+   "case": "kalman {'trust_ratio': 20.0, 'smooth': 0.0} [gapped]",
+   "max_abs_diff": 8.881784197001252e-16,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 455.5,
+   "rs_ms": 0.3
+  },
+  {
+   "section": "filter",
+   "case": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} [full]",
+   "max_abs_diff": 3.1086244689504383e-15,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 666.4,
+   "rs_ms": 0.53
+  },
+  {
+   "section": "filter",
+   "case": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} [gapped]",
+   "max_abs_diff": 3.1086244689504383e-15,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 673.7,
+   "rs_ms": 0.67
+  },
+  {
+   "section": "filter",
+   "case": "gaussian {'sigma_kernel': 3.0} [full]",
+   "max_abs_diff": 1.7763568394002505e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 23.6,
+   "rs_ms": 0.3
+  },
+  {
+   "section": "filter",
+   "case": "gaussian {'sigma_kernel': 3.0} [gapped]",
+   "max_abs_diff": 1.7763568394002505e-15,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 21.5,
+   "rs_ms": 0.28
+  },
+  {
+   "section": "filter",
+   "case": "gaussian {'sigma_kernel': 1.0} [full]",
+   "max_abs_diff": 8.881784197001252e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 21.4,
+   "rs_ms": 0.18
+  },
+  {
+   "section": "filter",
+   "case": "gaussian {'sigma_kernel': 1.0} [gapped]",
+   "max_abs_diff": 8.881784197001252e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 20.6,
+   "rs_ms": 0.18
+  },
+  {
+   "section": "filter",
+   "case": "LOESS {'nb_values_used': 10.0} [full]",
+   "max_abs_diff": 5.551115123125783e-16,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 166.8,
+   "rs_ms": 0.41
+  },
+  {
+   "section": "filter",
+   "case": "LOESS {'nb_values_used': 10.0} [gapped]",
+   "max_abs_diff": 1.176836406102666e-14,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 168.9,
+   "rs_ms": 0.44
+  },
+  {
+   "section": "filter",
+   "case": "LOESS {'nb_values_used': 30.0} [full]",
+   "max_abs_diff": 4.440892098500626e-15,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 175.9,
+   "rs_ms": 0.94
+  },
+  {
+   "section": "filter",
+   "case": "LOESS {'nb_values_used': 30.0} [gapped]",
+   "max_abs_diff": 1.0880185641326534e-14,
+   "tol": 1e-05,
+   "status": "ok",
+   "note": "",
+   "py_ms": 174.2,
+   "rs_ms": 1.02
+  },
+  {
+   "section": "filter",
+   "case": "median {'kernel_size': 3.0} [full]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 24.0,
+   "rs_ms": 0.22
+  },
+  {
+   "section": "filter",
+   "case": "median {'kernel_size': 3.0} [gapped]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
+   "py_ms": 23.1,
+   "rs_ms": 0.19
+  },
+  {
+   "section": "filter",
+   "case": "median {'kernel_size': 5.0} [full]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "",
+   "py_ms": 23.8,
+   "rs_ms": 0.21
+  },
+  {
+   "section": "filter",
+   "case": "median {'kernel_size': 5.0} [gapped]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "samples within a kernel width of NaN skipped (scipy medfilt NaN order unspecified)",
+   "py_ms": 23.1,
+   "rs_ms": 0.25
+  },
+  {
+   "section": "interp",
+   "case": "linear RKnee [35,55]",
+   "max_abs_diff": 2.7755575615628914e-17,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "polynomial RKnee [35,55]",
+   "max_abs_diff": 2.220446049250313e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "spline RKnee [35,55]",
+   "max_abs_diff": 0.2320726779280043,
+   "tol": 1e-06,
+   "status": "deviation",
+   "note": "pandas 'spline' is a smoothing spline; the port interpolates (== cubic)"
+  },
+  {
+   "section": "interp",
+   "case": "nearest RKnee [35,55]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "zero RKnee [35,55]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "slinear RKnee [35,55]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "quadratic RKnee [35,55]",
+   "max_abs_diff": 1.1102230246251565e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "cubic RKnee [35,55]",
+   "max_abs_diff": 2.220446049250313e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "linear LWrist [85,100]",
+   "max_abs_diff": 1.3877787807814457e-17,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "polynomial LWrist [85,100]",
+   "max_abs_diff": 2.220446049250313e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "spline LWrist [85,100]",
+   "max_abs_diff": 0.2873700444450906,
+   "tol": 1e-06,
+   "status": "deviation",
+   "note": "pandas 'spline' is a smoothing spline; the port interpolates (== cubic)"
+  },
+  {
+   "section": "interp",
+   "case": "nearest LWrist [85,100]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "zero LWrist [85,100]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "slinear LWrist [85,100]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "quadratic LWrist [85,100]",
+   "max_abs_diff": 4.440892098500626e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "cubic LWrist [85,100]",
+   "max_abs_diff": 2.220446049250313e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "linear RAnkle [15,25]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "polynomial RAnkle [15,25]",
+   "max_abs_diff": 1.1102230246251565e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "spline RAnkle [15,25]",
+   "max_abs_diff": 0.01956375575020386,
+   "tol": 1e-06,
+   "status": "deviation",
+   "note": "pandas 'spline' is a smoothing spline; the port interpolates (== cubic)"
+  },
+  {
+   "section": "interp",
+   "case": "nearest RAnkle [15,25]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "zero RAnkle [15,25]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "slinear RAnkle [15,25]",
+   "max_abs_diff": 0.0,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "quadratic RAnkle [15,25]",
+   "max_abs_diff": 1.1102230246251565e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "interp",
+   "case": "cubic RAnkle [15,25]",
+   "max_abs_diff": 1.1102230246251565e-16,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "pattern",
+   "case": "RKnee refs=['RHip']",
+   "max_abs_diff": 0.0,
+   "tol": 1e-09,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "pattern",
+   "case": "RKnee refs=['RHip', 'RAnkle']",
+   "max_abs_diff": 5.551115123125783e-17,
+   "tol": 1e-09,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "pattern",
+   "case": "RKnee refs=['RHip', 'RAnkle', 'LKnee']",
+   "max_abs_diff": 1.1102230246251565e-16,
+   "tol": 1e-09,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "pattern",
+   "case": "LWrist refs=['LElbow', 'LShoulder', 'LIndex']",
+   "max_abs_diff": 5.551115123125783e-16,
+   "tol": 1e-09,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "skeleton",
+   "case": "HALPE_26 resolved pairs (19)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "HALPE_26 [full] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "HALPE_26 [gapped] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "skeleton",
+   "case": "COCO_17 resolved pairs (14)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "COCO_17 [full] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "COCO_17 [gapped] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "skeleton",
+   "case": "COCO_133 resolved pairs (26)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "COCO_133 [full] flagged=2",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "COCO_133 [gapped] flagged=2",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "skeleton",
+   "case": "BODY_25B resolved pairs (16)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "BODY_25B [full] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "BODY_25B [gapped] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "skeleton",
+   "case": "BODY_25 resolved pairs (17)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "BODY_25 [full] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "outliers",
+   "case": "BODY_25 [gapped] flagged=0",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "write",
+   "case": "trc bytes (after the path line)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "deviation",
+   "note": "identical apart from line endings: the oracle writes the host's newline, the port always writes LF"
+  },
+  {
+   "section": "write",
+   "case": "rust trc -> python loader",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "write",
+   "case": "python trc -> rust loader",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "write",
+   "case": "rust c3d -> python loader",
+   "max_abs_diff": 2.258605955596238e-07,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "f32 mm on disk"
+  },
+  {
+   "section": "write",
+   "case": "python c3d -> rust loader",
+   "max_abs_diff": 2.258605955596238e-07,
+   "tol": 1e-06,
+   "status": "ok",
+   "note": "f32 mm on disk"
+  },
+  {
+   "section": "write",
+   "case": "c3d: rust writer == python writer (both read by python)",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "segments",
+   "case": "HALPE_26: oracle 11 segments / 10 joints",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "deviation",
+   "note": "port also finds ['Head', 'Neck', 'Wrist_L', 'Wrist_R'] (matched on the data, not on the model's node list)"
+  },
+  {
+   "section": "segments",
+   "case": "COCO_17: oracle 10 segments / 9 joints",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "deviation",
+   "note": "port also finds ['Foot_L', 'Foot_R', 'Ankle_L', 'Ankle_R', 'Wrist_L', 'Wrist_R'] (matched on the data, not on the model's node list)"
+  },
+  {
+   "section": "segments",
+   "case": "COCO_133: oracle 12 segments / 13 joints",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "section": "segments",
+   "case": "BODY_25B: oracle 10 segments / 10 joints",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "deviation",
+   "note": "port also finds ['Head', 'Trunk', 'Neck', 'Wrist_L', 'Wrist_R'] (matched on the data, not on the model's node list)"
+  },
+  {
+   "section": "segments",
+   "case": "BODY_25: oracle 11 segments / 11 joints",
+   "max_abs_diff": 0.0,
+   "tol": 0.0,
+   "status": "deviation",
+   "note": "port also finds ['Trunk', 'Wrist_L', 'Wrist_R'] (matched on the data, not on the model's node list)"
+  }
+ ]
+}
