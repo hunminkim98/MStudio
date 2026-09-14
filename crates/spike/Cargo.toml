@@ -10,4 +10,4 @@ anyhow = "1.0.104"
 bytemuck = { version = "1.25.2", features = ["derive"] }
 eframe = { version = "0.36.2", features = ["wgpu"] }
 glam = "0.33.7"
-image = { version = "0.25.10", default-features = false, features = ["png"] }
+image.workspace = true

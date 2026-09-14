@@ -176,11 +176,11 @@ Two independent tracks.
 - [x] Analysis overlay: reference line with clickable axis cycle, angle arc, label anchors
 - [x] Offscreen render tests: render one frame to a texture, assert marker/skeleton pixel counts
 
-### Phase 4 — App shell, playback, timeline  (1–2 weeks)
-- [ ] `mstudio-app`: `egui_dock` layout (viewport center, panels right, timeline + marker plot bottom), menus, shortcuts (Space/Enter/Esc/←/→), `rfd` dialogs, icon, dark/light theme
-- [ ] Timeline widget: frame/time tick modes, scrub, range selection, current-frame cursor
-- [ ] Marker X/Y/Z plot with `egui_plot`: current-frame line, range select, pan/zoom
-- [ ] Playback controls, loop, fps entry
+### Phase 4 — App shell, playback, timeline  (1–2 weeks) — **DONE; see `PHASE4_RESULTS.md`**
+- [x] `mstudio-app`: `egui_dock` layout (viewport center, panels right, timeline + marker plot bottom), menus, shortcuts (Space/Enter/Esc/←/→), `rfd` dialogs, icon, dark/light theme
+- [x] Timeline widget: frame/time tick modes, scrub, range selection, current-frame cursor
+- [x] Marker X/Y/Z plot with `egui_plot`: current-frame line, range select, pan/zoom
+- [x] Playback controls, loop, fps entry
 
 ### Phase 5 — Editing, panels, report  (2 weeks)
 - [ ] Edit mode: delete range, restore original — dirty ranges to GPU (R2)

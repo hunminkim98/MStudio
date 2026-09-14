@@ -1,0 +1,25 @@
+[package]
+name = "mstudio-app"
+description = "MStudio desktop application (eframe + egui_dock + wgpu viewport)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "mstudio"
+path = "src/main.rs"
+
+[dependencies]
+mstudio-core.workspace = true
+mstudio-io.workspace = true
+mstudio-processing.workspace = true
+mstudio-render.workspace = true
+eframe.workspace = true
+egui_dock.workspace = true
+egui_plot.workspace = true
+rfd.workspace = true
+image.workspace = true
+glam.workspace = true
+ndarray.workspace = true
