@@ -1,8 +1,10 @@
-# MStudio v2 — Cross-platform, Blender-level viewport
+# MStudio v2 — Rust core, wgpu viewport, 3-OS native
 
 **Branch:** `feature/cross-platform-renderer`
-**Status:** planning (2026-09-14)
-**Decision:** keep Python; replace Tk + legacy OpenGL with **PySide6 (Qt 6) + pygfx (wgpu → Metal / Vulkan / DX12)**.
+**Status:** planning, revision 2 (2026-09-14)
+**Decision:** rewrite as a **Rust core + wgpu renderer + egui UI**, exposed to Python through **PyO3**. Reports become **self-contained interactive HTML**. The existing Python code stays in-tree during the port as the **numerical test oracle**.
+
+Revision 1 of this document proposed PySide6 + pygfx (Python). It was superseded after deciding that implementation effort is not a selection criterion; only the quality of the end result is. See §2.
 
 ---
 
@@ -10,239 +12,266 @@
 
 | # | Goal | Measurable exit criterion |
 |---|---|---|
-| G1 | Runs natively on Windows, macOS (Apple Silicon + Intel), Linux | CI matrix green on all four runners incl. an actual offscreen render test |
-| G2 | Blender-level viewport smoothness | 60 fps sustained during playback with ≥ 150 markers × ≥ 20 000 frames; **< 1 ms Python time per frame** in the draw loop; camera drag never drops below display refresh |
-| G3 | Feature parity with v0.1.5 | Every row in §6 checked off |
-| G4 | "High-end" feel | HiDPI-correct on all OSes, dark/light native theme, dockable panels, native file dialogs, < 2 s cold start |
+| G1 | Runs natively on Windows, macOS (Apple Silicon + Intel), Linux | CI matrix green on all runners incl. an offscreen render test; one signed/notarized artifact per OS |
+| G2 | Blender-level viewport smoothness | 60 fps (or display refresh) sustained with ≥ 300 markers × ≥ 50 000 frames; **< 0.1 ms CPU per frame** outside the GPU submit; camera drag never drops a frame |
+| G3 | Feature parity with v0.1.5 | Every row in §7 checked, filter outputs match the Python oracle within `1e-6` |
+| G4 | "High-end" feel | Cold start **< 0.5 s**; single binary **< 30 MB**; HiDPI-correct; dark/light theme; dockable panels |
+| G5 | Stays a first-class citizen of the Pose2Sim / Sports2D Python ecosystem | `pip install mstudio` works (maturin wheel) and `import mstudio` exposes the core API |
 
 **Non-goals for this milestone:** multi-person, gait mode, new analysis features. Parity first.
 
 ---
 
-## 2. Why this stack (summary of research)
+## 2. Why this stack
 
-- **pyopengltk has no macOS backend** (`darwin.py` is a stub) → the current app cannot run on Mac at all.
-- macOS OpenGL is deprecated (2018) with no kill date; every OpenGL-based option (moderngl, VisPy, pyqtgraph.opengl) inherits that risk.
-- **wgpu** targets Metal / Vulkan / DX12 — the same API class Blender 4.x uses for its viewport. **pygfx** is the scene graph on top: `Points`, `Line`, SDF `Text`, built-in picking, orbit controllers, screenshot-to-numpy.
-- **PySide6** (LGPL, pip wheels for all 3 OSes) supplies docking, HiDPI, native dialogs, theming.
-- The scientific half (scipy, statsmodels, filterpy, pandas, c3d, anytree, matplotlib reports, vendored Pose2Sim filters) is untouched. Nothing in `MStudio/core/` or `MStudio/utils/{filtering,analysisMode,skeletons,skeleton_config,dataLoader,dataSaver,reportGenerator}.py` needs a rewrite.
+**What we compared** (details in the conversation record): PySide6 + pygfx (Python), PySide6 + moderngl, Tauri/Electron + three.js, Dear PyGui, forking rerun, Rust + wgpu.
 
-Fallback if the spike fails: **PySide6 + moderngl in `QOpenGLWidget`** (same shell, same GPU-resident architecture, hand-written shaders, macOS on OpenGL 4.1).
+**Why Rust + wgpu wins once effort is excluded**
 
-Pinned targets at time of writing: `PySide6==6.11.x`, `pygfx==0.17.x`, `wgpu==0.32.x`, `rendercanvas==2.7.x`, Python ≥ 3.10.
+| Axis | Python (PySide6 + pygfx) | Rust core | Winner |
+|---|---|---|---|
+| Viewport fps | 60 (≈ 1 ms Python/frame) | 60 (≈ 0.05 ms/frame) | tie — both GPU-bound |
+| Cold start | ~2 s | ~0.2 s | Rust — user-perceivable |
+| Install size | ~300 MB | ~10–30 MB | Rust — user-perceivable |
+| Memory ceiling | pandas copies | explicit | Rust |
+| Parallel filtering | GIL workarounds | rayon | Rust |
+| GC jitter | cycle-GC pauses possible | none | Rust |
+| pip installability | yes | yes (maturin, as rerun-sdk does) | tie |
+| Researcher scripting | yes | yes via PyO3 | tie |
+
+This is the **Blender architecture** (native core + Python API) and the **rerun architecture** (Rust core + Python SDK).
+
+**Why not fork rerun.** Forking is a labor-saving move, and labor is not the criterion. Rerun's heart (`re_chunk_store`) is an append-only Arrow log; MStudio is a mutable editor. Removing the heart leaves `re_renderer` and `egui`, both of which are ordinary crates on crates.io. We depend on crates, we do not carry a 60-crate fork.
+
+**Why egui, not Qt.** Rust Qt bindings are immature. egui + eframe is what rerun ships and it looks professional; Blender itself proves a custom-drawn UI can feel high-end. eframe's wgpu backend shares the GPU device with the viewport, so the 3D view and the UI are one swap chain with no compositing hop.
+
+**Why HTML reports.** No Rust matplotlib exists. A self-contained HTML file with an inline chart library gives interactivity (hover, zoom, series toggle), single-file sharing, offline use, and PDF through the browser's print dialog — and removes the last Python dependency from the binary.
 
 ---
 
 ## 3. Performance architecture — the five rules
 
-These are **hard constraints**, enforced by tests in §7, not guidelines.
+Enforced by benchmarks in §8, not by convention.
 
-| Rule | What it means in code |
+| Rule | In code |
 |---|---|
-| **R1 — Data lives on the GPU** | On load, build one `float32[N_frames, N_markers, 3]` array and upload it once. Frame advance = change a per-frame **offset/uniform**, never re-upload. |
-| **R2 — No pandas in the frame loop** | `DataManager.data` (DataFrame) is the *editing* representation. A parallel `DataManager.array` (`np.ndarray`, C-contiguous) is the *render* representation. Edits go DataFrame → numpy slice → **partial buffer upload** of the touched frame range only. |
-| **R3 — Draw-loop-driven playback** | `AnimationController` no longer owns a Tk `after()` timer. The canvas's `request_draw` callback asks the controller "what frame is it now?" using a monotonic clock; the controller returns the frame; the renderer sets the offset. vsync paces everything. |
-| **R4 — UI thread never blocks** | Filtering, interpolation, outlier detection, report generation run in `QThreadPool` workers (numpy/scipy release the GIL). Progress via signals. The 3D view keeps rendering while a filter runs. |
-| **R5 — No per-glyph text, no per-marker draw calls** | Marker names use pygfx SDF `Text` (one object per label, batched by pygfx). Markers are a single `Points` object with per-vertex color/size; skeleton is a single `Line` with segment breaks; trajectories are one `Line` with NaN breaks. |
+| **R1 — Data lives on the GPU** | One `wgpu::Buffer` of `f32[N_frames × N_markers × 3]` uploaded at load. Frame advance = write one `u32` frame index into a uniform. Never re-upload per frame. |
+| **R2 — Edits are range writes** | `Take` (see §4) is the editable CPU copy. An edit produces a dirty `[f0, f1)`; only that slice goes through `queue.write_buffer` at the matching byte offset. |
+| **R3 — Playback follows the frame clock** | No timers. Each `eframe` frame asks `Playback::frame_at(Instant::now())`; the renderer writes the index. The event loop is driven by `request_repaint()` while playing and idles otherwise. |
+| **R4 — Heavy work is off the UI thread** | Filtering, interpolation, outlier detection, report generation run on a `rayon` pool or a worker thread; results arrive via channel and are applied between frames. The viewport keeps rendering during a filter. |
+| **R5 — One draw call per layer** | Markers: one instanced quad draw. Skeleton: one line-list draw from an index buffer. Trajectories: one line-strip draw with restart indices. Labels: projected to screen and drawn by egui's painter in a single mesh. |
 
-**Frame budget at 60 fps = 16.7 ms.** Target split: Python ≤ 1 ms, GPU ≤ 4 ms, rest idle.
+Frame budget at 60 Hz = 16.7 ms. Target: CPU ≤ 0.1 ms, GPU ≤ 2 ms.
 
 ---
 
-## 4. Target package layout
+## 4. Workspace layout
+
+Cargo workspace at repo root. The Python package survives as an oracle and as the thin `pip` entry.
 
 ```
-MStudio/
-├── core/                    # UNCHANGED — DataManager, StateManager, AnimationController,
-│   │                        #   OutlierDetector, MarkerVisualSettings
-│   └── data_manager.py      #   + .array (np.ndarray view for the GPU), + .mark_dirty(frame_range)
-├── io/                      # moved from utils/: dataLoader.py, dataSaver.py (no tkinter imports)
-├── processing/              # moved from utils/: filtering.py (Pose2Sim, keep attribution),
-│                            #   dataProcessor.py (pure functions, no `self`), analysisMode.py,
-│                            #   skeletons.py, skeleton_config.py, reportGenerator.py (no tkinter)
-├── render/                  # NEW — pygfx scene, no Qt imports
-│   ├── scene.py             #   MarkerScene: builds/owns all WorldObjects
-│   ├── buffers.py           #   GPU-resident frame buffer, partial upload
-│   ├── markers.py           #   Points layer + color/size state machine
-│   ├── skeleton.py          #   Line layer, pairs → index buffer, outlier highlight
-│   ├── trajectories.py      #   Line layer, ring window around current frame
-│   ├── labels.py            #   SDF text, follows marker positions
-│   ├── analysis.py          #   distance/angle overlays, arc, reference line
-│   ├── grid.py              #   grid + axes, Y-up / Z-up rotation on the scene root
-│   ├── picking.py           #   pygfx pick events → marker name
-│   └── camera.py            #   OrbitController wrapper, reset, fit-to-data
-├── ui/                      # NEW — PySide6 widgets, no rendering code
-│   ├── main_window.py       #   QMainWindow + dock layout + menus + shortcuts
-│   ├── viewport.py          #   QRenderWidget host, wires input → render/
-│   ├── timeline.py          #   custom QWidget: frames/time ticks, scrub, selection range
-│   ├── marker_plot.py       #   matplotlib FigureCanvasQTAgg for X/Y/Z curves + range select
-│   ├── panels/              #   filter, interpolation, skeleton model, visual settings, analysis
-│   ├── workers.py           #   QRunnable wrappers for processing/
-│   └── theme.py             #   Fusion + dark/light palette, fonts per OS
-├── app.py                   # thin: QApplication, MainWindow, exec
-└── main.py                  # entry point (unchanged signature)
+Cargo.toml                       # workspace
+crates/
+├── mstudio-core/                # data model — no I/O, no GPU, no UI
+│   ├── take.rs                  #   Take { frames: Array3<f32>, markers: Vec<String>, fps, original: Array3<f32> }
+│   ├── skeleton.rs              #   12 models as static (parent, child, id) tables; pair resolution against marker names
+│   ├── state.rs                 #   ViewState / SelectionState / EditingState (port of core/state_manager.py)
+│   ├── playback.rs              #   frame_at(t), loop, fps  (port of core/animation_controller.py)
+│   ├── visual.rs                #   marker/skeleton colors, sizes, presets (port of core/marker_visual_settings.py)
+│   └── outliers.rs              #   bone-length outlier detection, rayon (port of core/outlier_detector.py)
+├── mstudio-io/                  # TRC (tsv), C3D (evaluate `c3dio`, else port the reader), Pose2Sim/Sports2D JSON folders
+├── mstudio-processing/          # filters + interpolation + analysis; pure functions on ndarray
+│   ├── filters.rs               #   butterworth, butterworth_on_speed, kalman+RTS, gaussian, loess, median
+│   ├── interp.rs                #   linear, nearest, zero, slinear, quadratic, cubic, polynomial, spline, pattern-based
+│   └── analysis.rs              #   distance, segment angle vs axis, joint angle, arc points, velocity, acceleration
+├── mstudio-render/              # wgpu only — no egui types leak in
+│   ├── gpu_take.rs              #   R1/R2: the frame buffer + dirty-range writer
+│   ├── markers.rs               #   instanced points pipeline, per-marker color/size/state SSBO
+│   ├── skeleton.rs              #   line pipeline, outlier & torso styling
+│   ├── trajectories.rs          #   windowed line strips
+│   ├── grid.rs                  #   grid + axes, Y-up / Z-up as a root transform
+│   ├── camera.rs                #   orbit / pan / zoom / fit, per-OS input normalization
+│   ├── picking.rs               #   ID render target + readback (async, no stall)
+│   └── analysis_overlay.rs      #   reference line, arc, axis label anchors
+├── mstudio-report/              # HTML report: minijinja templates + inline data + vendored Plotly.js
+├── mstudio-app/                 # eframe binary: docking, panels, timeline, marker plot, menus, shortcuts, dialogs (rfd)
+└── mstudio-py/                  # PyO3 + maturin: `import mstudio` → Take, filters, interp, io, and `mstudio.run()`
+
+MStudio/                         # existing Python app — UNCHANGED until Phase 6, then reduced to a thin launcher
+tests/golden/                    # generated ONCE from the Python implementation; the Rust port must reproduce them
 ```
 
-The `self`-passing free-function pattern (`open_file(self)`, `filter_selected_data(self)`) is retired. Each becomes a pure function taking explicit arguments and returning results; the UI layer owns the glue.
+Crate dependency direction is strictly downward: `app → render, report, processing, io, core`; `py → everything except app` (plus `app` for `run()`).
+
+**Key crates:** `wgpu`, `eframe`/`egui` (wgpu backend), `egui_dock`, `glam`, `ndarray`, `rayon`, `serde`/`serde_json`, `rfd` (native dialogs), `minijinja`, `opener`, `pyo3` + `numpy`, `maturin`. Evaluate in the spike: `re_renderer` (rerun's renderer crate) vs. hand-written pipelines; `sci-rs` for `butter`/`sosfiltfilt` parity with scipy.
 
 ---
 
-## 5. Phases
+## 5. Data model
 
-### Phase 0 — Spike / go-no-go  (2–3 days)
+```rust
+pub struct Take {
+    pub markers: Vec<String>,           // column order == GPU order
+    pub fps: f32,
+    pub frames: Array3<f32>,            // [n_frames, n_markers, 3], meters, C-contiguous
+    pub original: Array3<f32>,          // deep copy at load; `restore_original()` copies back
+    pub time: Array1<f32>,
+}
+```
 
-Purpose: prove G2 on real hardware before committing.
-
-- [ ] `PySide6` window with `QRenderWidget`, pygfx `WgpuRenderer`
-- [ ] Load `tests/test.trc`; upload all frames as one buffer (R1)
-- [ ] `Points` + `Line` skeleton (HALPE_26), `Text` labels, orbit camera
-- [ ] Playback via `request_draw` (R3); on-screen fps + per-frame Python µs counter
-- [ ] Click-to-select a marker via pygfx picking
-- [ ] Run on: this Mac (Apple Silicon), one Windows box, one Linux box (or CI offscreen)
-- [ ] Synthetic stress: 300 markers × 50 000 frames
-
-**Go if:** 60 fps on all three with Python < 1 ms/frame and picking works. **No-go →** switch `render/` to moderngl + `QOpenGLWidget`, same interfaces.
-
-Lives in `spike/` at repo root; deleted after Phase 2.
-
-### Phase 1 — Foundation  (1 week)
-
-- [ ] `pyproject.toml`: add `PySide6`, `pygfx`, `wgpu`, `rendercanvas`; drop `customtkinter`, `pyopengl*`, `pyopengltk`, `opencv-python`; `pyopengl-accelerate` gone
-- [ ] `io/`, `processing/` moves; strip all `tkinter` imports from them (dialogs move to `ui/`)
-- [ ] `ui/main_window.py` shell: central viewport, right dock (panels), bottom dock (timeline + marker plot), menus, shortcuts (Space/Enter/Esc/←/→)
-- [ ] `ui/theme.py`: Fusion style, dark + light palettes, per-OS font stack
-- [ ] HiDPI: `Qt.AA_EnableHighDpiScaling` defaults + `devicePixelRatio` passed to renderer
-- [ ] CI: matrix stays; add `xvfb-run` on Linux; add tests: import every module, construct `MainWindow` offscreen (`QT_QPA_PLATFORM=offscreen`), render one frame with `rendercanvas` offscreen backend and assert non-black pixels
-- [ ] `pytest` config: `python_files = "test_*.py"` (current `"test.py"` silently skips new tests)
-
-### Phase 2 — Renderer  (2 weeks)
-
-- [ ] `render/buffers.py`: `FrameBuffer(array)` with `set_frame(i)` (offset only) and `update_range(f0, f1)` (partial upload) — R1, R2
-- [ ] `render/markers.py`: one `Points`; per-vertex color from state (normal / selected / pattern / analysis / outlier-frame); size & opacity from `MarkerVisualSettings`
-- [ ] `render/skeleton.py`: pairs → index buffer; outlier segments recolored, torso pairs thicker; width/opacity/color from settings
-- [ ] `render/trajectories.py`: ± `trajectory_length` window, one `Line` with NaN breaks
-- [ ] `render/labels.py`: SDF `Text` per marker, toggle, follows positions each frame
-- [ ] `render/grid.py`: grid + axes; Y-up / Z-up as a rotation on the scene root (data untouched)
-- [ ] `render/camera.py`: orbit (LMB), pan (RMB **and** MMB), zoom (wheel, normalized across OSes — pygfx handles this), reset, fit-to-data
-- [ ] `render/picking.py`: `pointer_down` → `pick_info` → marker name → `StateManager`
-- [ ] `render/analysis.py`: 2-marker distance + segment angle vs axis (click axis cycle), 3-marker joint angle + arc, live text readout
-- [ ] Bench test: assert `< 1 ms` Python per `set_frame` on the stress dataset (R1/R2 enforcement)
-
-### Phase 3 — Playback & timeline  (1 week)
-
-- [ ] `AnimationController`: remove Tk timer; add `frame_at(t_monotonic)`; loop; fps from file or user override — R3
-- [ ] `ui/timeline.py`: painted `QWidget`; frame/time tick modes; scrub; selection range drag; current-frame cursor updated without full repaint
-- [ ] Play/pause/stop, prev/next, loop checkbox, fps entry
-- [ ] Keyboard shortcuts identical to v0.1.5 table in README
-
-### Phase 4 — Editing & processing  (2 weeks)
-
-- [ ] `ui/marker_plot.py`: matplotlib `FigureCanvasQTAgg` X/Y/Z panels, vertical current-frame line, range selection, pan/zoom; `draw_idle` only
-- [ ] Edit mode toggle; delete selected range; restore original (`DataManager.original_data`)
-- [ ] Filter panel: butterworth, butterworth_on_speed, kalman, gaussian, LOESS, median — same `config_dict` shape into `processing/filtering.py`
-- [ ] Interpolation panel: linear, polynomial, spline, nearest, zero, slinear, quadratic, cubic, pattern-based (pattern marker selection in viewport)
-- [ ] All of the above run in `ui/workers.py` `QRunnable`s — R4; on completion: DataFrame ← result, `DataManager.array` slice updated, `FrameBuffer.update_range()`, outlier re-detect (also worker)
-- [ ] Skeleton model combo (12 models) → `update_keypoint_names` → pairs → renderer
-
-### Phase 5 — Visual settings, analysis panel, report  (1 week)
-
-- [ ] Customization panel: marker size/opacity, color presets, skeleton width/opacity/colors, reset — pushes to `render/` via existing `MarkerVisualSettings` callbacks
-- [ ] Analysis mode toggle + selected-markers list panel
-- [ ] Report export: `processing/reportGenerator.py` stripped of tkinter; file dialog in UI; runs in worker; matplotlib `Agg` explicitly (no `$DISPLAY` sniffing)
-- [ ] Window icon via `QIcon` (PNG/ICNS/ICO set), not `iconbitmap`
-
-### Phase 6 — Parity, removal, packaging  (1 week)
-
-- [ ] §6 checklist fully green on all three OSes (manual QA script in `docs/QA_CHECKLIST.md`)
-- [ ] Delete `MStudio/gui/`, `MStudio/utils/{viewToggles,viewReset,mouseHandler,performance_utils}.py`, `spike/`
-- [ ] `mstudio` entry point → Qt app; README screenshots/controls table updated (RMB **or** MMB pan)
-- [ ] Packaging: `pyside6-deploy` (Nuitka) or PyInstaller spec per OS; smoke-launch each artifact in CI
-- [ ] Version bump to `0.2.0`; CHANGELOG
-
-**Total ≈ 8–9 weeks** single developer, sequential. Phases 2 and 3 can overlap once Phase 1 lands.
+- Loaders in `mstudio-io` all produce a `Take`; units are meters (C3D mm ÷ 1000 as today).
+- Column naming `<Marker>_X/_Y/_Z` is now an *export* concern only (TRC writer). Internally markers are indices.
+- Skeleton keypoint renaming (`update_keypoint_names`) becomes `Take::rename_markers(&SkeletonModel)`.
+- Edits return `DirtyRange { f0, f1 }`; the app forwards it to `GpuTake::write_range` (R2) and to outlier re-detection (R4).
 
 ---
 
-## 6. Feature parity checklist (v0.1.5 → v2)
+## 6. Report design (HTML)
 
-| Area | v0.1.5 (Tk/GL) | v2 location | Done |
+- `mstudio-report` renders one **self-contained `.html`**: inline CSS, inline vendored **Plotly.js basic bundle (~1 MB)**, inline JSON of the analysis results. Works offline, shareable as one file.
+- Sections mirror the current PDF: dataset overview & quality, per-marker coordinates with stats, velocity/acceleration, segment angles, joint angles. Each chart: hover, zoom, series toggle, PNG export from Plotly's toolbar.
+- Marker selector and frame-range slider at the top re-filter every chart client-side.
+- `@media print` stylesheet → the user prints to PDF from the browser; this replaces the PdfPages output.
+- App flow: **Report → Generate…** → `rfd` save dialog → write file → `opener::open()` in the default browser. Generation runs on a worker (R4).
+- Skeleton segment/joint auto-detection reuses the patterns in `utils/skeleton_config.py`, ported into `mstudio-processing/analysis.rs`.
+
+---
+
+## 7. Phases
+
+### Phase 0 — Oracle capture + Rust spike  (1 week)
+
+Two independent tracks.
+
+**0a — Golden files from Python (do this first, nothing else depends on Rust)**
+- [ ] For `tests/test.trc` and `tests/test.c3d`: dump loaded arrays, every filter with every parameter set in `filterUI.py`, every interpolation method on a fixed gap set, outlier maps for HALPE_26, and analysis values (distance/angles/velocity) to `tests/golden/*.npy` + `manifest.json`
+- [ ] Freeze them in git; they are the contract for the port
+
+**0b — Spike in `crates/spike/`**
+- [ ] `eframe` window (wgpu backend), load `tests/test.trc`
+- [ ] `GpuTake` upload, instanced markers, skeleton line list, egui-painted labels, orbit camera
+- [ ] Playback through the frame clock (R3), on-screen fps + CPU-µs counters
+- [ ] ID-buffer picking, click selects a marker
+- [ ] Stress: 300 markers × 50 000 frames
+- [ ] Run on this Mac, one Windows machine, one Linux machine
+
+**Go if:** display-refresh fps on all three with CPU < 0.1 ms/frame and picking is exact. If `re_renderer` was evaluated, decide here whether to adopt it.
+
+### Phase 1 — Workspace + core + I/O  (1 week)
+- [ ] Cargo workspace, CI matrix (ubuntu / windows / macos-14 arm / macos-13 x86) with `cargo test`, `clippy -D warnings`, `rustfmt --check`
+- [ ] `mstudio-core`: `Take`, skeleton tables (12 models), state, playback, visual settings, outliers
+- [ ] `mstudio-io`: TRC read/write, C3D read/write, JSON folder read; round-trip tests against golden arrays
+- [ ] Linux CI installs `mesa-vulkan-drivers` (lavapipe) so wgpu tests can run headless
+
+### Phase 2 — Processing with oracle parity  (1–2 weeks)
+- [ ] `filters.rs`: six filters; test each against golden output at `1e-6` (Butterworth via SOS + zero-phase; Kalman + RTS ported from filterpy semantics; LOESS ported from statsmodels' `lowess` defaults)
+- [ ] `interp.rs`: nine methods incl. pattern-based; golden parity
+- [ ] `analysis.rs`: distance, angles, arc, velocity, acceleration; golden parity
+- [ ] Benchmarks: full-take Butterworth on 300 markers × 50 000 frames < 200 ms on 8 cores
+
+### Phase 3 — Renderer  (2 weeks)
+- [ ] `mstudio-render` pipelines: markers (states: normal/selected/pattern/analysis/outlier-frame), skeleton (outlier recolor, torso width), trajectories (± window), grid/axes, Y-up/Z-up root transform
+- [ ] Camera: orbit LMB, pan RMB **and** MMB, wheel zoom normalized (macOS delta, X11 buttons 4/5 handled by winit), reset, fit-to-data
+- [ ] Picking: ID render target, async map + readback, no pipeline stall
+- [ ] Analysis overlay: reference line with clickable axis cycle, angle arc, label anchors
+- [ ] Offscreen render tests: render one frame to a texture, assert marker/skeleton pixel counts
+
+### Phase 4 — App shell, playback, timeline  (1–2 weeks)
+- [ ] `mstudio-app`: `egui_dock` layout (viewport center, panels right, timeline + marker plot bottom), menus, shortcuts (Space/Enter/Esc/←/→), `rfd` dialogs, icon, dark/light theme
+- [ ] Timeline widget: frame/time tick modes, scrub, range selection, current-frame cursor
+- [ ] Marker X/Y/Z plot with `egui_plot`: current-frame line, range select, pan/zoom
+- [ ] Playback controls, loop, fps entry
+
+### Phase 5 — Editing, panels, report  (2 weeks)
+- [ ] Edit mode: delete range, restore original — dirty ranges to GPU (R2)
+- [ ] Filter panel (6 filters, same parameter sets), interpolation panel (9 methods, pattern marker selection in viewport) — all on workers (R4)
+- [ ] Skeleton model combo → rename → pairs → renderer + outlier re-detect
+- [ ] Visual customization panel + presets; analysis mode + selected-marker list
+- [ ] `mstudio-report`: templates, Plotly bundle, sections, print stylesheet, open-in-browser
+
+### Phase 6 — Python bindings, parity QA, distribution  (1–2 weeks)
+- [ ] `mstudio-py`: `Take` ↔ numpy zero-copy, filters/interp/io exposed, `mstudio.run()` launches the app in-process; maturin wheels for all OSes on CI
+- [ ] `MStudio/` reduced to a thin launcher + deprecation shim; `mstudio` entry point unchanged for users
+- [ ] §8 parity checklist walked on real Windows / macOS / Linux
+- [ ] `cargo-dist`: standalone binaries; macOS notarization; Windows signing (or documented unsigned path)
+- [ ] README rewrite (controls table: RMB or MMB pan), `CLAUDE.md` architecture section rewritten for the Rust workspace, version `0.2.0`
+
+**Total ≈ 9–11 weeks** of calendar time with AI-assisted implementation; phases 2 and 3 run in parallel after Phase 1.
+
+---
+
+## 8. Feature parity checklist (v0.1.5 → v2)
+
+| Area | v0.1.5 | v2 crate / module | Done |
 |---|---|---|---|
-| Open TRC / C3D / JSON folder (multi-select) | `utils/dataLoader.open_file` | `io/` + `ui/main_window` | ☐ |
-| Save As TRC / C3D | `utils/dataSaver.save_as` | `io/` + `ui/main_window` | ☐ |
-| 3D markers with size / opacity / color states | `GLMarkerRenderer._render_markers_immediate` | `render/markers.py` | ☐ |
-| Skeleton lines, outlier highlight, torso width | `_render_skeleton_immediate`, `_cache_skeleton_geometry` | `render/skeleton.py` | ☐ |
-| Trajectories (± length window) | `_render_trajectories_immediate` | `render/trajectories.py` | ☐ |
-| Marker name labels (toggle) | `_render_marker_names_immediate` (GLUT) | `render/labels.py` (SDF) | ☐ |
-| Grid + axes, Y-up / Z-up toggle | `GridUtils`, `set_coordinate_system` | `render/grid.py` | ☐ |
-| Orbit / pan / zoom / reset view | `on_mouse_*`, `reset_view` | `render/camera.py` | ☐ |
-| Click-to-select marker (picking) | `PickingTexture`, `pick_marker` | `render/picking.py` | ☐ |
-| Analysis mode: distance, segment angle (axis cycle), joint angle + arc | `_render_analysis_immediate`, `analysisMode.py` | `render/analysis.py` | ☐ |
-| Play / pause / stop / loop / fps / prev / next | `AnimationController` + Tk `after` | `AnimationController` + draw loop | ☐ |
-| Timeline (frame & time modes, scrub, range select) | `update_timeline`, `_draw_*_ticks` | `ui/timeline.py` | ☐ |
-| Marker X/Y/Z plot with range selection | `gui/markerPlot.py` (mpl in Tk) | `ui/marker_plot.py` (mpl in Qt) | ☐ |
-| Edit mode: delete range, restore original | `toggle_edit_mode`, `delete_selected_data` | `ui/panels/edit.py` | ☐ |
-| Filters ×6 with params | `dataProcessor.filter_selected_data` | `ui/panels/filter.py` + worker | ☐ |
-| Interpolation ×9 incl. pattern-based | `interpolate_*`, `on_pattern_selection_confirm` | `ui/panels/interp.py` + worker | ☐ |
-| Outlier detection (threshold, parallel) | `OutlierDetector` | unchanged + worker | ☐ |
-| 12 skeleton models + keypoint rename | `on_model_change`, `update_keypoint_names` | `ui/panels/skeleton.py` | ☐ |
-| Visual customization panel + presets | `TRCviewerWidgets._create_customization_*` | `ui/panels/visual.py` | ☐ |
-| PDF analysis report | `reportGenerator.py` | `processing/` + worker | ☐ |
-| Keyboard shortcuts (Space/Enter/Esc/←/→) | `app.py` binds | `ui/main_window.py` | ☐ |
-| Resizable right panel | `start_resize` sizer | `QDockWidget` | ☐ |
-| Window icon | `iconbitmap(.ico)` | `QIcon` multi-format | ☐ |
+| Open TRC / C3D / JSON folder (multi-select) | `utils/dataLoader.open_file` | `mstudio-io` + `app` dialogs | ☐ |
+| Save As TRC / C3D | `utils/dataSaver.save_as` | `mstudio-io` | ☐ |
+| Markers with size / opacity / color states | `GLMarkerRenderer._render_markers_immediate` | `render/markers.rs` | ☐ |
+| Skeleton lines, outlier highlight, torso width | `_render_skeleton_immediate` | `render/skeleton.rs` | ☐ |
+| Trajectories (± window) | `_render_trajectories_immediate` | `render/trajectories.rs` | ☐ |
+| Marker name labels (toggle) | `_render_marker_names_immediate` (GLUT) | egui painter over projected positions | ☐ |
+| Grid + axes, Y-up / Z-up | `GridUtils`, `set_coordinate_system` | `render/grid.rs` | ☐ |
+| Orbit / pan / zoom / reset | `on_mouse_*`, `reset_view` | `render/camera.rs` | ☐ |
+| Click-to-select (picking) | `PickingTexture`, `pick_marker` | `render/picking.rs` | ☐ |
+| Analysis: distance, segment angle (axis cycle), joint angle + arc | `_render_analysis_immediate`, `analysisMode.py` | `processing/analysis.rs` + `render/analysis_overlay.rs` | ☐ |
+| Play / pause / stop / loop / fps / prev / next | `AnimationController` + Tk `after` | `core/playback.rs` + frame clock | ☐ |
+| Timeline (frame & time modes, scrub, range) | `update_timeline` | `app/timeline.rs` | ☐ |
+| Marker X/Y/Z plot with range selection | `gui/markerPlot.py` (matplotlib) | `app/marker_plot.rs` (`egui_plot`) | ☐ |
+| Edit mode: delete range, restore original | `toggle_edit_mode`, `delete_selected_data` | `app/panels/edit.rs` | ☐ |
+| Filters ×6 with params | `dataProcessor.filter_selected_data` | `processing/filters.rs` + worker | ☐ |
+| Interpolation ×9 incl. pattern-based | `interpolate_*` | `processing/interp.rs` + worker | ☐ |
+| Outlier detection (threshold, parallel) | `OutlierDetector` | `core/outliers.rs` (rayon) | ☐ |
+| 12 skeleton models + keypoint rename | `on_model_change`, `update_keypoint_names` | `core/skeleton.rs` | ☐ |
+| Visual customization panel + presets | `TRCviewerWidgets._create_customization_*` | `app/panels/visual.rs` | ☐ |
+| Analysis report | `reportGenerator.py` → PDF | `mstudio-report` → interactive HTML (+ print-to-PDF) | ☐ |
+| Keyboard shortcuts | `app.py` binds | `app/shortcuts.rs` | ☐ |
+| Resizable right panel | custom sizer | `egui_dock` | ☐ |
+| Window icon | `iconbitmap(.ico)` | `eframe` `IconData` (PNG) | ☐ |
+| Python API | — | `mstudio-py` (new; G5) | ☐ |
 
 ---
 
-## 7. Testing strategy
+## 9. Testing strategy
 
-| Layer | How | Where it runs |
+| Layer | How | Where |
 |---|---|---|
-| `core/`, `processing/`, `io/` | plain pytest, numeric golden files (filter outputs must match v0.1.5 bit-for-bit on `tests/test.trc`) | all OSes |
-| `render/` | `rendercanvas` **offscreen** backend → numpy frame; assert pixel counts (markers drawn, skeleton drawn, label region non-empty) | all OSes, no display needed |
-| Performance | `pytest-benchmark`: `FrameBuffer.set_frame` < 1 ms; `update_range` on 1 000 frames < 5 ms | all OSes; fails CI if regressed |
-| `ui/` | `pytest-qt` with `QT_QPA_PLATFORM=offscreen`; construct `MainWindow`, load file, toggle every panel | all OSes; Linux under `xvfb-run` for the on-screen variant |
-| Manual | `docs/QA_CHECKLIST.md` walked on real Win / Mac / Linux before each release | release gate |
+| `core`, `io`, `processing` | `cargo test` against `tests/golden/` at `1e-6`; property tests for round-trips | all OSes |
+| `render` | offscreen `wgpu` (lavapipe on Linux CI, native elsewhere) → texture readback → pixel assertions | all OSes |
+| Performance | `criterion` benches: `GpuTake::set_frame` (< 0.1 ms CPU), `write_range` 1 000 frames (< 1 ms), full-take Butterworth (< 200 ms); CI fails on regression > 20 % | all OSes |
+| `app` | `egui_kittest` snapshot tests for panels and timeline | all OSes |
+| `py` | pytest: `import mstudio`, load, filter, compare to golden; numpy zero-copy checks | all OSes |
+| Manual | `docs/QA_CHECKLIST.md` on real Win / Mac / Linux before each release | release gate |
 
-Golden-file tests for filtering are added **before** Phase 1's file moves so the moves are provably behavior-preserving.
+The golden files are the contract: **Phase 0a runs before any Rust is written**, so parity is provable and Pose2Sim numerical compatibility is preserved.
 
 ---
 
-## 8. Risks & mitigations
+## 10. Risks & mitigations
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| pygfx (beta, pre-1.0) API change | Medium | Pin exact version; `render/` is the only package importing pygfx; upgrade in a dedicated PR |
-| pygfx sync picking too slow / imprecise at marker density | Low | Spike measures it; fallback = own ID-color pass (we already have that design) |
-| wgpu unavailable on old GPUs / VMs (no Vulkan on Linux CI) | Medium | wgpu falls back to software (lavapipe) — install `mesa-vulkan-drivers` on CI; document minimum GPU |
-| Qt bitmap-present path caps fps on some Linux compositors | Low | `present_method="screen"` toggle in settings; default "bitmap" |
-| Cold-start time > 2 s | Medium | Lazy-import matplotlib/seaborn/statsmodels (report only), `PySide6-Essentials` instead of full `PySide6` |
-| Two UIs coexisting during the port confuses users | Low | Tk app stays the shipped `mstudio` until Phase 6; v2 launched via `mstudio --v2` until then |
+| Filter parity drift (LOESS, Kalman defaults differ subtly from statsmodels/filterpy) | Medium | Golden tests at `1e-6`; document any intentional deviation; keep Python oracle in-tree until v1.0 |
+| Pose2Sim updates its filters upstream | Certain, slow | Golden regeneration script `scripts/regen_golden.py`; a filter change is a tracked task, not a surprise |
+| egui look judged "too developer-tool" | Medium | Custom theme + `re_ui`-style polish pass in Phase 4; Blender-style visual language |
+| `re_renderer` unsuitable as a standalone crate | Medium | Spike decides; hand-written pipelines are ~1 500 lines and fully ours |
+| wgpu on old GPUs / VMs | Low | wgpu GL backend fallback; documented minimum |
+| Python users lose `pip install` during the port | — | Not possible: `MStudio/` ships unchanged until Phase 6 |
+| Signing/notarization friction on macOS/Windows | Medium | Unsigned builds documented for Phase 6; signing tracked as a release task |
 
 ---
 
-## 9. Dependency changes
+## 11. Distribution
 
-```toml
-# remove
-customtkinter, pyopengl, pyopengl-accelerate, pyopengltk, opencv-python
-
-# add
-PySide6-Essentials>=6.11
-pygfx>=0.17,<0.18
-wgpu>=0.32,<0.33
-rendercanvas>=2.7
-
-# keep
-numpy, pandas, scipy, statsmodels, filterpy, c3d, anytree, matplotlib, seaborn
-
-# dev
-pytest, pytest-qt, pytest-benchmark, flake8
-```
+| Channel | Artifact | Tool |
+|---|---|---|
+| PyPI (`pip install mstudio`) | wheel containing the PyO3 module + app; `mstudio` console script calls `mstudio.run()` | `maturin` on CI for cp310–cp313 × 3 OSes |
+| GitHub Releases | standalone binaries: `.dmg` (universal or arm64+x86), `.msi`/`.zip`, `.tar.gz`/AppImage | `cargo-dist` |
+| conda-forge (later) | recipe wrapping the wheel | — |
 
 ---
 
-## 10. Immediate next steps
+## 12. Immediate next steps
 
-1. Phase 0 spike in `spike/` — target: fps numbers from this Mac by end of week.
-2. Golden-file tests for `filtering.py` / `dataProcessor.py` (pre-Phase 1 safety net).
-3. Phase 1 `pyproject` + package moves.
+1. **Phase 0a** — write `scripts/gen_golden.py`, generate and commit `tests/golden/` from the current Python code.
+2. **Phase 0b** — Rust spike in `crates/spike/`; fps and CPU-µs numbers from this Mac first.
+3. Go/no-go on `re_renderer` vs. own pipelines; then Phase 1.

@@ -30,6 +30,8 @@ CI (`.github/workflows/continuous-integration.yml`) runs on ubuntu/windows/macos
 
 MStudio is a Tkinter (CustomTkinter) desktop app for viewing and editing 3D motion-capture marker data, rendered with OpenGL via `pyopengltk`.
 
+**Migration in progress** — see `docs/CROSS_PLATFORM_PLAN.md`. The target is a Rust core + wgpu renderer + egui UI with PyO3 bindings and HTML reports. The Python code described below is the currently shipped app and serves as the numerical test oracle (`tests/golden/`) for the port; do not refactor it beyond what the plan's Phase 0a needs.
+
 ### The god-object + delegation pattern
 
 `MStudio/app.py` defines `TRCViewer(ctk.CTk)` — a ~1450-line class that is *the* application object. Most methods on it are thin wrappers that call a free function in `utils/` or `gui/` with `self` as the first argument:
