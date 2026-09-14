@@ -139,21 +139,21 @@ pub struct Take {
 
 ## 7. Phases
 
-### Phase 0 — Oracle capture + Rust spike  (1 week)
+### Phase 0 — Oracle capture + Rust spike  (1 week) — **0a DONE, 0b macOS GO; see `PHASE0_RESULTS.md`**
 
 Two independent tracks.
 
 **0a — Golden files from Python (do this first, nothing else depends on Rust)**
-- [ ] For `tests/test.trc` and `tests/test.c3d`: dump loaded arrays, every filter with every parameter set in `filterUI.py`, every interpolation method on a fixed gap set, outlier maps for HALPE_26, and analysis values (distance/angles/velocity) to `tests/golden/*.npy` + `manifest.json`
-- [ ] Freeze them in git; they are the contract for the port
+- [x] For `tests/test.trc` and `tests/test.c3d`: dump loaded arrays, every filter with every parameter set in `filterUI.py`, every interpolation method on a fixed gap set, outlier maps for HALPE_26, and analysis values (distance/angles/velocity) to `tests/golden/*.npy` + `manifest.json`
+- [x] Freeze them in git; they are the contract for the port
 
 **0b — Spike in `crates/spike/`**
-- [ ] `eframe` window (wgpu backend), load `tests/test.trc`
-- [ ] `GpuTake` upload, instanced markers, skeleton line list, egui-painted labels, orbit camera
-- [ ] Playback through the frame clock (R3), on-screen fps + CPU-µs counters
-- [ ] ID-buffer picking, click selects a marker
-- [ ] Stress: 300 markers × 50 000 frames
-- [ ] Run on this Mac, one Windows machine, one Linux machine
+- [x] `eframe` window (wgpu backend), load `tests/test.trc`
+- [x] `GpuTake` upload, instanced markers, skeleton line list, egui-painted labels, orbit camera
+- [x] Playback through the frame clock (R3), on-screen fps + CPU-µs counters
+- [x] ID-buffer picking, click selects a marker
+- [x] Stress: 300 markers × 50 000 frames
+- [x] Run on this Mac · [ ] one Windows machine · [ ] one Linux machine
 
 **Go if:** display-refresh fps on all three with CPU < 0.1 ms/frame and picking is exact. If `re_renderer` was evaluated, decide here whether to adopt it.
 

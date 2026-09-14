@@ -22,6 +22,15 @@ flake8 MStudio --count --select=E9,F63,F7,F82 --show-source --statistics   # the
 flake8 MStudio --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 ```
 
+Rust workspace (migration, see `docs/CROSS_PLATFORM_PLAN.md`; needs `~/.cargo/bin` on PATH):
+
+```bash
+cargo build --release -p mstudio-spike                       # Phase 0 viewport spike
+./target/release/mstudio-spike                               # opens tests/test.trc
+./target/release/mstudio-spike --stress 300 50000 --bench 6 --screenshot shot.png   # prints one JSON stats line
+.venv/bin/python scripts/gen_golden.py                       # regenerate tests/golden/ from the Python oracle (uv venv, py3.11)
+```
+
 Note: `pyproject.toml` sets `python_files = "test.py"`, so pytest only collects files named exactly `test.py`. A new test file named `test_foo.py` will be silently ignored — add tests to `tests/test.py` or change the setting.
 
 CI (`.github/workflows/continuous-integration.yml`) runs on ubuntu/windows/macos-latest/macos-13 with Python 3.10 and 3.11 via conda.
