@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication
+
+**Always explain in Korean (한국어).** All prose addressed to the user — analysis, plans, code reviews, progress updates, summaries, and answers to questions — is written in Korean, regardless of which language the user writes in.
+
+English stays for everything that lives in the repository: code, identifiers, code comments, docstrings, commit messages, PR descriptions, and the Markdown files under `docs/`. Do not translate existing English documents.
+
 ## Commands
 
 ```bash
