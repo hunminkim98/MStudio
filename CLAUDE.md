@@ -29,7 +29,13 @@ cargo build --release -p mstudio-spike                       # Phase 0 viewport 
 ./target/release/mstudio-spike                               # opens tests/test.trc
 ./target/release/mstudio-spike --stress 300 50000 --bench 6 --screenshot shot.png   # prints one JSON stats line
 .venv/bin/python scripts/gen_golden.py                       # regenerate tests/golden/ from the Python oracle (uv venv, py3.11)
+cargo test --workspace                                       # 100+ tests incl. golden parity (core, io, processing)
+RUSTFLAGS="-D warnings" cargo clippy --workspace --all-targets --locked   # what CI runs
+cargo bench -p mstudio-processing                            # criterion: filters on 300 markers × 50 000 frames
+.venv/bin/python scripts/check_c3d_interop.py                # Rust-written C3D/TRC read back by the Python loaders
 ```
+
+The Rust crates are ports of the Python modules and must stay numerically identical to `tests/golden/` (see `docs/PHASE*_RESULTS.md` for the few documented deviations). When a Python oracle bug is fixed, fix it in Python first, add a test to `tests/test.py`, regenerate the goldens, then port.
 
 Note: `pyproject.toml` sets `python_files = "test.py"`, so pytest only collects files named exactly `test.py`. A new test file named `test_foo.py` will be silently ignored — add tests to `tests/test.py` or change the setting.
 

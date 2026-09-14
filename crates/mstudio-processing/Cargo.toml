@@ -1,0 +1,25 @@
+[package]
+name = "mstudio-processing"
+description = "MStudio signal processing: filters, interpolation, pattern-based gap filling, analysis primitives"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+mstudio-core.workspace = true
+ndarray.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+nalgebra.workspace = true
+num-complex.workspace = true
+
+[dev-dependencies]
+ndarray-npy.workspace = true
+serde_json.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "filters"
+harness = false

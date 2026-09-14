@@ -163,11 +163,11 @@ Two independent tracks.
 - [x] `mstudio-io`: TRC read/write, C3D read/write, JSON folder read; round-trip tests against golden arrays
 - [x] Linux CI installs `mesa-vulkan-drivers` (lavapipe) so wgpu tests can run headless
 
-### Phase 2 — Processing with oracle parity  (1–2 weeks)
-- [ ] `filters.rs`: six filters; test each against golden output at `1e-6` (Butterworth via SOS + zero-phase; Kalman + RTS ported from filterpy semantics; LOESS ported from statsmodels' `lowess` defaults)
-- [ ] `interp.rs`: nine methods incl. pattern-based; golden parity
-- [ ] `analysis.rs`: distance, angles, arc, velocity, acceleration; golden parity
-- [ ] Benchmarks: full-take Butterworth on 300 markers × 50 000 frames < 200 ms on 8 cores
+### Phase 2 — Processing with oracle parity  (1–2 weeks) — **DONE; see `PHASE2_RESULTS.md`**
+- [x] `filters.rs`: six filters; test each against golden output at `1e-6` (Butterworth via SOS + zero-phase; Kalman + RTS ported from filterpy semantics; LOESS ported from statsmodels' `lowess` defaults)
+- [x] `interp.rs`: nine methods incl. pattern-based; golden parity
+- [x] `analysis.rs`: distance, angles, arc, velocity, acceleration; golden parity
+- [x] Benchmarks: full-take Butterworth on 300 markers × 50 000 frames < 200 ms on 8 cores
 
 ### Phase 3 — Renderer  (2 weeks)
 - [ ] `mstudio-render` pipelines: markers (states: normal/selected/pattern/analysis/outlier-frame), skeleton (outlier recolor, torso width), trajectories (± window), grid/axes, Y-up/Z-up root transform

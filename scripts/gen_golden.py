@@ -67,6 +67,17 @@ from MStudio.utils import skeletons  # noqa: E402
 
 dataProcessor.messagebox = _RaisingMessageBox()
 
+# dataSaver pops a "Save Successful" info box after writing; silence it, keep errors loud.
+import MStudio.utils.dataSaver as _saver  # noqa: E402
+
+
+class _QuietSaverMessageBox(_RaisingMessageBox):
+    def showinfo(self, *args, **kwargs):
+        return None
+
+
+_saver.messagebox = _QuietSaverMessageBox()
+
 manifest: dict = {
     "generated_with": {
         "python": platform.python_version(),

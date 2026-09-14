@@ -343,7 +343,7 @@ def interpolate_with_pattern(self):
                     scale = norm_v_ref_curr / _2marker_norm_v_ref_init 
                     try:
                         # Reshape for align_vectors which expects (N,3)
-                        R_opt, _ = Rotation.align_vectors(_2marker_v_ref_init.reshape(1,-1), v_ref_curr.reshape(1,-1))
+                        R_opt, _ = Rotation.align_vectors(v_ref_curr.reshape(1,-1), _2marker_v_ref_init.reshape(1,-1)) # rotation initial -> current
                         target_est = P1_curr + R_opt.apply(scale * _2marker_v_target_rel_to_P1_init)
                     except Exception as e:
                         logger.error(f"Error during 2-marker alignment/transformation for frame {frame}: {e}", exc_info=True)
@@ -353,7 +353,7 @@ def interpolate_with_pattern(self):
                     q_centroid = Q_curr_coords.mean(axis=0)
                     Q_centered = Q_curr_coords - q_centroid
                     try:
-                        R_opt, _ = Rotation.align_vectors(_3plus_P0_centered, Q_centered)
+                        R_opt, _ = Rotation.align_vectors(Q_centered, _3plus_P0_centered) # rotation initial -> current
                         target_est = R_opt.apply(_3plus_target_rel_to_centroid) + q_centroid
                     except Exception as e:
                         logger.error(f"Error during >=3-marker alignment/transformation for frame {frame}: {e}", exc_info=True)

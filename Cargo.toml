@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/mstudio-core", "crates/mstudio-io", "crates/spike"]
+members = ["crates/mstudio-core", "crates/mstudio-io", "crates/mstudio-processing", "crates/spike"]
 
 [workspace.package]
 version = "0.2.0"
@@ -11,6 +11,10 @@ repository = "https://github.com/hunminkim98/MStudio"
 
 [workspace.dependencies]
 mstudio-core = { path = "crates/mstudio-core" }
+mstudio-processing = { path = "crates/mstudio-processing" }
+nalgebra = "0.35"
+num-complex = "0.4"
+criterion = { version = "0.8", default-features = false }
 ndarray = "0.17"
 ndarray-npy = "0.10"
 rayon = "1.10"
