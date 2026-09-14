@@ -58,13 +58,8 @@ impl Take {
         let lines: Vec<&str> = text.lines().collect();
         anyhow::ensure!(lines.len() > 6, "TRC too short");
         let fps: f32 = lines[2].split('\t').next().unwrap_or("30").trim().parse().unwrap_or(30.0);
-        let markers: Vec<String> = lines[3]
-            .split('\t')
-            .skip(2)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(String::from)
-            .collect();
+        let markers: Vec<String> =
+            lines[3].split('\t').skip(2).map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect();
         let n_markers = markers.len();
         let mut positions = Vec::new();
         let mut n_frames = 0;
@@ -104,16 +99,14 @@ impl Take {
             rng ^= rng << 17;
             (rng >> 11) as f32 / (1u64 << 53) as f32
         };
-        let params: Vec<[f32; 6]> = (0..n_markers)
-            .map(|_| [next(), next(), next(), next(), next(), next()])
-            .collect();
+        let params: Vec<[f32; 6]> = (0..n_markers).map(|_| [next(), next(), next(), next(), next(), next()]).collect();
         for f in 0..n_frames {
             let t = f as f32 / fps;
             for (m, p) in params.iter().enumerate() {
                 let base = Vec3::new((m % 20) as f32 * 0.15 - 1.5, (m / 20) as f32 * 0.12, 0.0);
-                let x = base.x + 0.15 * (t * (0.5 + p[0]) + p[3] * 6.28).sin();
-                let y = base.y + 0.10 * (t * (0.5 + p[1]) + p[4] * 6.28).sin();
-                let z = base.z + 0.15 * (t * (0.5 + p[2]) + p[5] * 6.28).cos();
+                let x = base.x + 0.15 * (t * (0.5 + p[0]) + p[3] * std::f32::consts::TAU).sin();
+                let y = base.y + 0.10 * (t * (0.5 + p[1]) + p[4] * std::f32::consts::TAU).sin();
+                let z = base.z + 0.15 * (t * (0.5 + p[2]) + p[5] * std::f32::consts::TAU).cos();
                 positions.push([x, y, z, 0.0]);
             }
         }
@@ -149,20 +142,40 @@ fn bbox(positions: &[[f32; 4]]) -> (Vec3, Vec3) {
 /// Pose2Sim / HALPE / COCO-style names; pairs whose markers are absent are skipped
 /// (same rule as TRCViewer.update_skeleton_pairs).
 const HUMAN_PAIRS: &[(&str, &str)] = &[
-    ("Hip", "RHip"), ("RHip", "RKnee"), ("RKnee", "RAnkle"), ("RAnkle", "RBigToe"), ("RAnkle", "RSmallToe"), ("RAnkle", "RHeel"),
-    ("Hip", "LHip"), ("LHip", "LKnee"), ("LKnee", "LAnkle"), ("LAnkle", "LBigToe"), ("LAnkle", "LSmallToe"), ("LAnkle", "LHeel"),
-    ("Hip", "Neck"), ("Neck", "Nose"), ("Nose", "REye"), ("Nose", "LEye"), ("Neck", "Head"),
-    ("Neck", "RShoulder"), ("RShoulder", "RElbow"), ("RElbow", "RWrist"), ("RWrist", "RThumb"), ("RWrist", "RIndex"), ("RWrist", "RPinky"),
-    ("Neck", "LShoulder"), ("LShoulder", "LElbow"), ("LElbow", "LWrist"), ("LWrist", "LThumb"), ("LWrist", "LIndex"), ("LWrist", "LPinky"),
+    ("Hip", "RHip"),
+    ("RHip", "RKnee"),
+    ("RKnee", "RAnkle"),
+    ("RAnkle", "RBigToe"),
+    ("RAnkle", "RSmallToe"),
+    ("RAnkle", "RHeel"),
+    ("Hip", "LHip"),
+    ("LHip", "LKnee"),
+    ("LKnee", "LAnkle"),
+    ("LAnkle", "LBigToe"),
+    ("LAnkle", "LSmallToe"),
+    ("LAnkle", "LHeel"),
+    ("Hip", "Neck"),
+    ("Neck", "Nose"),
+    ("Nose", "REye"),
+    ("Nose", "LEye"),
+    ("Neck", "Head"),
+    ("Neck", "RShoulder"),
+    ("RShoulder", "RElbow"),
+    ("RElbow", "RWrist"),
+    ("RWrist", "RThumb"),
+    ("RWrist", "RIndex"),
+    ("RWrist", "RPinky"),
+    ("Neck", "LShoulder"),
+    ("LShoulder", "LElbow"),
+    ("LElbow", "LWrist"),
+    ("LWrist", "LThumb"),
+    ("LWrist", "LIndex"),
+    ("LWrist", "LPinky"),
 ];
 
 fn resolve_pairs(markers: &[String], table: &[(&str, &str)]) -> Vec<u32> {
     let idx = |name: &str| markers.iter().position(|m| m == name);
-    table
-        .iter()
-        .filter_map(|(a, b)| Some([idx(a)? as u32, idx(b)? as u32]))
-        .flatten()
-        .collect()
+    table.iter().filter_map(|(a, b)| Some([idx(a)? as u32, idx(b)? as u32])).flatten().collect()
 }
 
 // ============================================================================
@@ -184,7 +197,9 @@ impl Camera {
     }
 
     fn eye(&self) -> Vec3 {
-        self.target + self.dist * Vec3::new(self.pitch.cos() * self.yaw.sin(), self.pitch.sin(), self.pitch.cos() * self.yaw.cos())
+        self.target
+            + self.dist
+                * Vec3::new(self.pitch.cos() * self.yaw.sin(), self.pitch.sin(), self.pitch.cos() * self.yaw.cos())
     }
 
     fn view_proj(&self, aspect: f32) -> Mat4 {
@@ -382,8 +397,20 @@ impl GpuState {
         GpuState {
             pipe_markers: make("markers", "vs_marker", "fs_marker", wgpu::PrimitiveTopology::TriangleList, &[]),
             pipe_skeleton: make("skeleton", "vs_skeleton", "fs_line", wgpu::PrimitiveTopology::LineList, &[]),
-            pipe_lines: make("lines", "vs_static", "fs_line", wgpu::PrimitiveTopology::LineList, &[Some(static_layout.clone())]),
-            pipe_strip: make("strip", "vs_static", "fs_line", wgpu::PrimitiveTopology::LineStrip, &[Some(static_layout)]),
+            pipe_lines: make(
+                "lines",
+                "vs_static",
+                "fs_line",
+                wgpu::PrimitiveTopology::LineList,
+                &[Some(static_layout.clone())],
+            ),
+            pipe_strip: make(
+                "strip",
+                "vs_static",
+                "fs_line",
+                wgpu::PrimitiveTopology::LineStrip,
+                &[Some(static_layout)],
+            ),
             uniform_buf,
             states_buf,
             traj_buf,
@@ -409,7 +436,9 @@ fn build_grid(ground_y: f32) -> Vec<StaticVertex> {
         v.push(StaticVertex { pos: [n as f32, ground_y, a], color: grey });
     }
     let o = [0.0, ground_y, 0.0];
-    for (axis, color) in [([1.0, 0.0, 0.0], [0.9, 0.2, 0.2]), ([0.0, 1.0, 0.0], [0.2, 0.9, 0.2]), ([0.0, 0.0, 1.0], [0.3, 0.4, 1.0])] {
+    for (axis, color) in
+        [([1.0, 0.0, 0.0], [0.9, 0.2, 0.2]), ([0.0, 1.0, 0.0], [0.2, 0.9, 0.2]), ([0.0, 0.0, 1.0], [0.3, 0.4, 1.0])]
+    {
         v.push(StaticVertex { pos: o, color });
         v.push(StaticVertex { pos: [o[0] + axis[0] * 0.5, o[1] + axis[1] * 0.5, o[2] + axis[2] * 0.5], color });
     }
@@ -608,7 +637,10 @@ impl App {
             return None;
         }
         Some((
-            egui::pos2(rect.min.x + (ndc.x + 1.0) * 0.5 * rect.width(), rect.min.y + (1.0 - ndc.y) * 0.5 * rect.height()),
+            egui::pos2(
+                rect.min.x + (ndc.x + 1.0) * 0.5 * rect.width(),
+                rect.min.y + (1.0 - ndc.y) * 0.5 * rect.height(),
+            ),
             ndc.z,
         ))
     }
@@ -630,10 +662,12 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
-        if let Some(img) = ctx.input(|i| i.events.iter().find_map(|e| match e {
-            egui::Event::Screenshot { image, .. } => Some(image.clone()),
-            _ => None,
-        })) {
+        if let Some(img) = ctx.input(|i| {
+            i.events.iter().find_map(|e| match e {
+                egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                _ => None,
+            })
+        }) {
             if let Some(path) = self.screenshot.take() {
                 save_png(&img, &path);
             }
@@ -703,79 +737,92 @@ impl eframe::App for App {
         // ---- 3D viewport
         let scene_time;
         {
-                let t_scene = Instant::now();
-                let rect = ui.available_rect_before_wrap();
-                let response = ui.allocate_rect(rect, egui::Sense::click_and_drag());
-                let ppp = ctx.pixels_per_point();
+            let t_scene = Instant::now();
+            let rect = ui.available_rect_before_wrap();
+            let response = ui.allocate_rect(rect, egui::Sense::click_and_drag());
+            let ppp = ctx.pixels_per_point();
 
-                // input → camera
-                let d = response.drag_delta();
-                if response.dragged_by(egui::PointerButton::Primary) {
-                    self.camera.orbit(d.x, d.y);
-                } else if response.dragged_by(egui::PointerButton::Secondary) || response.dragged_by(egui::PointerButton::Middle) {
-                    self.camera.pan(d.x, d.y);
+            // input → camera
+            let d = response.drag_delta();
+            if response.dragged_by(egui::PointerButton::Primary) {
+                self.camera.orbit(d.x, d.y);
+            } else if response.dragged_by(egui::PointerButton::Secondary)
+                || response.dragged_by(egui::PointerButton::Middle)
+            {
+                self.camera.pan(d.x, d.y);
+            }
+            if response.hovered() {
+                let scroll = ui.input(|i| i.smooth_scroll_delta.y);
+                if scroll != 0.0 {
+                    self.camera.zoom(scroll);
                 }
-                if response.hovered() {
-                    let scroll = ui.input(|i| i.smooth_scroll_delta.y);
-                    if scroll != 0.0 {
-                        self.camera.zoom(scroll);
+            }
+
+            let aspect = rect.width().max(1.0) / rect.height().max(1.0);
+            let vp = self.camera.view_proj(aspect);
+
+            if response.clicked_by(egui::PointerButton::Primary) {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    self.selected = self.pick(vp, rect, pos, frame);
+                }
+            }
+
+            // per-marker state (R5: one small buffer, no per-marker draws)
+            let mut states = vec![0u32; self.take.n_markers()];
+            if let Some(s) = self.selected {
+                states[s] = 1;
+            }
+
+            // trajectory of the selected marker (CPU, tiny)
+            let mut trajectory = Vec::new();
+            if let Some(s) = self.selected {
+                let lo = frame.saturating_sub(TRAJ_WINDOW);
+                let hi = (frame + TRAJ_WINDOW).min(n - 1);
+                for f in lo..=hi {
+                    if let Some(p) = self.take.position(f, s) {
+                        let t = if f <= frame { 1.0 } else { 0.45 };
+                        trajectory.push(StaticVertex { pos: p.to_array(), color: [1.0 * t, 0.85 * t, 0.15 * t] });
                     }
                 }
+            }
 
-                let aspect = rect.width().max(1.0) / rect.height().max(1.0);
-                let vp = self.camera.view_proj(aspect);
+            let uniforms = Uniforms {
+                view_proj: vp.to_cols_array_2d(),
+                viewport: [rect.width() * ppp, rect.height() * ppp],
+                frame: frame as u32,
+                n_markers: self.take.n_markers() as u32,
+                point_size: self.point_size * ppp,
+                selected: self.selected.map_or(-1, |s| s as i32),
+                _pad: [0.0; 2],
+            };
+            ui.painter()
+                .add(egui_wgpu::Callback::new_paint_callback(rect, SceneCallback { uniforms, states, trajectory }));
 
-                if response.clicked_by(egui::PointerButton::Primary) {
-                    if let Some(pos) = response.interact_pointer_pos() {
-                        self.selected = self.pick(vp, rect, pos, frame);
+            // labels: projected on the CPU, drawn by egui in one text batch
+            if self.show_labels {
+                let painter = ui.painter_at(rect);
+                let font = egui::FontId::proportional(11.0);
+                for m in 0..self.take.n_markers() {
+                    let Some(p) = self.take.position(frame, m) else { continue };
+                    let Some((s, _)) = self.project(vp, rect, p) else { continue };
+                    if !rect.contains(s) {
+                        continue;
                     }
+                    let color = if self.selected == Some(m) {
+                        egui::Color32::from_rgb(255, 217, 38)
+                    } else {
+                        egui::Color32::from_gray(210)
+                    };
+                    painter.text(
+                        s + egui::vec2(6.0, -4.0),
+                        egui::Align2::LEFT_BOTTOM,
+                        &self.take.markers[m],
+                        font.clone(),
+                        color,
+                    );
                 }
-
-                // per-marker state (R5: one small buffer, no per-marker draws)
-                let mut states = vec![0u32; self.take.n_markers()];
-                if let Some(s) = self.selected {
-                    states[s] = 1;
-                }
-
-                // trajectory of the selected marker (CPU, tiny)
-                let mut trajectory = Vec::new();
-                if let Some(s) = self.selected {
-                    let lo = frame.saturating_sub(TRAJ_WINDOW);
-                    let hi = (frame + TRAJ_WINDOW).min(n - 1);
-                    for f in lo..=hi {
-                        if let Some(p) = self.take.position(f, s) {
-                            let t = if f <= frame { 1.0 } else { 0.45 };
-                            trajectory.push(StaticVertex { pos: p.to_array(), color: [1.0 * t, 0.85 * t, 0.15 * t] });
-                        }
-                    }
-                }
-
-                let uniforms = Uniforms {
-                    view_proj: vp.to_cols_array_2d(),
-                    viewport: [rect.width() * ppp, rect.height() * ppp],
-                    frame: frame as u32,
-                    n_markers: self.take.n_markers() as u32,
-                    point_size: self.point_size * ppp,
-                    selected: self.selected.map_or(-1, |s| s as i32),
-                    _pad: [0.0; 2],
-                };
-                ui.painter().add(egui_wgpu::Callback::new_paint_callback(rect, SceneCallback { uniforms, states, trajectory }));
-
-                // labels: projected on the CPU, drawn by egui in one text batch
-                if self.show_labels {
-                    let painter = ui.painter_at(rect);
-                    let font = egui::FontId::proportional(11.0);
-                    for m in 0..self.take.n_markers() {
-                        let Some(p) = self.take.position(frame, m) else { continue };
-                        let Some((s, _)) = self.project(vp, rect, p) else { continue };
-                        if !rect.contains(s) {
-                            continue;
-                        }
-                        let color = if self.selected == Some(m) { egui::Color32::from_rgb(255, 217, 38) } else { egui::Color32::from_gray(210) };
-                        painter.text(s + egui::vec2(6.0, -4.0), egui::Align2::LEFT_BOTTOM, &self.take.markers[m], font.clone(), color);
-                    }
-                }
-                scene_time = t_scene.elapsed();
+            }
+            scene_time = t_scene.elapsed();
         }
 
         // ---- bookkeeping
@@ -784,7 +831,10 @@ impl eframe::App for App {
             ctx.request_repaint();
         }
         if let Some((t0, dur)) = self.bench {
-            if !self.shot_requested && self.screenshot.is_some() && now.duration_since(t0) >= Duration::from_millis(1500) {
+            if !self.shot_requested
+                && self.screenshot.is_some()
+                && now.duration_since(t0) >= Duration::from_millis(1500)
+            {
                 self.shot_requested = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
             }
@@ -879,11 +929,18 @@ fn main() -> eframe::Result {
         depth_buffer: 24,
         multisampling: MSAA as u16,
         wgpu_options: egui_wgpu::WgpuConfiguration {
-            surface: egui_wgpu::SurfaceConfig { present_mode: wgpu::PresentMode::AutoVsync, desired_maximum_frame_latency: Some(2) },
+            surface: egui_wgpu::SurfaceConfig {
+                present_mode: wgpu::PresentMode::AutoVsync,
+                desired_maximum_frame_latency: Some(2),
+            },
             wgpu_setup: egui_wgpu::WgpuSetup::CreateNew(wgpu_setup),
             ..Default::default()
         },
         ..Default::default()
     };
-    eframe::run_native("mstudio-spike", options, Box::new(move |cc| Ok(Box::new(App::new(cc, take, bench, screenshot)))))
+    eframe::run_native(
+        "mstudio-spike",
+        options,
+        Box::new(move |cc| Ok(Box::new(App::new(cc, take, bench, screenshot)))),
+    )
 }

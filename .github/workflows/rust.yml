@@ -1,0 +1,52 @@
+# Rust workspace CI (MStudio v2 migration, docs/CROSS_PLATFORM_PLAN.md).
+# The Python app keeps its own workflow in continuous-integration.yml.
+
+name: Rust (Win / macOS arm64 + x86_64 / Linux)
+
+on:
+  push:
+    branches: [main, 'release/**', 'feature/**']
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13] # macos-latest = Apple Silicon, macos-13 = Intel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Linux system libraries (winit / rfd / headless Vulkan via lavapipe)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libgtk-3-dev \
+            libvulkan1 mesa-vulkan-drivers vulkan-tools
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked
+
+      - name: test
+        run: cargo test --workspace --locked
+
+      - name: release build (spike binary)
+        run: cargo build --release -p mstudio-spike --locked

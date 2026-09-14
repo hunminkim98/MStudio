@@ -97,7 +97,10 @@ def read_data_from_trc(trc_file_path):
     for marker in marker_names:
         column_names.extend([f'{marker}_X', f'{marker}_Y', f'{marker}_Z'])
 
-    data = pd.read_csv(trc_file_path, sep='\t', skiprows=6, names=column_names)
+    # Data starts after the 5 header lines. Standard TRC files have a blank 6th line
+    # (skipped by skip_blank_lines); files written by save_to_trc do not, so
+    # skiprows=6 used to drop their first frame on re-open.
+    data = pd.read_csv(trc_file_path, sep='\t', skiprows=5, names=column_names, skip_blank_lines=True)
 
     return header_lines, data, marker_names, frame_rate
 

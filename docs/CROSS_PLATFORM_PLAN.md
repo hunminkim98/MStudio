@@ -113,8 +113,8 @@ Crate dependency direction is strictly downward: `app → render, report, proces
 pub struct Take {
     pub markers: Vec<String>,           // column order == GPU order
     pub fps: f32,
-    pub frames: Array3<f32>,            // [n_frames, n_markers, 3], meters, C-contiguous
-    pub original: Array3<f32>,          // deep copy at load; `restore_original()` copies back
+    pub frames: Array3<f64>,            // [n_frames, n_markers, 3], meters — f64 for oracle parity at 1e-6; f32 only on the GPU
+    pub original: Array3<f64>,          // deep copy at load; `restore_original()` copies back
     pub time: Array1<f32>,
 }
 ```
@@ -157,11 +157,11 @@ Two independent tracks.
 
 **Go if:** display-refresh fps on all three with CPU < 0.1 ms/frame and picking is exact. If `re_renderer` was evaluated, decide here whether to adopt it.
 
-### Phase 1 — Workspace + core + I/O  (1 week)
-- [ ] Cargo workspace, CI matrix (ubuntu / windows / macos-14 arm / macos-13 x86) with `cargo test`, `clippy -D warnings`, `rustfmt --check`
-- [ ] `mstudio-core`: `Take`, skeleton tables (12 models), state, playback, visual settings, outliers
-- [ ] `mstudio-io`: TRC read/write, C3D read/write, JSON folder read; round-trip tests against golden arrays
-- [ ] Linux CI installs `mesa-vulkan-drivers` (lavapipe) so wgpu tests can run headless
+### Phase 1 — Workspace + core + I/O  (1 week) — **DONE locally; see `PHASE1_RESULTS.md`**
+- [x] Cargo workspace, CI matrix (ubuntu / windows / macos-14 arm / macos-13 x86) with `cargo test`, `clippy -D warnings`, `rustfmt --check`
+- [x] `mstudio-core`: `Take`, skeleton tables (12 models), state, playback, visual settings, outliers
+- [x] `mstudio-io`: TRC read/write, C3D read/write, JSON folder read; round-trip tests against golden arrays
+- [x] Linux CI installs `mesa-vulkan-drivers` (lavapipe) so wgpu tests can run headless
 
 ### Phase 2 — Processing with oracle parity  (1–2 weeks)
 - [ ] `filters.rs`: six filters; test each against golden output at `1e-6` (Butterworth via SOS + zero-phase; Kalman + RTS ported from filterpy semantics; LOESS ported from statsmodels' `lowess` defaults)

@@ -1,0 +1,16 @@
+[package]
+name = "mstudio-core"
+description = "MStudio data model: takes, skeletons, state, playback, visual settings, outliers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+ndarray.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]
+ndarray-npy.workspace = true
+serde_json.workspace = true
