@@ -88,12 +88,17 @@ jobs:
           python -m pip install --upgrade pip maturin
           maturin build --release --locked -m crates/mstudio-py/Cargo.toml --out dist
 
-      - name: Install wheel + the Python oracle
+      - name: Install the wheel and the oracle's dependencies
         shell: bash
         run: |
-          python -m pip install pytest
-          python -m pip install .            # MStudio v0.1.5: the numerical oracle for check_parity.py
+          # The legacy package must not be installed: pip normalises
+          # distribution names case-insensitively, so `MStudio` and `mstudio`
+          # are one distribution and installing the former silently satisfies
+          # the latter. check_parity.py imports the oracle from the source
+          # tree instead (scripts/oracle_harness.py).
+          python -m pip install pytest -r scripts/oracle-requirements.txt
           python -m pip install --no-index --find-links dist mstudio
+          python -c "import mstudio; print(mstudio.__version__, mstudio.__file__)"
 
       - name: Bindings tests
         run: python -m pytest crates/mstudio-py/tests -q

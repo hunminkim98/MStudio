@@ -34,12 +34,15 @@ class QuietSaverMessageBox(RaisingMessageBox):
 
 try:
     import tkinter  # noqa: F401
-except Exception:  # headless interpreter without Tk: provide a stub module
+    import tkinter.filedialog  # noqa: F401  (reportGenerator imports it at module level)
+    import tkinter.messagebox  # noqa: F401
+except Exception:  # interpreter built without Tk: provide stub modules
     _tk = types.ModuleType("tkinter")
-    _mb = types.ModuleType("tkinter.messagebox")
-    _tk.messagebox = _mb
+    for _name in ("messagebox", "filedialog"):
+        _sub = types.ModuleType(f"tkinter.{_name}")
+        setattr(_tk, _name, _sub)
+        sys.modules[f"tkinter.{_name}"] = _sub
     sys.modules["tkinter"] = _tk
-    sys.modules["tkinter.messagebox"] = _mb
 
 from MStudio.utils import dataProcessor  # noqa: E402
 from MStudio.utils import dataSaver  # noqa: E402

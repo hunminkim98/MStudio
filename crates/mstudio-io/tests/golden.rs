@@ -59,10 +59,18 @@ fn trc_writer_is_byte_exact_with_pandas() {
     if got != want {
         let g = String::from_utf8_lossy(&got);
         let w = String::from_utf8_lossy(&want);
+        // `str::lines` strips a trailing '\r', so this finds content differences only.
         for (i, (a, b)) in g.lines().zip(w.lines()).enumerate() {
             assert_eq!(a, b, "first differing line: {}", i + 1);
         }
-        panic!("length differs: got {} want {}", got.len(), want.len());
+        let crs = want.iter().filter(|&&b| b == b'\r').count();
+        panic!(
+            "every line matches but the byte count differs: got {} want {} ({} CR bytes in the golden file). \
+             A golden file checked out with CRLF means .gitattributes is not marking tests/golden/** as -text.",
+            got.len(),
+            want.len(),
+            crs
+        );
     }
 }
 

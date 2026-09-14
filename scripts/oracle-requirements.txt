@@ -1,0 +1,20 @@
+# Third-party packages the Python oracle (MStudio v0.1.5) needs when it is
+# imported from the source tree rather than installed.
+#
+# The legacy package must NOT be `pip install`ed next to the `mstudio` wheel:
+# pip normalises distribution names case-insensitively, so `MStudio` and
+# `mstudio` are one distribution and installing one silently satisfies (or
+# uninstalls) the other. `scripts/oracle_harness.py` puts the repository root
+# on `sys.path` instead, so only these dependencies have to be present.
+#
+# Used by the `wheels` CI job and by `scripts/check_parity.py` / `gen_golden.py`.
+anytree
+c3d
+filterpy
+matplotlib
+numpy
+opencv-python-headless
+pandas
+scipy
+seaborn
+statsmodels

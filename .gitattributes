@@ -1,0 +1,10 @@
+# Byte-exact test fixtures. `mstudio-io`'s golden test and the bindings'
+# `test_trc_round_trip_is_byte_exact` compare the writers' output with these
+# files byte for byte, so git must never translate line endings on checkout
+# (Windows would otherwise turn every LF into CRLF and the comparison fails).
+tests/*.trc         -text
+tests/*.c3d         -text
+tests/golden/**     -text
+
+# Vendored minified library, kept verbatim.
+crates/mstudio-report/assets/plotly-basic.min.js -text

@@ -69,6 +69,41 @@ Filter timing from the same run (29 markers × 137 frames, all axes; Python = Po
 - Root `pyproject.toml` still builds the legacy `MStudio` Tk app (setuptools); the wheel from `crates/mstudio-py` is a separate distribution named `mstudio`. On PyPI both names are the same project, so the switch has to happen together with the release. On case-insensitive file systems `MStudio/` and `mstudio/` cannot both live in one `site-packages`, so the legacy package cannot be a shim next to the new one; it will move to a `legacy/` (oracle-only) tree.
 - `crates/spike` removal, `cargo-dist`, notarization / signing, README + `CLAUDE.md` architecture rewrite.
 
+## What the first CI run found (run #34820740136, commit af5eb5b)
+
+The branch had never been pushed, so this was the first time the Rust workflow
+ran. Two real cross-platform defects surfaced that no amount of local macOS
+testing would have caught.
+
+**1. `MStudio` and `mstudio` are one distribution to pip** — *all four wheel jobs*.
+The job installed the oracle with `pip install .` and then the wheel with
+`pip install --no-index --find-links dist mstudio`. pip normalises
+distribution names case-insensitively, so the second command found "MStudio
+0.1.5 already satisfies mstudio" and installed nothing; `import mstudio` then
+failed (collection error, pytest exit 2) or resolved to the legacy package on
+the case-insensitive runners (test failures, exit 1). Reproduced locally in a
+clean virtualenv.
+Fix: the oracle is no longer installed as a package. `scripts/oracle_harness.py`
+already puts the repository root on `sys.path`, so the job installs only the
+oracle's third-party dependencies (`scripts/oracle-requirements.txt`) and the
+wheel keeps the `mstudio` name to itself. The install step now prints
+`mstudio.__file__` so a silent no-op cannot happen again. This is the same name
+collision recorded under *Deferred to the distribution step*; it bites CI today.
+
+**2. No `.gitattributes`, so Windows checked out the byte-exact fixtures with CRLF** — *the `windows-latest` test job*.
+`trc_writer_is_byte_exact_with_pandas` failed with `got 121207 want 121349`:
+the golden TRC is 121 207 bytes with 142 newlines, and 121 207 + 142 = 121 349,
+i.e. one CR added per line by git's autocrlf on the runner. The Rust writer was
+right; the fixture was mangled on checkout.
+Fix: `.gitattributes` marks `tests/*.trc`, `tests/*.c3d`, `tests/golden/**` and
+the vendored Plotly bundle as `-text`. The test's panic message now counts the
+CR bytes and names `.gitattributes`, because `str::lines()` strips a trailing
+`\r` and the per-line comparison therefore passes while the byte count does not.
+
+The `ubuntu-latest` and `macos-latest` test jobs (fmt, clippy `-D warnings`,
+`cargo test --workspace`, release build) passed on the first attempt; the
+`macos-13` jobs were still queued when the failures were diagnosed.
+
 ## Parity QA on other platforms
 
 The CI `wheels` job runs the bindings tests and `check_parity.py` on Windows,
