@@ -32,8 +32,8 @@ Layout: 3D view + timeline (top-left), marker plot (bottom-left), Controls / Mar
 | | |
 |---|---|
 | Playback fps with names, trajectory, skeleton, grid and plots on | 109–119 (vsync-bound) |
-| Release binary | see commit message / `stat target/release/mstudio` |
-| Cold start → file loaded → first frames → exit (`--exit-after 0.3`) | see commit message |
+| Release binary (`debug = 1` profile, unstripped) | 17.8 MB |
+| Process lifetime with `--exit-after 0.3` (window + wgpu device + load + frames) | 0.46 s ⇒ **≈ 0.16 s to the first frame** (plan target < 0.5 s) |
 
 Playback is driven by `mstudio_core::Playback::tick(now)` each frame with
 `request_repaint()` only while playing (rule R3); idle the app repaints on input.
