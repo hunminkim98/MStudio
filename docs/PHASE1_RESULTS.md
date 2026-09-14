@@ -12,8 +12,9 @@ crates/mstudio-core           Take (f64 [frame, marker, xyz]), DirtyRange, Limit
                               playback: wall-clock frame clock (rule R3), loop, speed, seek
                               visual: marker/skeleton configs, clamps, 4 color schemes
                               outliers: bone-length detector, rayon over pairs, deterministic merge
-crates/mstudio-io             trc (reader + byte-exact pandas-compatible writer, py_repr), c3d (via c3dio), json folders
-                              examples/convert.rs: load/save CLI
+crates/mstudio-io             trc (reader + byte-exact pandas-compatible writer, py_repr), json folders,
+                              c3d (reader via c3dio; own writer — c3dio's writer produces files the Python c3d package rejects)
+                              examples/convert.rs: load/save CLI; scripts/check_c3d_interop.py: Python-side read-back check
 .github/workflows/rust.yml    ubuntu / windows / macos-latest (arm64) / macos-13 (x86_64): fmt, clippy -D warnings, test, release build; lavapipe on Linux
 ```
 
@@ -30,7 +31,7 @@ crates/mstudio-io             trc (reader + byte-exact pandas-compatible writer,
 | `outliers_match_python_for_every_model_clean_and_gapped` | 10 outlier maps identical |
 | 29 unit tests | py_repr vs Python `repr`, JSON folder centring, playback clock, state rules, clamps |
 
-Cross-check with the Python ecosystem: a C3D written by Rust is read by the Python `c3d` package and matches the TRC source (see the session log for the command; to repeat: `cargo run -p mstudio-io --example convert -- tests/test.trc /tmp/x.c3d` then load it with `MStudio.utils.dataLoader.read_data_from_c3d`).
+Cross-check with the Python ecosystem (`.venv/bin/python scripts/check_c3d_interop.py`): a C3D written by Rust is read by the Python `c3d` package and matches the TRC source within 2.3e-7 m (float32 mm precision); a TRC written by Rust is read by pandas and matches the C3D source within 4e-16.
 
 ## Deviations from the Python code (intentional)
 
