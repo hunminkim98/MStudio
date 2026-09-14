@@ -1,7 +1,7 @@
 # Rust workspace CI (MStudio v2 migration, docs/CROSS_PLATFORM_PLAN.md).
 # The Python app keeps its own workflow in continuous-integration.yml.
 
-name: Rust (Win / macOS arm64 + x86_64 / Linux)
+name: Rust (Win / macOS arm64 / Linux)
 
 on:
   push:
@@ -20,7 +20,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13] # macos-latest = Apple Silicon, macos-13 = Intel
+        # macos-latest is Apple Silicon. Intel macOS (macos-13) is not built or
+        # tested: the runner stayed queued through three consecutive runs without
+        # ever being assigned, so it cannot gate a merge (docs/PHASE6_RESULTS.md).
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest] # Apple Silicon only, as above
 
     steps:
       - uses: actions/checkout@v4

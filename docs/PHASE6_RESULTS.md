@@ -20,7 +20,7 @@ deliberately **not** in this step.
 | CLI | `python -m mstudio [file] [--play]`, console script `mstudio` in the wheel | |
 | Tests | `crates/mstudio-py/tests/test_mstudio.py` — 75 tests | Goldens (loaders, 14 filters × full/gapped, 24 interpolation, 4 pattern, 5 skeleton outlier sets), TRC byte-exact round trip, C3D round trip, view semantics (shared memory, lifetime via `base`, read-only views, setter copy), error mapping, GIL release, CLI. |
 | Live parity | `scripts/check_parity.py` (+ `scripts/oracle_harness.py`) | Runs the **installed Python oracle** and the bindings side by side on the same inputs: 88 cases, table + JSON, exit 1 on any failure. Catches drift in the oracle's dependencies that frozen goldens cannot. |
-| CI | `.github/workflows/rust.yml` job `wheels` | On ubuntu / windows / macos-latest / macos-13: `maturin build --release`, install the wheel + the oracle (`pip install .`), run the bindings tests and `check_parity.py`, upload the wheel and the parity JSON as artifacts. No publishing. |
+| CI | `.github/workflows/rust.yml` job `wheels` | On ubuntu / windows / macos-latest: `maturin build --release`, install the wheel + the oracle (`pip install .`), run the bindings tests and `check_parity.py`, upload the wheel and the parity JSON as artifacts. No publishing. |
 
 `crates/mstudio-py/Cargo.toml` sets `test = false` for the cdylib: its tests are
 Python, and a Rust test harness would have to link libpython. `cargo test
@@ -126,16 +126,32 @@ The `wheels` job's parity JSON is committed per platform
 | `ubuntu-latest` (Linux x86_64, glibc 2.39) | 3.11.16 | `mstudio-0.2.0-cp310-abi3-manylinux_2_39_x86_64.whl` | 81 / 7 / **0** |
 | `windows-latest` (AMD64) | 3.11.9 | `mstudio-0.2.0-cp310-abi3-win_amd64.whl` | 80 / 8 / **0** |
 | `macos-latest` (arm64) | 3.11.9 | `mstudio-0.2.0-cp310-abi3-macosx_11_0_arm64.whl` | 81 / 7 / **0** |
-| `macos-13` (Intel x86_64) | — | — | queued; the runner never started in three attempts |
+| `macos-13` (Intel x86_64) | — | — | never ran; dropped from the matrix, see below |
 
 The deviations are the same everywhere (3 × smoothing spline, 4 × segment
 auto-detection); Windows adds the line-ending one. `fmt`, `clippy -D warnings`,
 `cargo test --workspace` (90 tests), the release build and the 75 bindings
 tests pass on all three.
 
-macOS Intel is the one gap: `macos-13` sat queued through all three runs
-(38 minutes and counting in the last one) without a runner being assigned. The
-row stays open in `docs/QA_CHECKLIST.md`.
-
 The interactive rows of `docs/QA_CHECKLIST.md` still need a person at each
 machine.
+
+## Decision: Intel macOS is out of scope for v2
+
+`macos-13` sat queued through all three runs without ever being assigned a
+runner (over 40 minutes in the last one), so it could not gate anything, and
+GitHub is winding these images down. It is removed from both matrices in
+`.github/workflows/rust.yml`; macOS means Apple Silicon for the Rust
+application.
+
+What follows from that:
+
+- No `macosx_x86_64` wheel and no Intel `.dmg`. Intel Mac users stay on the
+  Python v0.1.5 app, whose own workflow (`continuous-integration.yml`) still
+  tests `macos-13` and is left untouched.
+- `docs/CROSS_PLATFORM_PLAN.md` G1 now reads "macOS (Apple Silicon)" and the
+  distribution row asks `cargo-dist` for an arm64 `.dmg` only.
+- Nothing in the code is Apple-Silicon-specific; the target is dropped for
+  lack of CI, not for a technical reason. If Intel coverage is wanted later,
+  cross-compiling `x86_64-apple-darwin` on the arm64 runner would build the
+  artifacts, but they would ship untested.

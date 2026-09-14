@@ -12,7 +12,7 @@ Revision 1 of this document proposed PySide6 + pygfx (Python). It was superseded
 
 | # | Goal | Measurable exit criterion |
 |---|---|---|
-| G1 | Runs natively on Windows, macOS (Apple Silicon + Intel), Linux | CI matrix green on all runners incl. an offscreen render test; one signed/notarized artifact per OS |
+| G1 | Runs natively on Windows, macOS (Apple Silicon), Linux | CI matrix green on all runners incl. an offscreen render test; one signed/notarized artifact per OS |
 | G2 | Blender-level viewport smoothness | 60 fps (or display refresh) sustained with ≥ 300 markers × ≥ 50 000 frames; **< 0.1 ms CPU per frame** outside the GPU submit; camera drag never drops a frame |
 | G3 | Feature parity with v0.1.5 | Every row in §7 checked, filter outputs match the Python oracle within `1e-6` |
 | G4 | "High-end" feel | Cold start **< 0.5 s**; single binary **< 30 MB**; HiDPI-correct; dark/light theme; dockable panels |
@@ -158,7 +158,7 @@ Two independent tracks.
 **Go if:** display-refresh fps on all three with CPU < 0.1 ms/frame and picking is exact. If `re_renderer` was evaluated, decide here whether to adopt it.
 
 ### Phase 1 — Workspace + core + I/O  (1 week) — **DONE locally; see `PHASE1_RESULTS.md`**
-- [x] Cargo workspace, CI matrix (ubuntu / windows / macos-14 arm / macos-13 x86) with `cargo test`, `clippy -D warnings`, `rustfmt --check`
+- [x] Cargo workspace, CI matrix (ubuntu / windows / macos-14 arm; macos-13 x86 was dropped in Phase 6, see below) with `cargo test`, `clippy -D warnings`, `rustfmt --check`
 - [x] `mstudio-core`: `Take`, skeleton tables (12 models), state, playback, visual settings, outliers
 - [x] `mstudio-io`: TRC read/write, C3D read/write, JSON folder read; round-trip tests against golden arrays
 - [x] Linux CI installs `mesa-vulkan-drivers` (lavapipe) so wgpu tests can run headless
@@ -265,7 +265,7 @@ The golden files are the contract: **Phase 0a runs before any Rust is written**,
 | Channel | Artifact | Tool |
 |---|---|---|
 | PyPI (`pip install mstudio`) | wheel containing the PyO3 module + app; `mstudio` console script calls `mstudio.run()` | `maturin` on CI for cp310–cp313 × 3 OSes |
-| GitHub Releases | standalone binaries: `.dmg` (universal or arm64+x86), `.msi`/`.zip`, `.tar.gz`/AppImage | `cargo-dist` |
+| GitHub Releases | standalone binaries: `.dmg` (arm64), `.msi`/`.zip`, `.tar.gz`/AppImage | `cargo-dist` |
 | conda-forge (later) | recipe wrapping the wheel | — |
 
 ---

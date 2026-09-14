@@ -48,5 +48,8 @@ Automated shorthand: **golden** = `cargo test --workspace` against
 launch a window.
 
 Rows 9–11, 13, 20, 22–25 have no automated coverage and are the ones a person
-must walk on every OS. **macOS Intel (`macos-13`) has no coverage at all**: the
-runner stayed queued through three CI runs without ever starting.
+must walk on every OS.
+
+Intel macOS is not a target: `macos-13` never got a runner in three CI runs and
+was removed from the matrix, so macOS here means Apple Silicon
+(`docs/PHASE6_RESULTS.md`).
