@@ -1,0 +1,1541 @@
+{
+  "generated_with": {
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "scipy": "1.17.1",
+    "statsmodels": "0.15.0",
+    "filterpy": "1.4.5"
+  },
+  "tolerance": {
+    "default_abs": 1e-06,
+    "notes": "Kalman (filterpy) and LOESS (statsmodels) may need 1e-5; everything else 1e-6."
+  },
+  "files": {
+    "trc_frames": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "tests/test.trc loaded: [frame, marker, xyz] meters"
+    },
+    "trc_time": {
+      "shape": [
+        137
+      ],
+      "dtype": "float64",
+      "description": "tests/test.trc Time column"
+    },
+    "c3d_frames": {
+      "shape": [
+        137,
+        27,
+        3
+      ],
+      "dtype": "float64",
+      "description": "tests/test.c3d loaded: [frame, marker, xyz] meters (mm/1000)"
+    },
+    "c3d_time": {
+      "shape": [
+        137
+      ],
+      "dtype": "float64",
+      "description": "tests/test.c3d Time column"
+    },
+    "trc_roundtrip.trc": {
+      "description": "save_to_trc(test.trc data) byte-exact output"
+    },
+    "c3d_roundtrip.c3d": {
+      "description": "save_to_c3d(test.trc data); compare by re-reading, not bytes"
+    },
+    "trc_frames_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "trc_frames with GAPS applied (NaN)"
+    },
+    "filter_00_butterworth": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth {'order': 4, 'cut_off_frequency': 10.0} on trc_frames"
+    },
+    "filter_00_butterworth_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth {'order': 4, 'cut_off_frequency': 10.0} on trc_frames_gapped"
+    },
+    "filter_01_butterworth": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth {'order': 4, 'cut_off_frequency': 6.0} on trc_frames"
+    },
+    "filter_01_butterworth_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth {'order': 4, 'cut_off_frequency': 6.0} on trc_frames_gapped"
+    },
+    "filter_02_butterworth": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth {'order': 2, 'cut_off_frequency': 6.0} on trc_frames"
+    },
+    "filter_02_butterworth_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth {'order': 2, 'cut_off_frequency': 6.0} on trc_frames_gapped"
+    },
+    "filter_03_butterworth_on_speed": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth_on_speed {'order': 4, 'cut_off_frequency': 10.0} on trc_frames"
+    },
+    "filter_03_butterworth_on_speed_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth_on_speed {'order': 4, 'cut_off_frequency': 10.0} on trc_frames_gapped"
+    },
+    "filter_04_butterworth_on_speed": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth_on_speed {'order': 2, 'cut_off_frequency': 6.0} on trc_frames"
+    },
+    "filter_04_butterworth_on_speed_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "butterworth_on_speed {'order': 2, 'cut_off_frequency': 6.0} on trc_frames_gapped"
+    },
+    "filter_05_kalman": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} on trc_frames"
+    },
+    "filter_05_kalman_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "kalman {'trust_ratio': 20.0, 'smooth': 1.0} on trc_frames_gapped"
+    },
+    "filter_06_kalman": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "kalman {'trust_ratio': 20.0, 'smooth': 0.0} on trc_frames"
+    },
+    "filter_06_kalman_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "kalman {'trust_ratio': 20.0, 'smooth': 0.0} on trc_frames_gapped"
+    },
+    "filter_07_kalman": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} on trc_frames"
+    },
+    "filter_07_kalman_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "kalman {'trust_ratio': 100.0, 'smooth': 1.0} on trc_frames_gapped"
+    },
+    "filter_08_gaussian": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "gaussian {'sigma_kernel': 3.0} on trc_frames"
+    },
+    "filter_08_gaussian_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "gaussian {'sigma_kernel': 3.0} on trc_frames_gapped"
+    },
+    "filter_09_gaussian": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "gaussian {'sigma_kernel': 1.0} on trc_frames"
+    },
+    "filter_09_gaussian_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "gaussian {'sigma_kernel': 1.0} on trc_frames_gapped"
+    },
+    "filter_10_LOESS": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "LOESS {'nb_values_used': 10.0} on trc_frames"
+    },
+    "filter_10_LOESS_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "LOESS {'nb_values_used': 10.0} on trc_frames_gapped"
+    },
+    "filter_11_LOESS": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "LOESS {'nb_values_used': 30.0} on trc_frames"
+    },
+    "filter_11_LOESS_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "LOESS {'nb_values_used': 30.0} on trc_frames_gapped"
+    },
+    "filter_12_median": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "median {'kernel_size': 3.0} on trc_frames"
+    },
+    "filter_12_median_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "median {'kernel_size': 3.0} on trc_frames_gapped"
+    },
+    "filter_13_median": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "median {'kernel_size': 5.0} on trc_frames"
+    },
+    "filter_13_median_gapped": {
+      "shape": [
+        137,
+        29,
+        3
+      ],
+      "dtype": "float64",
+      "description": "median {'kernel_size': 5.0} on trc_frames_gapped"
+    },
+    "interp_linear_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "linear(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_polynomial_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "polynomial(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_spline_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "spline(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_nearest_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "nearest(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_zero_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "zero(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_slinear_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "slinear(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_quadratic_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "quadratic(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_cubic_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "cubic(order=3) on RKnee gaps within [35,55]"
+    },
+    "interp_linear_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "linear(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_polynomial_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "polynomial(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_spline_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "spline(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_nearest_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "nearest(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_zero_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "zero(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_slinear_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "slinear(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_quadratic_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "quadratic(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_cubic_LWrist": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "cubic(order=3) on LWrist gaps within [85,100]"
+    },
+    "interp_linear_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "linear(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_polynomial_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "polynomial(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_spline_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "spline(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_nearest_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "nearest(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_zero_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "zero(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_slinear_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "slinear(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_quadratic_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "quadratic(order=3) on RAnkle gaps within [15,25]"
+    },
+    "interp_cubic_RAnkle": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "cubic(order=3) on RAnkle gaps within [15,25]"
+    },
+    "pattern_RKnee_1ref": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "pattern-based on RKnee using ['RHip'] within [35,55]"
+    },
+    "pattern_RKnee_2ref": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "pattern-based on RKnee using ['RHip', 'RAnkle'] within [35,55]"
+    },
+    "pattern_RKnee_3ref": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "pattern-based on RKnee using ['RHip', 'RAnkle', 'LKnee'] within [35,55]"
+    },
+    "pattern_LWrist_3ref": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "pattern-based on LWrist using ['LElbow', 'LShoulder', 'LIndex'] within [85,100]"
+    },
+    "outliers_HALPE_26": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "[marker, frame] outlier flags, threshold 0.3, pairs from HALPE_26"
+    },
+    "outliers_HALPE_26_gapped": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "same on trc_frames_gapped"
+    },
+    "outliers_COCO_17": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "[marker, frame] outlier flags, threshold 0.3, pairs from COCO_17"
+    },
+    "outliers_COCO_17_gapped": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "same on trc_frames_gapped"
+    },
+    "outliers_COCO_133": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "[marker, frame] outlier flags, threshold 0.3, pairs from COCO_133"
+    },
+    "outliers_COCO_133_gapped": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "same on trc_frames_gapped"
+    },
+    "outliers_BODY_25B": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "[marker, frame] outlier flags, threshold 0.3, pairs from BODY_25B"
+    },
+    "outliers_BODY_25B_gapped": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "same on trc_frames_gapped"
+    },
+    "outliers_BODY_25": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "[marker, frame] outlier flags, threshold 0.3, pairs from BODY_25"
+    },
+    "outliers_BODY_25_gapped": {
+      "shape": [
+        29,
+        137
+      ],
+      "dtype": "uint8",
+      "description": "same on trc_frames_gapped"
+    },
+    "analysis_distance_RHip_RKnee": {
+      "shape": [
+        137
+      ],
+      "dtype": "float64",
+      "description": "calculate_distance(RHip, RKnee) per frame"
+    },
+    "analysis_angle_RHip_RKnee_RAnkle": {
+      "shape": [
+        137
+      ],
+      "dtype": "float64",
+      "description": "calculate_angle(RHip, RKnee(vertex), RAnkle) per frame, degrees"
+    },
+    "analysis_velocity_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "calculate_velocity(prev, curr, next, fps) per frame; NaN at edges"
+    },
+    "analysis_acceleration_RKnee": {
+      "shape": [
+        137,
+        3
+      ],
+      "dtype": "float64",
+      "description": "calculate_acceleration(vel[f-1], vel[f+1], fps); NaN at edges"
+    },
+    "analysis_arc_RKnee_frame0": {
+      "shape": [
+        21,
+        3
+      ],
+      "dtype": "float64",
+      "description": "calculate_arc_points(vertex=RKnee, RHip, RAnkle) frame 0, default radius/segments"
+    }
+  },
+  "trc": {
+    "markers": [
+      "RHip",
+      "RKnee",
+      "RAnkle",
+      "RBigToe",
+      "RSmallToe",
+      "RHeel",
+      "LHip",
+      "LKnee",
+      "LAnkle",
+      "LBigToe",
+      "LSmallToe",
+      "LHeel",
+      "Nose",
+      "REye",
+      "LEye",
+      "RShoulder",
+      "RElbow",
+      "RWrist",
+      "RThumb",
+      "RIndex",
+      "RPinky",
+      "LShoulder",
+      "LElbow",
+      "LWrist",
+      "LThumb",
+      "LIndex",
+      "LPinky",
+      "Hip",
+      "Neck"
+    ],
+    "fps": 120.0,
+    "n_frames": 137
+  },
+  "c3d": {
+    "markers": [
+      "RHip",
+      "RKnee",
+      "RAnkle",
+      "RBigToe",
+      "RSmallToe",
+      "RHeel",
+      "LHip",
+      "LKnee",
+      "LAnkle",
+      "LBigToe",
+      "LSmallToe",
+      "LHeel",
+      "Nose",
+      "REye",
+      "LEye",
+      "RShoulder",
+      "RElbow",
+      "RWrist",
+      "RThumb",
+      "RIndex",
+      "RPinky",
+      "LShoulder",
+      "LElbow",
+      "LWrist",
+      "LThumb",
+      "LIndex",
+      "LPinky"
+    ],
+    "fps": 120.0,
+    "n_frames": 137
+  },
+  "gaps": {
+    "RKnee": [
+      [
+        40,
+        50
+      ]
+    ],
+    "LWrist": [
+      [
+        90,
+        95
+      ]
+    ],
+    "RAnkle": [
+      [
+        20,
+        20
+      ]
+    ]
+  },
+  "filter_cases": [
+    {
+      "index": 0,
+      "type": "butterworth",
+      "params": {
+        "order": 4,
+        "cut_off_frequency": 10.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 1,
+      "type": "butterworth",
+      "params": {
+        "order": 4,
+        "cut_off_frequency": 6.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 2,
+      "type": "butterworth",
+      "params": {
+        "order": 2,
+        "cut_off_frequency": 6.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 3,
+      "type": "butterworth_on_speed",
+      "params": {
+        "order": 4,
+        "cut_off_frequency": 10.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 4,
+      "type": "butterworth_on_speed",
+      "params": {
+        "order": 2,
+        "cut_off_frequency": 6.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 5,
+      "type": "kalman",
+      "params": {
+        "trust_ratio": 20.0,
+        "smooth": 1.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 6,
+      "type": "kalman",
+      "params": {
+        "trust_ratio": 20.0,
+        "smooth": 0.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 7,
+      "type": "kalman",
+      "params": {
+        "trust_ratio": 100.0,
+        "smooth": 1.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 8,
+      "type": "gaussian",
+      "params": {
+        "sigma_kernel": 3.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 9,
+      "type": "gaussian",
+      "params": {
+        "sigma_kernel": 1.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 10,
+      "type": "LOESS",
+      "params": {
+        "nb_values_used": 10.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 11,
+      "type": "LOESS",
+      "params": {
+        "nb_values_used": 30.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 12,
+      "type": "median",
+      "params": {
+        "kernel_size": 3.0
+      },
+      "fps": 120.0
+    },
+    {
+      "index": 13,
+      "type": "median",
+      "params": {
+        "kernel_size": 5.0
+      },
+      "fps": 120.0
+    }
+  ],
+  "interp_cases": [
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "linear",
+      "order": 3,
+      "file": "interp_linear_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "polynomial",
+      "order": 3,
+      "file": "interp_polynomial_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "spline",
+      "order": 3,
+      "file": "interp_spline_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "nearest",
+      "order": 3,
+      "file": "interp_nearest_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "zero",
+      "order": 3,
+      "file": "interp_zero_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "slinear",
+      "order": 3,
+      "file": "interp_slinear_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "quadratic",
+      "order": 3,
+      "file": "interp_quadratic_RKnee"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "method": "cubic",
+      "order": 3,
+      "file": "interp_cubic_RKnee"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "linear",
+      "order": 3,
+      "file": "interp_linear_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "polynomial",
+      "order": 3,
+      "file": "interp_polynomial_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "spline",
+      "order": 3,
+      "file": "interp_spline_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "nearest",
+      "order": 3,
+      "file": "interp_nearest_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "zero",
+      "order": 3,
+      "file": "interp_zero_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "slinear",
+      "order": 3,
+      "file": "interp_slinear_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "quadratic",
+      "order": 3,
+      "file": "interp_quadratic_LWrist"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "method": "cubic",
+      "order": 3,
+      "file": "interp_cubic_LWrist"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "linear",
+      "order": 3,
+      "file": "interp_linear_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "polynomial",
+      "order": 3,
+      "file": "interp_polynomial_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "spline",
+      "order": 3,
+      "file": "interp_spline_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "nearest",
+      "order": 3,
+      "file": "interp_nearest_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "zero",
+      "order": 3,
+      "file": "interp_zero_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "slinear",
+      "order": 3,
+      "file": "interp_slinear_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "quadratic",
+      "order": 3,
+      "file": "interp_quadratic_RAnkle"
+    },
+    {
+      "marker": "RAnkle",
+      "range": [
+        15,
+        25
+      ],
+      "method": "cubic",
+      "order": 3,
+      "file": "interp_cubic_RAnkle"
+    }
+  ],
+  "pattern_cases": [
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "references": [
+        "RHip"
+      ],
+      "file": "pattern_RKnee_1ref"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "references": [
+        "RHip",
+        "RAnkle"
+      ],
+      "file": "pattern_RKnee_2ref"
+    },
+    {
+      "marker": "RKnee",
+      "range": [
+        35,
+        55
+      ],
+      "references": [
+        "RHip",
+        "RAnkle",
+        "LKnee"
+      ],
+      "file": "pattern_RKnee_3ref"
+    },
+    {
+      "marker": "LWrist",
+      "range": [
+        85,
+        100
+      ],
+      "references": [
+        "LElbow",
+        "LShoulder",
+        "LIndex"
+      ],
+      "file": "pattern_LWrist_3ref"
+    }
+  ],
+  "skeleton_pairs": {
+    "HALPE_26": [
+      [
+        "Hip",
+        "RHip"
+      ],
+      [
+        "RHip",
+        "RKnee"
+      ],
+      [
+        "RKnee",
+        "RAnkle"
+      ],
+      [
+        "RAnkle",
+        "RBigToe"
+      ],
+      [
+        "RBigToe",
+        "RSmallToe"
+      ],
+      [
+        "RAnkle",
+        "RHeel"
+      ],
+      [
+        "Hip",
+        "LHip"
+      ],
+      [
+        "LHip",
+        "LKnee"
+      ],
+      [
+        "LKnee",
+        "LAnkle"
+      ],
+      [
+        "LAnkle",
+        "LBigToe"
+      ],
+      [
+        "LBigToe",
+        "LSmallToe"
+      ],
+      [
+        "LAnkle",
+        "LHeel"
+      ],
+      [
+        "Hip",
+        "Neck"
+      ],
+      [
+        "Neck",
+        "RShoulder"
+      ],
+      [
+        "RShoulder",
+        "RElbow"
+      ],
+      [
+        "RElbow",
+        "RWrist"
+      ],
+      [
+        "Neck",
+        "LShoulder"
+      ],
+      [
+        "LShoulder",
+        "LElbow"
+      ],
+      [
+        "LElbow",
+        "LWrist"
+      ]
+    ],
+    "COCO_17": [
+      [
+        "Hip",
+        "RHip"
+      ],
+      [
+        "RHip",
+        "RKnee"
+      ],
+      [
+        "RKnee",
+        "RAnkle"
+      ],
+      [
+        "Hip",
+        "LHip"
+      ],
+      [
+        "LHip",
+        "LKnee"
+      ],
+      [
+        "LKnee",
+        "LAnkle"
+      ],
+      [
+        "Hip",
+        "Neck"
+      ],
+      [
+        "Neck",
+        "Nose"
+      ],
+      [
+        "Neck",
+        "RShoulder"
+      ],
+      [
+        "RShoulder",
+        "RElbow"
+      ],
+      [
+        "RElbow",
+        "RWrist"
+      ],
+      [
+        "Neck",
+        "LShoulder"
+      ],
+      [
+        "LShoulder",
+        "LElbow"
+      ],
+      [
+        "LElbow",
+        "LWrist"
+      ]
+    ],
+    "COCO_133": [
+      [
+        "Hip",
+        "RHip"
+      ],
+      [
+        "RHip",
+        "RKnee"
+      ],
+      [
+        "RKnee",
+        "RAnkle"
+      ],
+      [
+        "RAnkle",
+        "RBigToe"
+      ],
+      [
+        "RBigToe",
+        "RSmallToe"
+      ],
+      [
+        "RAnkle",
+        "RHeel"
+      ],
+      [
+        "Hip",
+        "LHip"
+      ],
+      [
+        "LHip",
+        "LKnee"
+      ],
+      [
+        "LKnee",
+        "LAnkle"
+      ],
+      [
+        "LAnkle",
+        "LBigToe"
+      ],
+      [
+        "LBigToe",
+        "LSmallToe"
+      ],
+      [
+        "LAnkle",
+        "LHeel"
+      ],
+      [
+        "Hip",
+        "Neck"
+      ],
+      [
+        "Neck",
+        "Nose"
+      ],
+      [
+        "Nose",
+        "REye"
+      ],
+      [
+        "Nose",
+        "LEye"
+      ],
+      [
+        "Neck",
+        "RShoulder"
+      ],
+      [
+        "RShoulder",
+        "RElbow"
+      ],
+      [
+        "RElbow",
+        "RWrist"
+      ],
+      [
+        "RWrist",
+        "RIndex"
+      ],
+      [
+        "RWrist",
+        "RPinky"
+      ],
+      [
+        "Neck",
+        "LShoulder"
+      ],
+      [
+        "LShoulder",
+        "LElbow"
+      ],
+      [
+        "LElbow",
+        "LWrist"
+      ],
+      [
+        "LWrist",
+        "LIndex"
+      ],
+      [
+        "LWrist",
+        "LPinky"
+      ]
+    ],
+    "BODY_25B": [
+      [
+        "RHip",
+        "RKnee"
+      ],
+      [
+        "RKnee",
+        "RAnkle"
+      ],
+      [
+        "RAnkle",
+        "RBigToe"
+      ],
+      [
+        "RBigToe",
+        "RSmallToe"
+      ],
+      [
+        "RAnkle",
+        "RHeel"
+      ],
+      [
+        "LHip",
+        "LKnee"
+      ],
+      [
+        "LKnee",
+        "LAnkle"
+      ],
+      [
+        "LAnkle",
+        "LBigToe"
+      ],
+      [
+        "LBigToe",
+        "LSmallToe"
+      ],
+      [
+        "LAnkle",
+        "LHeel"
+      ],
+      [
+        "Neck",
+        "RShoulder"
+      ],
+      [
+        "RShoulder",
+        "RElbow"
+      ],
+      [
+        "RElbow",
+        "RWrist"
+      ],
+      [
+        "Neck",
+        "LShoulder"
+      ],
+      [
+        "LShoulder",
+        "LElbow"
+      ],
+      [
+        "LElbow",
+        "LWrist"
+      ]
+    ],
+    "BODY_25": [
+      [
+        "RHip",
+        "RKnee"
+      ],
+      [
+        "RKnee",
+        "RAnkle"
+      ],
+      [
+        "RAnkle",
+        "RBigToe"
+      ],
+      [
+        "RBigToe",
+        "RSmallToe"
+      ],
+      [
+        "RAnkle",
+        "RHeel"
+      ],
+      [
+        "LHip",
+        "LKnee"
+      ],
+      [
+        "LKnee",
+        "LAnkle"
+      ],
+      [
+        "LAnkle",
+        "LBigToe"
+      ],
+      [
+        "LBigToe",
+        "LSmallToe"
+      ],
+      [
+        "LAnkle",
+        "LHeel"
+      ],
+      [
+        "Neck",
+        "Nose"
+      ],
+      [
+        "Neck",
+        "RShoulder"
+      ],
+      [
+        "RShoulder",
+        "RElbow"
+      ],
+      [
+        "RElbow",
+        "RWrist"
+      ],
+      [
+        "Neck",
+        "LShoulder"
+      ],
+      [
+        "LShoulder",
+        "LElbow"
+      ],
+      [
+        "LElbow",
+        "LWrist"
+      ]
+    ]
+  },
+  "outlier_threshold": 0.3
+}

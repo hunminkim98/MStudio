@@ -23,6 +23,7 @@ OUTPUT:
 
 ## INIT
 import os
+import math
 import glob
 import fnmatch
 import numpy as np
@@ -71,6 +72,7 @@ def kalman_filter(coords, frame_rate, measurement_noise, process_noise, nb_dimen
     '''
 
     # Variables
+    coords = np.asarray(coords) # positional indexing below; a pandas Series slice may not start at label 0
     dim_x = nb_dimensions * nb_derivatives # 9 state variables 
     dt = 1/frame_rate
     
@@ -93,7 +95,7 @@ def kalman_filter(coords, frame_rate, measurement_noise, process_noise, nb_dimen
     F_per_coord = np.zeros((int(dim_x/nb_dimensions), int(dim_x/nb_dimensions)))
     for i in range(nb_derivatives):
         for j in range(min(i+1, nb_derivatives)):
-            F_per_coord[j,i] = dt**(i-j) / np.math.factorial(i - j)
+            F_per_coord[j,i] = dt**(i-j) / math.factorial(i - j)
     f.F = np.kron(np.eye(nb_dimensions),F_per_coord) 
     # F_per_coord= [[1, dt, dt**2/2], 
                  # [ 0, 1,  dt     ],
