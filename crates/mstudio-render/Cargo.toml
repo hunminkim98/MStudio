@@ -1,0 +1,19 @@
+[package]
+name = "mstudio-render"
+description = "MStudio wgpu viewport renderer: GPU-resident takes, instanced markers, thick lines, picking"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+mstudio-core.workspace = true
+mstudio-processing.workspace = true
+wgpu.workspace = true
+glam.workspace = true
+bytemuck.workspace = true
+ndarray.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true

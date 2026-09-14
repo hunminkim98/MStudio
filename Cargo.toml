@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/mstudio-core", "crates/mstudio-io", "crates/mstudio-processing", "crates/spike"]
+members = ["crates/mstudio-core", "crates/mstudio-io", "crates/mstudio-processing", "crates/mstudio-render", "crates/spike"]
 
 [workspace.package]
 version = "0.2.0"
@@ -12,6 +12,11 @@ repository = "https://github.com/hunminkim98/MStudio"
 [workspace.dependencies]
 mstudio-core = { path = "crates/mstudio-core" }
 mstudio-processing = { path = "crates/mstudio-processing" }
+mstudio-render = { path = "crates/mstudio-render" }
+wgpu = "30"
+glam = "0.33"
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
 nalgebra = "0.35"
 num-complex = "0.4"
 criterion = { version = "0.8", default-features = false }

@@ -169,12 +169,12 @@ Two independent tracks.
 - [x] `analysis.rs`: distance, angles, arc, velocity, acceleration; golden parity
 - [x] Benchmarks: full-take Butterworth on 300 markers × 50 000 frames < 200 ms on 8 cores
 
-### Phase 3 — Renderer  (2 weeks)
-- [ ] `mstudio-render` pipelines: markers (states: normal/selected/pattern/analysis/outlier-frame), skeleton (outlier recolor, torso width), trajectories (± window), grid/axes, Y-up/Z-up root transform
-- [ ] Camera: orbit LMB, pan RMB **and** MMB, wheel zoom normalized (macOS delta, X11 buttons 4/5 handled by winit), reset, fit-to-data
-- [ ] Picking: ID render target, async map + readback, no pipeline stall
-- [ ] Analysis overlay: reference line with clickable axis cycle, angle arc, label anchors
-- [ ] Offscreen render tests: render one frame to a texture, assert marker/skeleton pixel counts
+### Phase 3 — Renderer  (2 weeks) — **DONE; see `PHASE3_RESULTS.md`**
+- [x] `mstudio-render` pipelines: markers (states: normal/selected/pattern/analysis/outlier-frame), skeleton (outlier recolor, torso width), trajectories (± window), grid/axes, Y-up/Z-up root transform
+- [x] Camera: orbit LMB, pan RMB **and** MMB, wheel zoom normalized (macOS delta, X11 buttons 4/5 handled by winit), reset, fit-to-data
+- [x] Picking: CPU projection (Phase 0 finding; the ID-target path was not needed)
+- [x] Analysis overlay: reference line with clickable axis cycle, angle arc, label anchors
+- [x] Offscreen render tests: render one frame to a texture, assert marker/skeleton pixel counts
 
 ### Phase 4 — App shell, playback, timeline  (1–2 weeks)
 - [ ] `mstudio-app`: `egui_dock` layout (viewport center, panels right, timeline + marker plot bottom), menus, shortcuts (Space/Enter/Esc/←/→), `rfd` dialogs, icon, dark/light theme
